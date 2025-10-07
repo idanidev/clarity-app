@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Plus,
   X,
   BarChart3,
-  Table,
+  Table as TableIcon,
   Filter,
   Menu,
   Target,
@@ -11,63 +11,50 @@ import {
   Pencil,
   Trash2,
   AlertTriangle,
+  Check,
+  LogOut,
 } from "lucide-react";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { auth } from "./firebase";
+import Auth from "./components/Auth";
+import {
+  addExpense as addExpenseDB,
+  updateExpense as updateExpenseDB,
+  deleteExpense as deleteExpenseDB,
+  subscribeToExpenses,
+  saveCategories,
+  saveBudgets,
+  initializeUser,
+} from "./services/firestoreService";
 
-const ExpenseTrackerApp = () => {
+const ClarityExpenseApp = () => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [showBudgets, setShowBudgets] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
   const [viewMode, setViewMode] = useState("table");
-  const [selectedMonth, setSelectedMonth] = useState("2025-10");
+  const [selectedMonth, setSelectedMonth] = useState(
+    new Date().toISOString().slice(0, 7)
+  );
   const [filterCategory, setFilterCategory] = useState("Todas");
   const [notification, setNotification] = useState(null);
   const [editingExpense, setEditingExpense] = useState(null);
 
-  const [expenses, setExpenses] = useState([
-    {
-      id: 1,
-      amount: 450.5,
-      category: "Alimentacion",
-      subcategory: "Supermercado",
-      date: "2025-10-01",
-      paymentMethod: "Tarjeta",
-      recurring: false,
-    },
-    {
-      id: 2,
-      amount: 320,
-      category: "Transporte",
-      subcategory: "Combustible",
-      date: "2025-10-03",
-      paymentMethod: "Efectivo",
-      recurring: false,
-    },
-    {
-      id: 3,
-      amount: 15.99,
-      category: "Ocio",
-      subcategory: "Netflix",
-      date: "2025-10-05",
-      paymentMethod: "Tarjeta",
-      recurring: true,
-    },
-  ]);
-
-  const [budgets, setBudgets] = useState([
-    { category: "Alimentacion", amount: 500 },
-    { category: "Transporte", amount: 200 },
-  ]);
+  const [expenses, setExpenses] = useState([]);
 
   const [categories, setCategories] = useState({
     Alimentacion: ["Supermercado", "Restaurantes", "Cafeterias"],
-    Transporte: ["Combustible", "Transporte publico", "Taxi/Uber"],
+    Transporte: ["Combustible", "Transporte publico", "Taxi"],
     Vivienda: ["Alquiler", "Hipoteca", "Suministros"],
-    Ocio: ["Entretenimiento", "Streaming", "Deportes"],
+    Ocio: ["Streaming", "Deportes", "Hobbies"],
     Salud: ["Medico", "Farmacia", "Gimnasio"],
     Compras: ["Ropa", "Electronica", "Otros"],
+    Educacion: ["Cursos", "Libros", "Material"],
   });
+
+  const [budgets, setBudgets] = useState({});
 
   const [newExpense, setNewExpense] = useState({
     amount: "",
@@ -78,14 +65,60 @@ const ExpenseTrackerApp = () => {
     recurring: false,
   });
 
-  const [newBudget, setNewBudget] = useState({ category: "", amount: "" });
   const [newCategory, setNewCategory] = useState("");
   const [newSubcategory, setNewSubcategory] = useState("");
   const [selectedCategoryForSub, setSelectedCategoryForSub] = useState("");
 
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        await initializeUser(currentUser.uid, {
+          email: currentUser.email,
+          displayName: currentUser.displayName,
+        });
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const unsubscribe = subscribeToExpenses(user.uid, (fetchedExpenses) => {
+      setExpenses(fetchedExpenses);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      const timer = setTimeout(() => {
+        saveCategories(user.uid, categories);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [categories, user]);
+
+  useEffect(() => {
+    if (user) {
+      const timer = setTimeout(() => {
+        saveBudgets(user.uid, budgets);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [budgets, user]);
+
+  const showNotification = (message, type = "success") => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
   const filteredExpenses = expenses.filter((exp) => {
-    const expMonth = exp.date.slice(0, 7);
-    const matchesMonth = expMonth === selectedMonth;
+    const matchesMonth = exp.date.startsWith(selectedMonth);
     const matchesCategory =
       filterCategory === "Todas" || exp.category === filterCategory;
     return matchesMonth && matchesCategory;
@@ -95,51 +128,41 @@ const ExpenseTrackerApp = () => {
     (sum, exp) => sum + exp.amount,
     0
   );
+
   const categoryTotals = filteredExpenses.reduce((acc, exp) => {
     acc[exp.category] = (acc[exp.category] || 0) + exp.amount;
     return acc;
   }, {});
 
-  const exceededBudgets = budgets.filter((budget) => {
-    const spent = categoryTotals[budget.category] || 0;
-    return spent > budget.amount;
-  });
+  const handleAddExpense = async () => {
+    if (!newExpense.amount || !newExpense.category || !newExpense.subcategory) {
+      showNotification("Por favor completa todos los campos", "warning");
+      return;
+    }
 
-  const showNotification = (message, type = "warning") => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 4000);
-  };
+    try {
+      const expenseData = {
+        ...newExpense,
+        amount: parseFloat(newExpense.amount),
+      };
 
-  const handleAddExpense = () => {
-    if (newExpense.amount && newExpense.category && newExpense.subcategory) {
-      const expenseAmount = parseFloat(newExpense.amount);
-      if (editingExpense) {
-        setExpenses(
-          expenses.map((exp) =>
-            exp.id === editingExpense.id
-              ? { ...exp, ...newExpense, amount: expenseAmount }
-              : exp
-          )
+      await addExpenseDB(user.uid, expenseData);
+
+      const budget = budgets[expenseData.category];
+      const spent = categoryTotals[expenseData.category] || 0;
+      const newSpent = spent + expenseData.amount;
+
+      if (budget && newSpent > budget * 0.9) {
+        showNotification(
+          `Alerta! Has gastado ${((newSpent / budget) * 100).toFixed(
+            0
+          )}% del presupuesto de ${expenseData.category}`,
+          "warning"
         );
-        setEditingExpense(null);
-        showNotification("Gasto actualizado", "success");
       } else {
-        setExpenses([
-          ...expenses,
-          { id: Date.now(), ...newExpense, amount: expenseAmount },
-        ]);
-        const categorySpent =
-          (categoryTotals[newExpense.category] || 0) + expenseAmount;
-        const budget = budgets.find((b) => b.category === newExpense.category);
-        if (budget && categorySpent > budget.amount) {
-          showNotification(
-            `Presupuesto superado en ${newExpense.category}`,
-            "warning"
-          );
-        } else {
-          showNotification("Gasto anadido", "success");
-        }
+        showNotification("Gasto anadido correctamente", "success");
       }
+
       setNewExpense({
         amount: "",
         category: "",
@@ -150,149 +173,362 @@ const ExpenseTrackerApp = () => {
       });
       setShowAddExpense(false);
       setViewMode("table");
+    } catch (error) {
+      showNotification("Error al anadir gasto", "warning");
+      console.error(error);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 pb-20">
-      {notification && (
-        <div
-          className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-6 py-4 rounded-2xl shadow-2xl backdrop-blur-xl border ${
-            notification.type === "success"
-              ? "bg-green-500/90 border-green-400"
-              : "bg-orange-500/90 border-orange-400"
-          } text-white`}
-        >
-          <p className="font-medium text-sm">{notification.message}</p>
-        </div>
-      )}
+  const handleDeleteExpense = async (id) => {
+    try {
+      await deleteExpenseDB(user.uid, id);
+      showNotification("Gasto eliminado", "success");
+    } catch (error) {
+      showNotification("Error al eliminar gasto", "warning");
+    }
+  };
 
-      <div className="backdrop-blur-xl bg-white/10 border-b border-white/20">
-        <div className="max-w-2xl mx-auto px-4 py-6">
-          <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold text-white">Mis Gastos</h1>
+  const handleEditExpense = (expense) => {
+    setEditingExpense(expense);
+    setNewExpense(expense);
+    setShowAddExpense(true);
+  };
+
+  const handleUpdateExpense = async () => {
+    try {
+      await updateExpenseDB(user.uid, editingExpense.id, {
+        ...newExpense,
+        amount: parseFloat(newExpense.amount),
+      });
+      showNotification("Gasto actualizado", "success");
+      setEditingExpense(null);
+      setNewExpense({
+        amount: "",
+        category: "",
+        subcategory: "",
+        date: new Date().toISOString().split("T")[0],
+        paymentMethod: "Tarjeta",
+        recurring: false,
+      });
+      setShowAddExpense(false);
+    } catch (error) {
+      showNotification("Error al actualizar gasto", "warning");
+    }
+  };
+
+  const handleAddCategory = () => {
+    if (!newCategory.trim()) return;
+    if (categories[newCategory]) {
+      showNotification("La categoria ya existe", "warning");
+      return;
+    }
+    setCategories({ ...categories, [newCategory]: [] });
+    showNotification("Categoria anadida", "success");
+    setNewCategory("");
+  };
+
+  const handleAddSubcategory = () => {
+    if (!newSubcategory.trim() || !selectedCategoryForSub) return;
+    if (categories[selectedCategoryForSub].includes(newSubcategory)) {
+      showNotification("La subcategoria ya existe", "warning");
+      return;
+    }
+    setCategories({
+      ...categories,
+      [selectedCategoryForSub]: [
+        ...categories[selectedCategoryForSub],
+        newSubcategory,
+      ],
+    });
+    showNotification("Subcategoria anadida", "success");
+    setNewSubcategory("");
+  };
+
+  const handleDeleteCategory = (category) => {
+    const { [category]: removed, ...rest } = categories;
+    setCategories(rest);
+    const { [category]: removedBudget, ...restBudgets } = budgets;
+    setBudgets(restBudgets);
+    showNotification("Categoria eliminada", "success");
+  };
+
+  const handleDeleteSubcategory = (category, subcategory) => {
+    setCategories({
+      ...categories,
+      [category]: categories[category].filter((sub) => sub !== subcategory),
+    });
+    showNotification("Subcategoria eliminada", "success");
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      showNotification("Sesion cerrada", "success");
+    } catch (error) {
+      showNotification("Error al cerrar sesion", "warning");
+    }
+  };
+
+  const exportToCSV = () => {
+    const headers = [
+      "Fecha",
+      "Categoria",
+      "Subcategoria",
+      "Monto",
+      "Metodo de Pago",
+      "Recurrente",
+    ];
+    const rows = filteredExpenses.map((exp) => [
+      exp.date,
+      exp.category,
+      exp.subcategory,
+      exp.amount,
+      exp.paymentMethod,
+      exp.recurring ? "Si" : "No",
+    ]);
+
+    const csvContent = [headers, ...rows]
+      .map((row) => row.join(","))
+      .join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `gastos_${selectedMonth}.csv`;
+    a.click();
+    showNotification("CSV exportado correctamente", "success");
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-purple-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-purple-600 font-medium">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Auth />;
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-purple-100">
+      <div className="backdrop-blur-xl bg-white/40 border-b border-white/60 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              Clarity
+            </h1>
+            <p className="text-xs text-purple-600">{user.email}</p>
+          </div>
+          <div className="flex gap-2">
             <button
-              onClick={() => setShowMenu(!showMenu)}
-              className="p-2 rounded-full hover:bg-white/10"
+              onClick={() =>
+                setViewMode(viewMode === "chart" ? "table" : "chart")
+              }
+              className="p-2 rounded-xl bg-white/60 hover:bg-white/80 border border-white/60 transition-all"
             >
-              <Menu className="w-6 h-6 text-white" />
+              {viewMode === "chart" ? (
+                <TableIcon className="w-5 h-5 text-purple-600" />
+              ) : (
+                <BarChart3 className="w-5 h-5 text-purple-600" />
+              )}
+            </button>
+            <button
+              onClick={() => setShowFilters(true)}
+              className="p-2 rounded-xl bg-white/60 hover:bg-white/80 border border-white/60 transition-all"
+            >
+              <Filter className="w-5 h-5 text-purple-600" />
+            </button>
+            <button
+              onClick={() => setShowBudgets(true)}
+              className="p-2 rounded-xl bg-white/60 hover:bg-white/80 border border-white/60 transition-all"
+            >
+              <Target className="w-5 h-5 text-purple-600" />
+            </button>
+            <button
+              onClick={() => setShowCategories(true)}
+              className="p-2 rounded-xl bg-white/60 hover:bg-white/80 border border-white/60 transition-all"
+            >
+              <Menu className="w-5 h-5 text-purple-600" />
+            </button>
+            <button
+              onClick={exportToCSV}
+              className="p-2 rounded-xl bg-white/60 hover:bg-white/80 border border-white/60 transition-all"
+            >
+              <Download className="w-5 h-5 text-purple-600" />
+            </button>
+            <button
+              onClick={handleLogout}
+              className="p-2 rounded-xl bg-white/60 hover:bg-white/80 border border-white/60 transition-all"
+            >
+              <LogOut className="w-5 h-5 text-purple-600" />
             </button>
           </div>
         </div>
       </div>
 
-      {showMenu && (
+      {notification && (
         <div
-          className="fixed inset-0 bg-black/50 z-40"
-          onClick={() => setShowMenu(false)}
+          className={`fixed top-20 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-2xl backdrop-blur-xl border ${
+            notification.type === "success"
+              ? "bg-green-500/90 border-green-400"
+              : "bg-orange-500/90 border-orange-400"
+          } text-white font-medium shadow-lg animate-bounce`}
         >
-          <div
-            className="absolute right-4 top-20 backdrop-blur-xl bg-white/10 border border-white/20 rounded-2xl shadow-xl p-2 min-w-[200px]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => {
-                setShowCategories(true);
-                setShowMenu(false);
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/10 text-white"
-            >
-              <Filter className="w-5 h-5" />
-              <span>Categorias</span>
-            </button>
-            <button
-              onClick={() => {
-                setShowBudgets(true);
-                setShowMenu(false);
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/10 text-white"
-            >
-              <Target className="w-5 h-5" />
-              <span>Presupuestos</span>
-            </button>
-            <button
-              onClick={() => {
-                let csv =
-                  "Fecha,Cantidad,Categoria,Subcategoria,Metodo,Recurrente\n";
-                filteredExpenses.forEach(
-                  (e) =>
-                    (csv += `${e.date},${e.amount},${e.category},${
-                      e.subcategory
-                    },${e.paymentMethod},${e.recurring ? "Si" : "No"}\n`)
-                );
-                const blob = new Blob([csv], { type: "text/csv" });
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `gastos-${selectedMonth}.csv`;
-                a.click();
-                setShowMenu(false);
-                showNotification("CSV exportado", "success");
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/10 text-white"
-            >
-              <Download className="w-5 h-5" />
-              <span>Exportar CSV</span>
-            </button>
+          <div className="flex items-center gap-2">
+            {notification.type === "success" ? (
+              <Check className="w-5 h-5" />
+            ) : (
+              <AlertTriangle className="w-5 h-5" />
+            )}
+            {notification.message}
           </div>
         </div>
       )}
 
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-        <div className="backdrop-blur-xl bg-white/10 rounded-3xl p-6 shadow-2xl border border-white/20">
-          <div className="flex justify-between items-start mb-2">
-            <p className="text-sm text-purple-200">Octubre 2025</p>
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="backdrop-blur-xl bg-white/40 border border-white/60 rounded-3xl p-6 mb-6 shadow-xl">
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-sm text-purple-600 font-medium mb-1">
+                Total del mes
+              </p>
+              <p className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                €{totalExpenses.toFixed(2)}
+              </p>
+            </div>
             <button
-              onClick={() => setShowFilters(true)}
-              className="p-2 rounded-full hover:bg-white/10"
+              onClick={() => setShowAddExpense(true)}
+              className="w-16 h-16 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg hover:shadow-xl transition-all flex items-center justify-center"
             >
-              <Filter
-                className={`w-5 h-5 ${
-                  filterCategory !== "Todas"
-                    ? "text-pink-400"
-                    : "text-purple-300"
-                }`}
-              />
+              <Plus className="w-8 h-8" />
             </button>
           </div>
-          <p className="text-5xl font-bold text-white">
-            {totalExpenses.toFixed(2)}
-          </p>
-          <p className="text-sm text-purple-200 mt-1">Total este mes</p>
         </div>
 
-        {exceededBudgets.map((budget) => (
-          <div
-            key={budget.category}
-            className="backdrop-blur-xl bg-orange-500/20 border border-orange-400/30 rounded-2xl p-4"
-          >
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-orange-300 mt-0.5" />
-              <div className="flex-1">
-                <p className="font-semibold text-white">{budget.category}</p>
-                <p className="text-sm text-orange-200">
-                  {categoryTotals[budget.category].toFixed(2)} de{" "}
-                  {budget.amount.toFixed(2)}
-                </p>
+        {viewMode === "chart" ? (
+          <div className="space-y-4">
+            {Object.entries(categoryTotals).length === 0 ? (
+              <div className="backdrop-blur-xl bg-white/40 border border-white/60 rounded-2xl p-8 text-center">
+                <p className="text-purple-600">No hay gastos en este periodo</p>
               </div>
-            </div>
+            ) : (
+              Object.entries(categoryTotals).map(([category, amount]) => {
+                const budget = budgets[category];
+                const percentage = budget ? (amount / budget) * 100 : 0;
+                return (
+                  <div
+                    key={category}
+                    className="backdrop-blur-xl bg-white/40 border border-white/60 rounded-2xl p-4 shadow-lg"
+                  >
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-medium text-purple-900">
+                        {category}
+                      </span>
+                      <span className="text-sm text-purple-600">
+                        €{amount.toFixed(2)}
+                      </span>
+                    </div>
+                    {budget > 0 && (
+                      <>
+                        <div className="w-full bg-white/60 rounded-full h-3 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              percentage > 90
+                                ? "bg-red-500"
+                                : percentage > 70
+                                ? "bg-orange-500"
+                                : "bg-gradient-to-r from-purple-500 to-pink-500"
+                            }`}
+                            style={{ width: `${Math.min(percentage, 100)}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-purple-600 mt-1">
+                          {percentage.toFixed(0)}% de €{budget} presupuesto
+                        </p>
+                      </>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
-        ))}
-
-        {!showAddExpense && (
-          <button
-            onClick={() => setShowAddExpense(true)}
-            className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-2xl p-6 shadow-2xl flex items-center justify-center gap-3 transition-all transform hover:scale-[1.02]"
-          >
-            <Plus className="w-6 h-6" />
-            <span className="text-xl font-semibold">Anadir Gasto</span>
-          </button>
+        ) : (
+          <div className="space-y-3">
+            {filteredExpenses.length === 0 ? (
+              <div className="backdrop-blur-xl bg-white/40 border border-white/60 rounded-2xl p-8 text-center">
+                <p className="text-purple-600">No hay gastos en este periodo</p>
+              </div>
+            ) : (
+              filteredExpenses.map((expense) => (
+                <div
+                  key={expense.id}
+                  className="backdrop-blur-xl bg-white/40 border border-white/60 rounded-2xl p-4 shadow-lg hover:shadow-xl transition-all"
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-semibold text-purple-900">
+                          {expense.category}
+                        </span>
+                        <span className="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded-full">
+                          {expense.subcategory}
+                        </span>
+                      </div>
+                      <p className="text-sm text-purple-600">
+                        {new Date(expense.date).toLocaleDateString("es-ES")}
+                      </p>
+                      <div className="flex gap-2 mt-1">
+                        <span className="text-xs bg-white/60 px-2 py-1 rounded-full text-purple-600">
+                          {expense.paymentMethod}
+                        </span>
+                        {expense.recurring && (
+                          <span className="text-xs bg-pink-100 text-pink-600 px-2 py-1 rounded-full">
+                            Recurrente
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl font-bold text-purple-900">
+                        €{expense.amount.toFixed(2)}
+                      </span>
+                      <button
+                        onClick={() => handleEditExpense(expense)}
+                        className="p-2 rounded-lg hover:bg-purple-100 transition-all"
+                      >
+                        <Pencil className="w-4 h-4 text-purple-600" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteExpense(expense.id)}
+                        className="p-2 rounded-lg hover:bg-red-100 transition-all"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         )}
+      </div>
 
-        {showAddExpense && (
-          <div className="backdrop-blur-xl bg-white/10 rounded-3xl p-6 shadow-2xl border border-white/20">
+      {showAddExpense && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
+          onClick={() => setShowAddExpense(false)}
+        >
+          <div
+            className="backdrop-blur-xl bg-white/95 rounded-3xl w-full max-w-md p-6 shadow-2xl max-h-[90vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-white">
+              <h2 className="text-2xl font-bold text-purple-900">
                 {editingExpense ? "Editar Gasto" : "Nuevo Gasto"}
               </h2>
               <button
@@ -308,15 +544,16 @@ const ExpenseTrackerApp = () => {
                     recurring: false,
                   });
                 }}
-                className="p-2 rounded-full hover:bg-white/10"
+                className="p-2 rounded-full hover:bg-purple-100"
               >
-                <X className="w-5 h-5 text-purple-200" />
+                <X className="w-5 h-5 text-purple-600" />
               </button>
             </div>
+
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-purple-200 mb-2">
-                  Cantidad
+                <label className="block text-sm font-medium text-purple-900 mb-2">
+                  Monto
                 </label>
                 <input
                   type="number"
@@ -325,12 +562,13 @@ const ExpenseTrackerApp = () => {
                   onChange={(e) =>
                     setNewExpense({ ...newExpense, amount: e.target.value })
                   }
-                  className="w-full text-3xl font-bold bg-white/10 border border-white/20 rounded-2xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-3 rounded-xl border border-purple-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none"
                   placeholder="0.00"
                 />
               </div>
+
               <div>
-                <label className="block text-sm font-medium text-purple-200 mb-2">
+                <label className="block text-sm font-medium text-purple-900 mb-2">
                   Categoria
                 </label>
                 <select
@@ -342,21 +580,20 @@ const ExpenseTrackerApp = () => {
                       subcategory: "",
                     })
                   }
-                  className="w-full bg-white/10 border border-white/20 rounded-2xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-3 rounded-xl border border-purple-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none"
                 >
-                  <option value="" className="bg-slate-800">
-                    Seleccionar
-                  </option>
+                  <option value="">Selecciona categoria</option>
                   {Object.keys(categories).map((cat) => (
-                    <option key={cat} value={cat} className="bg-slate-800">
+                    <option key={cat} value={cat}>
                       {cat}
                     </option>
                   ))}
                 </select>
               </div>
+
               {newExpense.category && (
                 <div>
-                  <label className="block text-sm font-medium text-purple-200 mb-2">
+                  <label className="block text-sm font-medium text-purple-900 mb-2">
                     Subcategoria
                   </label>
                   <select
@@ -367,21 +604,20 @@ const ExpenseTrackerApp = () => {
                         subcategory: e.target.value,
                       })
                     }
-                    className="w-full bg-white/10 border border-white/20 rounded-2xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-4 py-3 rounded-xl border border-purple-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none"
                   >
-                    <option value="" className="bg-slate-800">
-                      Seleccionar
-                    </option>
+                    <option value="">Selecciona subcategoria</option>
                     {categories[newExpense.category].map((sub) => (
-                      <option key={sub} value={sub} className="bg-slate-800">
+                      <option key={sub} value={sub}>
                         {sub}
                       </option>
                     ))}
                   </select>
                 </div>
               )}
+
               <div>
-                <label className="block text-sm font-medium text-purple-200 mb-2">
+                <label className="block text-sm font-medium text-purple-900 mb-2">
                   Fecha
                 </label>
                 <input
@@ -390,348 +626,207 @@ const ExpenseTrackerApp = () => {
                   onChange={(e) =>
                     setNewExpense({ ...newExpense, date: e.target.value })
                   }
-                  className="w-full bg-white/10 border border-white/20 rounded-2xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-3 rounded-xl border border-purple-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none"
                 />
               </div>
+
               <div>
-                <label className="block text-sm font-medium text-purple-200 mb-2">
-                  Metodo
+                <label className="block text-sm font-medium text-purple-900 mb-2">
+                  Metodo de pago
                 </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() =>
-                      setNewExpense({ ...newExpense, paymentMethod: "Tarjeta" })
-                    }
-                    className={`py-3 rounded-2xl font-medium transition ${
-                      newExpense.paymentMethod === "Tarjeta"
-                        ? "bg-purple-500 text-white"
-                        : "bg-white/10 text-purple-200 border border-white/20"
-                    }`}
-                  >
-                    Tarjeta
-                  </button>
-                  <button
-                    onClick={() =>
-                      setNewExpense({
-                        ...newExpense,
-                        paymentMethod: "Efectivo",
-                      })
-                    }
-                    className={`py-3 rounded-2xl font-medium transition ${
-                      newExpense.paymentMethod === "Efectivo"
-                        ? "bg-purple-500 text-white"
-                        : "bg-white/10 text-purple-200 border border-white/20"
-                    }`}
-                  >
-                    Efectivo
-                  </button>
-                </div>
-              </div>
-              <div className="flex items-center justify-between bg-white/5 rounded-2xl p-4">
-                <span className="font-medium text-white">Recurrente</span>
-                <button
-                  onClick={() =>
+                <select
+                  value={newExpense.paymentMethod}
+                  onChange={(e) =>
                     setNewExpense({
                       ...newExpense,
-                      recurring: !newExpense.recurring,
+                      paymentMethod: e.target.value,
                     })
                   }
-                  className={`relative w-14 h-8 rounded-full transition-colors ${
-                    newExpense.recurring ? "bg-purple-500" : "bg-white/20"
-                  }`}
+                  className="w-full px-4 py-3 rounded-xl border border-purple-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none"
                 >
-                  <div
-                    className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow transition-transform ${
-                      newExpense.recurring ? "translate-x-7" : "translate-x-1"
-                    }`}
-                  />
-                </button>
+                  <option value="Tarjeta">Tarjeta</option>
+                  <option value="Efectivo">Efectivo</option>
+                  <option value="Transferencia">Transferencia</option>
+                </select>
               </div>
+
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={newExpense.recurring}
+                  onChange={(e) =>
+                    setNewExpense({
+                      ...newExpense,
+                      recurring: e.target.checked,
+                    })
+                  }
+                  className="w-5 h-5 rounded border-purple-300 text-purple-600 focus:ring-purple-200"
+                />
+                <span className="text-sm font-medium text-purple-900">
+                  Gasto recurrente
+                </span>
+              </label>
+
               <button
-                onClick={handleAddExpense}
-                disabled={
-                  !newExpense.amount ||
-                  !newExpense.category ||
-                  !newExpense.subcategory
+                onClick={
+                  editingExpense ? handleUpdateExpense : handleAddExpense
                 }
-                className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:from-gray-500 disabled:to-gray-600 text-white font-bold py-4 rounded-2xl"
+                className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-4 rounded-2xl shadow-lg transition-all"
               >
-                {editingExpense ? "Actualizar" : "Guardar"}
+                {editingExpense ? "Actualizar Gasto" : "Anadir Gasto"}
               </button>
             </div>
           </div>
-        )}
-
-        <div className="backdrop-blur-xl bg-white/10 rounded-2xl p-1 border border-white/20 flex gap-1">
-          <button
-            onClick={() => setViewMode("chart")}
-            className={`flex-1 py-3 rounded-xl font-medium transition flex items-center justify-center gap-2 ${
-              viewMode === "chart"
-                ? "bg-purple-500 text-white"
-                : "text-purple-200"
-            }`}
-          >
-            <BarChart3 className="w-5 h-5" />
-            Grafica
-          </button>
-          <button
-            onClick={() => setViewMode("table")}
-            className={`flex-1 py-3 rounded-xl font-medium transition flex items-center justify-center gap-2 ${
-              viewMode === "table"
-                ? "bg-purple-500 text-white"
-                : "text-purple-200"
-            }`}
-          >
-            <Table className="w-5 h-5" />
-            Tabla
-          </button>
         </div>
-
-        {viewMode === "chart" ? (
-          <div className="space-y-4">
-            <h3 className="text-lg font-bold text-white">
-              Gastos por Categoria
-            </h3>
-            {Object.entries(categoryTotals)
-              .sort((a, b) => b[1] - a[1])
-              .map(([cat, amt]) => {
-                const budget = budgets.find((b) => b.category === cat);
-                const pct = budget
-                  ? (amt / budget.amount) * 100
-                  : (amt / totalExpenses) * 100;
-                const over = budget && amt > budget.amount;
-                return (
-                  <div
-                    key={cat}
-                    className="backdrop-blur-xl bg-white/10 rounded-2xl p-4 border border-white/20"
-                  >
-                    <div className="flex justify-between mb-2">
-                      <span className="font-medium text-white">{cat}</span>
-                      <span
-                        className={`text-sm ${
-                          over ? "text-orange-300" : "text-purple-200"
-                        }`}
-                      >
-                        {amt.toFixed(2)}
-                        {budget && ` / ${budget.amount.toFixed(2)}`}
-                      </span>
-                    </div>
-                    <div className="bg-white/10 rounded-full h-2 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${
-                          over
-                            ? "bg-gradient-to-r from-orange-500 to-red-500"
-                            : "bg-gradient-to-r from-purple-500 to-pink-500"
-                        }`}
-                        style={{ width: `${Math.min(pct, 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <h3 className="text-lg font-bold text-white">Lista de Gastos</h3>
-            {filteredExpenses
-              .sort((a, b) => new Date(b.date) - new Date(a.date))
-              .map((exp) => (
-                <div
-                  key={exp.id}
-                  className="backdrop-blur-xl bg-white/10 rounded-2xl p-4 border border-white/20"
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <p className="text-xl font-bold text-white">
-                        {exp.amount.toFixed(2)}
-                      </p>
-                      <p className="text-sm text-purple-300">
-                        {exp.category} • {exp.subcategory}
-                      </p>
-                      <p className="text-xs text-purple-200 mt-1">
-                        {new Date(exp.date).toLocaleDateString("es-ES")} •{" "}
-                        {exp.paymentMethod}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      {exp.recurring && (
-                        <span className="bg-purple-500/30 text-purple-200 text-xs px-3 py-1 rounded-full">
-                          Recurrente
-                        </span>
-                      )}
-                      <button
-                        onClick={() => {
-                          setEditingExpense(exp);
-                          setNewExpense({
-                            amount: exp.amount.toString(),
-                            category: exp.category,
-                            subcategory: exp.subcategory,
-                            date: exp.date,
-                            paymentMethod: exp.paymentMethod,
-                            recurring: exp.recurring,
-                          });
-                          setShowAddExpense(true);
-                        }}
-                        className="p-2 rounded-full hover:bg-white/10"
-                      >
-                        <Pencil className="w-4 h-4 text-purple-200" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setExpenses(expenses.filter((e) => e.id !== exp.id));
-                          showNotification("Eliminado", "success");
-                        }}
-                        className="p-2 rounded-full hover:bg-red-500/20"
-                      >
-                        <Trash2 className="w-4 h-4 text-red-300" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-          </div>
-        )}
-      </div>
+      )}
 
       {showFilters && (
         <div
-          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
+          className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
           onClick={() => setShowFilters(false)}
         >
           <div
-            className="backdrop-blur-xl bg-slate-900/95 border border-white/20 rounded-3xl w-full max-w-md p-6"
+            className="backdrop-blur-xl bg-white/95 rounded-3xl w-full max-w-md p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-xl font-bold text-white mb-4">Filtros</h2>
-            <div className="space-y-4">
-              <input
-                type="month"
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="w-full bg-white/10 border border-white/20 rounded-2xl px-4 py-3 text-white"
-              />
-              <select
-                value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
-                className="w-full bg-white/10 border border-white/20 rounded-2xl px-4 py-3 text-white"
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-purple-900">Filtros</h2>
+              <button
+                onClick={() => setShowFilters(false)}
+                className="p-2 rounded-full hover:bg-purple-100"
               >
-                <option className="bg-slate-800">Todas</option>
-                {Object.keys(categories).map((c) => (
-                  <option key={c} className="bg-slate-800">
-                    {c}
-                  </option>
-                ))}
-              </select>
+                <X className="w-5 h-5 text-purple-600" />
+              </button>
             </div>
-            <button
-              onClick={() => setShowFilters(false)}
-              className="w-full mt-6 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-4 rounded-2xl"
-            >
-              Aplicar
-            </button>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-purple-900 mb-2">
+                  Mes
+                </label>
+                <input
+                  type="month"
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-purple-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-purple-900 mb-2">
+                  Categoria
+                </label>
+                <select
+                  value={filterCategory}
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-purple-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none"
+                >
+                  <option value="Todas">Todas</option>
+                  {Object.keys(categories).map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                onClick={() => setShowFilters(false)}
+                className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-4 rounded-2xl shadow-lg transition-all"
+              >
+                Aplicar Filtros
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {showBudgets && (
         <div
-          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
+          className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
           onClick={() => setShowBudgets(false)}
         >
           <div
-            className="backdrop-blur-xl bg-slate-900/95 border border-white/20 rounded-3xl w-full max-w-md p-6 max-h-[80vh] overflow-auto"
+            className="backdrop-blur-xl bg-white/95 rounded-3xl w-full max-w-md p-6 shadow-2xl max-h-[80vh] overflow-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-xl font-bold text-white mb-4">Presupuestos</h2>
-            <div className="space-y-4">
-              <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-                <select
-                  value={newBudget.category}
-                  onChange={(e) =>
-                    setNewBudget({ ...newBudget, category: e.target.value })
-                  }
-                  className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-white mb-2"
-                >
-                  <option className="bg-slate-800">Seleccionar</option>
-                  {Object.keys(categories).map((c) => (
-                    <option key={c} className="bg-slate-800">
-                      {c}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={newBudget.amount}
-                  onChange={(e) =>
-                    setNewBudget({ ...newBudget, amount: e.target.value })
-                  }
-                  placeholder="Cantidad"
-                  className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-white placeholder-white/50 mb-2"
-                />
-                <button
-                  onClick={() => {
-                    if (newBudget.category && newBudget.amount) {
-                      const ex = budgets.find(
-                        (b) => b.category === newBudget.category
-                      );
-                      if (ex) {
-                        setBudgets(
-                          budgets.map((b) =>
-                            b.category === newBudget.category
-                              ? { ...b, amount: parseFloat(newBudget.amount) }
-                              : b
-                          )
-                        );
-                      } else {
-                        setBudgets([
-                          ...budgets,
-                          {
-                            category: newBudget.category,
-                            amount: parseFloat(newBudget.amount),
-                          },
-                        ]);
-                      }
-                      setNewBudget({ category: "", amount: "" });
-                      showNotification("Presupuesto configurado", "success");
-                    }
-                  }}
-                  disabled={!newBudget.category || !newBudget.amount}
-                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium py-2 rounded-xl disabled:from-gray-500"
-                >
-                  Anadir
-                </button>
-              </div>
-              {budgets.map((b) => (
-                <div
-                  key={b.category}
-                  className="flex justify-between items-center backdrop-blur-xl bg-white/10 rounded-xl p-4 border border-white/20"
-                >
-                  <span className="text-white font-medium">{b.category}</span>
-                  <div className="flex items-center gap-3">
-                    <span className="text-purple-200">
-                      {b.amount.toFixed(2)}
-                    </span>
-                    <button
-                      onClick={() => {
-                        setBudgets(
-                          budgets.filter((x) => x.category !== b.category)
-                        );
-                        showNotification("Eliminado", "success");
-                      }}
-                      className="text-red-300 p-2 rounded-lg hover:bg-red-500/20"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-purple-900">
+                Presupuestos
+              </h2>
+              <button
+                onClick={() => setShowBudgets(false)}
+                className="p-2 rounded-full hover:bg-purple-100"
+              >
+                <X className="w-5 h-5 text-purple-600" />
+              </button>
             </div>
+
+            <div className="space-y-4">
+              {Object.keys(categories).map((category) => {
+                const spent = categoryTotals[category] || 0;
+                const budget = budgets[category] || 0;
+                const percentage = budget ? (spent / budget) * 100 : 0;
+
+                return (
+                  <div key={category} className="bg-purple-50 rounded-2xl p-4">
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="font-medium text-purple-900">
+                        {category}
+                      </span>
+                      <span className="text-sm text-purple-600">
+                        €{spent.toFixed(2)} / €{budget}
+                      </span>
+                    </div>
+                    <input
+                      type="number"
+                      value={budget}
+                      onChange={(e) =>
+                        setBudgets({
+                          ...budgets,
+                          [category]: parseFloat(e.target.value) || 0,
+                        })
+                      }
+                      className="w-full px-4 py-2 rounded-xl border border-purple-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none mb-2"
+                      placeholder="Establecer presupuesto"
+                    />
+                    {budget > 0 && (
+                      <>
+                        <div className="w-full bg-white/60 rounded-full h-2 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              percentage > 90
+                                ? "bg-red-500"
+                                : percentage > 70
+                                ? "bg-orange-500"
+                                : "bg-gradient-to-r from-purple-500 to-pink-500"
+                            }`}
+                            style={{ width: `${Math.min(percentage, 100)}%` }}
+                          />
+                        </div>
+                        <p
+                          className={`text-xs mt-1 ${
+                            percentage > 90
+                              ? "text-red-600"
+                              : percentage > 70
+                              ? "text-orange-600"
+                              : "text-purple-600"
+                          }`}
+                        >
+                          {percentage.toFixed(0)}% gastado
+                        </p>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
             <button
               onClick={() => setShowBudgets(false)}
-              className="w-full mt-6 bg-white/10 text-white font-bold py-4 rounded-2xl border border-white/20"
+              className="w-full mt-6 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-4 rounded-2xl shadow-lg transition-all"
             >
-              Cerrar
+              Guardar Presupuestos
             </button>
           </div>
         </div>
@@ -739,140 +834,117 @@ const ExpenseTrackerApp = () => {
 
       {showCategories && (
         <div
-          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
+          className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
           onClick={() => setShowCategories(false)}
         >
           <div
-            className="backdrop-blur-xl bg-slate-900/95 border border-white/20 rounded-3xl w-full max-w-md p-6 max-h-[80vh] overflow-auto"
+            className="backdrop-blur-xl bg-white/95 rounded-3xl w-full max-w-md p-6 shadow-2xl max-h-[80vh] overflow-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-xl font-bold text-white mb-4">Categorias</h2>
-            <div className="space-y-4">
-              <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-purple-900">
+                Gestionar Categorias
+              </h2>
+              <button
+                onClick={() => setShowCategories(false)}
+                className="p-2 rounded-full hover:bg-purple-100"
+              >
+                <X className="w-5 h-5 text-purple-600" />
+              </button>
+            </div>
+
+            <div className="bg-purple-50 rounded-2xl p-4 mb-4">
+              <h3 className="font-medium text-purple-900 mb-3">
+                Anadir Categoria
+              </h3>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  className="flex-1 px-4 py-2 rounded-xl border border-purple-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none"
+                  placeholder="Nueva categoria"
+                  onKeyPress={(e) => e.key === "Enter" && handleAddCategory()}
+                />
+                <button
+                  onClick={handleAddCategory}
+                  className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl transition-all"
+                >
+                  <Plus className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-pink-50 rounded-2xl p-4 mb-6">
+              <h3 className="font-medium text-purple-900 mb-3">
+                Anadir Subcategoria
+              </h3>
+              <select
+                value={selectedCategoryForSub}
+                onChange={(e) => setSelectedCategoryForSub(e.target.value)}
+                className="w-full px-4 py-2 rounded-xl border border-purple-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none mb-2"
+              >
+                <option value="">Selecciona categoria</option>
+                {Object.keys(categories).map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+              {selectedCategoryForSub && (
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value)}
-                    placeholder="Nueva categoria"
-                    className="flex-1 bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-white placeholder-white/50"
+                    value={newSubcategory}
+                    onChange={(e) => setNewSubcategory(e.target.value)}
+                    className="flex-1 px-4 py-2 rounded-xl border border-purple-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none"
+                    placeholder="Nueva subcategoria"
+                    onKeyPress={(e) =>
+                      e.key === "Enter" && handleAddSubcategory()
+                    }
                   />
                   <button
-                    onClick={() => {
-                      if (newCategory && !categories[newCategory]) {
-                        setCategories({ ...categories, [newCategory]: [] });
-                        setNewCategory("");
-                        showNotification("Anadida", "success");
-                      }
-                    }}
-                    disabled={!newCategory}
-                    className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-xl disabled:from-gray-500"
+                    onClick={handleAddSubcategory}
+                    className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl transition-all"
                   >
                     <Plus className="w-5 h-5" />
                   </button>
                 </div>
-              </div>
-              <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-                <select
-                  value={selectedCategoryForSub}
-                  onChange={(e) => setSelectedCategoryForSub(e.target.value)}
-                  className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-white mb-2"
-                >
-                  <option className="bg-slate-800">
-                    Seleccionar categoria
-                  </option>
-                  {Object.keys(categories).map((c) => (
-                    <option key={c} className="bg-slate-800">
-                      {c}
-                    </option>
-                  ))}
-                </select>
-                {selectedCategoryForSub && (
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={newSubcategory}
-                      onChange={(e) => setNewSubcategory(e.target.value)}
-                      placeholder="Nueva subcategoria"
-                      className="flex-1 bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-white placeholder-white/50"
-                    />
-                    <button
-                      onClick={() => {
-                        if (
-                          newSubcategory &&
-                          !categories[selectedCategoryForSub].includes(
-                            newSubcategory
-                          )
-                        ) {
-                          setCategories({
-                            ...categories,
-                            [selectedCategoryForSub]: [
-                              ...categories[selectedCategoryForSub],
-                              newSubcategory,
-                            ],
-                          });
-                          setNewSubcategory("");
-                          showNotification("Anadida", "success");
-                        }
-                      }}
-                      disabled={!newSubcategory}
-                      className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-xl disabled:from-gray-500"
-                    >
-                      <Plus className="w-5 h-5" />
-                    </button>
-                  </div>
-                )}
-              </div>
-              {Object.entries(categories).map(([cat, subs]) => (
+              )}
+            </div>
+
+            <div className="space-y-3">
+              {Object.entries(categories).map(([category, subcategories]) => (
                 <div
-                  key={cat}
-                  className="backdrop-blur-xl bg-white/10 rounded-2xl p-4 border border-white/20"
+                  key={category}
+                  className="bg-white/60 rounded-2xl p-4 border border-purple-200"
                 >
                   <div className="flex justify-between items-center mb-3">
-                    <span className="font-semibold text-white">{cat}</span>
+                    <h3 className="font-bold text-purple-900">{category}</h3>
                     <button
-                      onClick={() => {
-                        const c = { ...categories };
-                        delete c[cat];
-                        setCategories(c);
-                        setExpenses(expenses.filter((e) => e.category !== cat));
-                        setBudgets(budgets.filter((b) => b.category !== cat));
-                        showNotification("Eliminada", "success");
-                      }}
-                      className="text-red-300 p-2 rounded-lg hover:bg-red-500/20"
+                      onClick={() => handleDeleteCategory(category)}
+                      className="p-1 rounded-lg hover:bg-red-100 transition-all"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-4 h-4 text-red-600" />
                     </button>
                   </div>
-                  <div className="space-y-2 pl-4">
-                    {subs.map((sub) => (
+                  <div className="space-y-2">
+                    {subcategories.map((sub) => (
                       <div
                         key={sub}
-                        className="flex justify-between items-center bg-white/5 rounded-lg px-3 py-2 border border-white/10"
+                        className="flex justify-between items-center bg-purple-50 rounded-lg px-3 py-2"
                       >
-                        <span className="text-sm text-purple-200">{sub}</span>
+                        <span className="text-sm text-purple-700">{sub}</span>
                         <button
-                          onClick={() => {
-                            setCategories({
-                              ...categories,
-                              [cat]: categories[cat].filter((s) => s !== sub),
-                            });
-                            setExpenses(
-                              expenses.filter(
-                                (e) =>
-                                  !(e.category === cat && e.subcategory === sub)
-                              )
-                            );
-                            showNotification("Eliminada", "success");
-                          }}
-                          className="text-red-300 p-1 rounded hover:bg-red-500/20"
+                          onClick={() => handleDeleteSubcategory(category, sub)}
+                          className="p-1 rounded hover:bg-red-100 transition-all"
                         >
-                          <X className="w-3 h-3" />
+                          <X className="w-3 h-3 text-red-600" />
                         </button>
                       </div>
                     ))}
-                    {subs.length === 0 && (
-                      <p className="text-xs text-purple-300 italic">
+                    {subcategories.length === 0 && (
+                      <p className="text-xs text-purple-400 italic">
                         Sin subcategorias
                       </p>
                     )}
@@ -880,9 +952,10 @@ const ExpenseTrackerApp = () => {
                 </div>
               ))}
             </div>
+
             <button
               onClick={() => setShowCategories(false)}
-              className="w-full mt-6 bg-white/10 text-white font-bold py-4 rounded-2xl border border-white/20"
+              className="w-full mt-6 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-4 rounded-2xl shadow-lg transition-all"
             >
               Cerrar
             </button>
@@ -893,4 +966,4 @@ const ExpenseTrackerApp = () => {
   );
 };
 
-export default ExpenseTrackerApp;
+export default ClarityExpenseApp;
