@@ -6,7 +6,6 @@ import {
   signInWithPopup,
   sendPasswordResetEmail,
 } from "firebase/auth";
-import { auth, googleProvider } from "../firebase";
 import { Mail, Lock, AlertCircle, Chrome } from "lucide-react";
 
 const Auth = () => {

@@ -1,19 +1,17 @@
 // src/services/firestoreService.js
 import {
-  collection,
-  doc,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  getDocs,
-  getDoc,
-  setDoc,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
+    addDoc,
+    collection,
+    deleteDoc,
+    doc,
+    getDoc,
+    getDocs,
+    onSnapshot,
+    orderBy,
+    query,
+    setDoc,
+    updateDoc
 } from "firebase/firestore";
-import { db } from "../firebase";
 
 // ==================== EXPENSES ====================
 

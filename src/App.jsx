@@ -1,30 +1,30 @@
-import React, { useState, useEffect } from "react";
-import {
-  Plus,
-  X,
-  BarChart3,
-  Table as TableIcon,
-  Filter,
-  Menu,
-  Target,
-  Download,
-  Pencil,
-  Trash2,
-  AlertTriangle,
-  Check,
-  LogOut,
-} from "lucide-react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { auth } from "./firebase";
+import {
+  AlertTriangle,
+  BarChart3,
+  Check,
+  Download,
+  Filter,
+  LogOut,
+  Menu,
+  Pencil,
+  Plus,
+  Table as TableIcon,
+  Target,
+  Trash2,
+  X,
+} from "lucide-react";
+import React, { useEffect, useState } from "react";
 import Auth from "./components/Auth";
+import { auth } from "./firebase";
 import {
   addExpense as addExpenseDB,
-  updateExpense as updateExpenseDB,
   deleteExpense as deleteExpenseDB,
-  subscribeToExpenses,
-  saveCategories,
-  saveBudgets,
   initializeUser,
+  saveBudgets,
+  saveCategories,
+  subscribeToExpenses,
+  updateExpense as updateExpenseDB,
 } from "./services/firestoreService";
 
 const ClarityExpenseApp = () => {
