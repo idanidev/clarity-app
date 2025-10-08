@@ -10,8 +10,9 @@ import {
     orderBy,
     query,
     setDoc,
-    updateDoc
+    updateDoc,
 } from "firebase/firestore";
+import { db } from "../firebase";
 
 // ==================== EXPENSES ====================
 
@@ -104,7 +105,7 @@ export const saveCategories = async (userId, categories) => {
   }
 };
 
-export const getCategories = async (userId) => {
+export const getUserCategories = async (userId) => {
   try {
     const userDocRef = doc(db, "users", userId);
     const userDoc = await getDoc(userDocRef);
@@ -117,6 +118,10 @@ export const getCategories = async (userId) => {
     console.error("Error getting categories:", error);
     throw error;
   }
+};
+
+export const getCategories = async (userId) => {
+  return getUserCategories(userId);
 };
 
 // ==================== BUDGETS ====================
@@ -134,7 +139,7 @@ export const saveBudgets = async (userId, budgets) => {
   }
 };
 
-export const getBudgets = async (userId) => {
+export const getUserBudgets = async (userId) => {
   try {
     const userDocRef = doc(db, "users", userId);
     const userDoc = await getDoc(userDocRef);
@@ -147,6 +152,10 @@ export const getBudgets = async (userId) => {
     console.error("Error getting budgets:", error);
     throw error;
   }
+};
+
+export const getBudgets = async (userId) => {
+  return getUserBudgets(userId);
 };
 
 // ==================== USER INITIALIZATION ====================

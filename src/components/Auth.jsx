@@ -1,12 +1,13 @@
 // src/components/Auth.jsx
-import React, { useState } from "react";
 import {
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
-  sendPasswordResetEmail,
 } from "firebase/auth";
-import { Mail, Lock, AlertCircle, Chrome } from "lucide-react";
+import { AlertCircle, Chrome, Lock, Mail } from "lucide-react";
+import React, { useState } from "react";
+import { auth, googleProvider } from "../firebase";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);

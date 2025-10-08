@@ -4,11 +4,11 @@ import {
   BarChart3,
   Check,
   Download,
-  Filter,
   LogOut,
-  Menu,
+  Menu as MenuIcon,
   Pencil,
   Plus,
+  Settings,
   Table as TableIcon,
   Target,
   Trash2,
@@ -20,6 +20,8 @@ import { auth } from "./firebase";
 import {
   addExpense as addExpenseDB,
   deleteExpense as deleteExpenseDB,
+  getUserBudgets,
+  getUserCategories,
   initializeUser,
   saveBudgets,
   saveCategories,
@@ -31,10 +33,12 @@ const ClarityExpenseApp = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAddExpense, setShowAddExpense] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const [showBudgets, setShowBudgets] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [viewMode, setViewMode] = useState("table");
+  const [showBudgetsInView, setShowBudgetsInView] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(
     new Date().toISOString().slice(0, 7)
   );
@@ -43,17 +47,7 @@ const ClarityExpenseApp = () => {
   const [editingExpense, setEditingExpense] = useState(null);
 
   const [expenses, setExpenses] = useState([]);
-
-  const [categories, setCategories] = useState({
-    Alimentacion: ["Supermercado", "Restaurantes", "Cafeterias"],
-    Transporte: ["Combustible", "Transporte publico", "Taxi"],
-    Vivienda: ["Alquiler", "Hipoteca", "Suministros"],
-    Ocio: ["Streaming", "Deportes", "Hobbies"],
-    Salud: ["Medico", "Farmacia", "Gimnasio"],
-    Compras: ["Ropa", "Electronica", "Otros"],
-    Educacion: ["Cursos", "Libros", "Material"],
-  });
-
+  const [categories, setCategories] = useState({});
   const [budgets, setBudgets] = useState({});
 
   const [newExpense, setNewExpense] = useState({
@@ -77,6 +71,16 @@ const ClarityExpenseApp = () => {
           email: currentUser.email,
           displayName: currentUser.displayName,
         });
+
+        const userCategories = await getUserCategories(currentUser.uid);
+        if (userCategories) {
+          setCategories(userCategories);
+        }
+
+        const userBudgets = await getUserBudgets(currentUser.uid);
+        if (userBudgets) {
+          setBudgets(userBudgets);
+        }
       }
       setLoading(false);
     });
@@ -93,24 +97,6 @@ const ClarityExpenseApp = () => {
 
     return () => unsubscribe();
   }, [user]);
-
-  useEffect(() => {
-    if (user) {
-      const timer = setTimeout(() => {
-        saveCategories(user.uid, categories);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [categories, user]);
-
-  useEffect(() => {
-    if (user) {
-      const timer = setTimeout(() => {
-        saveBudgets(user.uid, budgets);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [budgets, user]);
 
   const showNotification = (message, type = "success") => {
     setNotification({ message, type });
@@ -134,6 +120,17 @@ const ClarityExpenseApp = () => {
     return acc;
   }, {});
 
+  const groupedExpenses = filteredExpenses.reduce((acc, exp) => {
+    if (!acc[exp.category]) {
+      acc[exp.category] = {};
+    }
+    if (!acc[exp.category][exp.subcategory]) {
+      acc[exp.category][exp.subcategory] = [];
+    }
+    acc[exp.category][exp.subcategory].push(exp);
+    return acc;
+  }, {});
+
   const handleAddExpense = async () => {
     if (!newExpense.amount || !newExpense.category || !newExpense.subcategory) {
       showNotification("Por favor completa todos los campos", "warning");
@@ -154,13 +151,13 @@ const ClarityExpenseApp = () => {
 
       if (budget && newSpent > budget * 0.9) {
         showNotification(
-          `Alerta! Has gastado ${((newSpent / budget) * 100).toFixed(
+          `¡Alerta! Has gastado ${((newSpent / budget) * 100).toFixed(
             0
           )}% del presupuesto de ${expenseData.category}`,
           "warning"
         );
       } else {
-        showNotification("Gasto anadido correctamente", "success");
+        showNotification("Gasto añadido correctamente", "success");
       }
 
       setNewExpense({
@@ -172,9 +169,8 @@ const ClarityExpenseApp = () => {
         recurring: false,
       });
       setShowAddExpense(false);
-      setViewMode("table");
     } catch (error) {
-      showNotification("Error al anadir gasto", "warning");
+      showNotification("Error al añadir gasto", "warning");
       console.error(error);
     }
   };
@@ -183,6 +179,7 @@ const ClarityExpenseApp = () => {
     try {
       await deleteExpenseDB(user.uid, id);
       showNotification("Gasto eliminado", "success");
+      setShowDeleteConfirm(null);
     } catch (error) {
       showNotification("Error al eliminar gasto", "warning");
     }
@@ -216,66 +213,100 @@ const ClarityExpenseApp = () => {
     }
   };
 
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     if (!newCategory.trim()) return;
     if (categories[newCategory]) {
-      showNotification("La categoria ya existe", "warning");
+      showNotification("La categoría ya existe", "warning");
       return;
     }
-    setCategories({ ...categories, [newCategory]: [] });
-    showNotification("Categoria anadida", "success");
+
+    const newCategories = { ...categories, [newCategory]: [] };
+    setCategories(newCategories);
+    await saveCategories(user.uid, newCategories);
+    showNotification("Categoría añadida", "success");
     setNewCategory("");
   };
 
-  const handleAddSubcategory = () => {
+  const handleAddSubcategory = async () => {
     if (!newSubcategory.trim() || !selectedCategoryForSub) return;
     if (categories[selectedCategoryForSub].includes(newSubcategory)) {
-      showNotification("La subcategoria ya existe", "warning");
+      showNotification("La subcategoría ya existe", "warning");
       return;
     }
-    setCategories({
+
+    const newCategories = {
       ...categories,
       [selectedCategoryForSub]: [
         ...categories[selectedCategoryForSub],
         newSubcategory,
       ],
-    });
-    showNotification("Subcategoria anadida", "success");
+    };
+    setCategories(newCategories);
+    await saveCategories(user.uid, newCategories);
+    showNotification("Subcategoría añadida", "success");
     setNewSubcategory("");
   };
 
-  const handleDeleteCategory = (category) => {
+  const handleDeleteCategory = async (category) => {
+    const expensesToDelete = expenses.filter(
+      (exp) => exp.category === category
+    );
+    for (const expense of expensesToDelete) {
+      await deleteExpenseDB(user.uid, expense.id);
+    }
+
     const { [category]: removed, ...rest } = categories;
     setCategories(rest);
+    await saveCategories(user.uid, rest);
+
     const { [category]: removedBudget, ...restBudgets } = budgets;
     setBudgets(restBudgets);
-    showNotification("Categoria eliminada", "success");
+    await saveBudgets(user.uid, restBudgets);
+
+    showNotification("Categoría eliminada", "success");
+    setShowDeleteConfirm(null);
   };
 
-  const handleDeleteSubcategory = (category, subcategory) => {
-    setCategories({
+  const handleDeleteSubcategory = async (category, subcategory) => {
+    const expensesToDelete = expenses.filter(
+      (exp) => exp.category === category && exp.subcategory === subcategory
+    );
+    for (const expense of expensesToDelete) {
+      await deleteExpenseDB(user.uid, expense.id);
+    }
+
+    const newCategories = {
       ...categories,
       [category]: categories[category].filter((sub) => sub !== subcategory),
-    });
-    showNotification("Subcategoria eliminada", "success");
+    };
+    setCategories(newCategories);
+    await saveCategories(user.uid, newCategories);
+    showNotification("Subcategoría eliminada", "success");
+    setShowDeleteConfirm(null);
+  };
+
+  const handleSaveBudgets = async () => {
+    await saveBudgets(user.uid, budgets);
+    showNotification("Presupuestos guardados", "success");
+    setShowBudgets(false);
   };
 
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      showNotification("Sesion cerrada", "success");
+      showNotification("Sesión cerrada", "success");
     } catch (error) {
-      showNotification("Error al cerrar sesion", "warning");
+      showNotification("Error al cerrar sesión", "warning");
     }
   };
 
   const exportToCSV = () => {
     const headers = [
       "Fecha",
-      "Categoria",
-      "Subcategoria",
+      "Categoría",
+      "Subcategoría",
       "Monto",
-      "Metodo de Pago",
+      "Método de Pago",
       "Recurrente",
     ];
     const rows = filteredExpenses.map((exp) => [
@@ -284,7 +315,7 @@ const ClarityExpenseApp = () => {
       exp.subcategory,
       exp.amount,
       exp.paymentMethod,
-      exp.recurring ? "Si" : "No",
+      exp.recurring ? "Sí" : "No",
     ]);
 
     const csvContent = [headers, ...rows]
@@ -298,6 +329,28 @@ const ClarityExpenseApp = () => {
     a.click();
     showNotification("CSV exportado correctamente", "success");
   };
+
+  const getChartData = () => {
+    const total = Object.values(categoryTotals).reduce(
+      (sum, val) => sum + val,
+      0
+    );
+    return Object.entries(categoryTotals).map(([category, amount]) => ({
+      category,
+      amount,
+      percentage: ((amount / total) * 100).toFixed(1),
+    }));
+  };
+
+  const colors = [
+    "from-purple-500 to-pink-500",
+    "from-blue-500 to-cyan-500",
+    "from-green-500 to-emerald-500",
+    "from-orange-500 to-red-500",
+    "from-indigo-500 to-purple-500",
+    "from-pink-500 to-rose-500",
+    "from-teal-500 to-green-500",
+  ];
 
   if (loading) {
     return (
@@ -316,6 +369,7 @@ const ClarityExpenseApp = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-purple-100">
+      {/* Header */}
       <div className="backdrop-blur-xl bg-white/40 border-b border-white/60 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <div>
@@ -324,53 +378,16 @@ const ClarityExpenseApp = () => {
             </h1>
             <p className="text-xs text-purple-600">{user.email}</p>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() =>
-                setViewMode(viewMode === "chart" ? "table" : "chart")
-              }
-              className="p-2 rounded-xl bg-white/60 hover:bg-white/80 border border-white/60 transition-all"
-            >
-              {viewMode === "chart" ? (
-                <TableIcon className="w-5 h-5 text-purple-600" />
-              ) : (
-                <BarChart3 className="w-5 h-5 text-purple-600" />
-              )}
-            </button>
-            <button
-              onClick={() => setShowFilters(true)}
-              className="p-2 rounded-xl bg-white/60 hover:bg-white/80 border border-white/60 transition-all"
-            >
-              <Filter className="w-5 h-5 text-purple-600" />
-            </button>
-            <button
-              onClick={() => setShowBudgets(true)}
-              className="p-2 rounded-xl bg-white/60 hover:bg-white/80 border border-white/60 transition-all"
-            >
-              <Target className="w-5 h-5 text-purple-600" />
-            </button>
-            <button
-              onClick={() => setShowCategories(true)}
-              className="p-2 rounded-xl bg-white/60 hover:bg-white/80 border border-white/60 transition-all"
-            >
-              <Menu className="w-5 h-5 text-purple-600" />
-            </button>
-            <button
-              onClick={exportToCSV}
-              className="p-2 rounded-xl bg-white/60 hover:bg-white/80 border border-white/60 transition-all"
-            >
-              <Download className="w-5 h-5 text-purple-600" />
-            </button>
-            <button
-              onClick={handleLogout}
-              className="p-2 rounded-xl bg-white/60 hover:bg-white/80 border border-white/60 transition-all"
-            >
-              <LogOut className="w-5 h-5 text-purple-600" />
-            </button>
-          </div>
+          <button
+            onClick={() => setShowMenu(true)}
+            className="p-2 rounded-xl bg-white/60 hover:bg-white/80 border border-white/60 transition-all"
+          >
+            <MenuIcon className="w-6 h-6 text-purple-600" />
+          </button>
         </div>
       </div>
 
+      {/* Notification */}
       {notification && (
         <div
           className={`fixed top-20 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-2xl backdrop-blur-xl border ${
@@ -390,9 +407,11 @@ const ClarityExpenseApp = () => {
         </div>
       )}
 
+      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Summary Card */}
         <div className="backdrop-blur-xl bg-white/40 border border-white/60 rounded-3xl p-6 mb-6 shadow-xl">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center mb-4">
             <div>
               <p className="text-sm text-purple-600 font-medium mb-1">
                 Total del mes
@@ -408,116 +427,394 @@ const ClarityExpenseApp = () => {
               <Plus className="w-8 h-8" />
             </button>
           </div>
+
+          {/* Filtros inline */}
+          <div className="flex gap-3 flex-wrap">
+            <div className="flex-1 min-w-[200px]">
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="w-full px-4 py-2 rounded-xl border border-purple-200 bg-white/80 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none text-sm"
+              />
+            </div>
+            <div className="flex-1 min-w-[200px]">
+              <select
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                className="w-full px-4 py-2 rounded-xl border border-purple-200 bg-white/80 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none text-sm"
+              >
+                <option value="Todas">Todas las categorías</option>
+                {Object.keys(categories).map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() =>
+                  setViewMode(viewMode === "chart" ? "table" : "chart")
+                }
+                className="px-4 py-2 rounded-xl bg-white/80 hover:bg-white border border-purple-200 transition-all flex items-center gap-2"
+              >
+                {viewMode === "chart" ? (
+                  <>
+                    <TableIcon className="w-4 h-4 text-purple-600" />
+                    <span className="text-sm text-purple-900">Tabla</span>
+                  </>
+                ) : (
+                  <>
+                    <BarChart3 className="w-4 h-4 text-purple-600" />
+                    <span className="text-sm text-purple-900">Gráfica</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
 
+        {/* View Content */}
         {viewMode === "chart" ? (
-          <div className="space-y-4">
+          <div className="backdrop-blur-xl bg-white/40 border border-white/60 rounded-3xl p-6 shadow-xl">
             {Object.entries(categoryTotals).length === 0 ? (
-              <div className="backdrop-blur-xl bg-white/40 border border-white/60 rounded-2xl p-8 text-center">
-                <p className="text-purple-600">No hay gastos en este periodo</p>
+              <div className="text-center py-12">
+                <p className="text-purple-600">No hay gastos en este período</p>
               </div>
             ) : (
-              Object.entries(categoryTotals).map(([category, amount]) => {
-                const budget = budgets[category];
-                const percentage = budget ? (amount / budget) * 100 : 0;
-                return (
-                  <div
-                    key={category}
-                    className="backdrop-blur-xl bg-white/40 border border-white/60 rounded-2xl p-4 shadow-lg"
-                  >
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-medium text-purple-900">
-                        {category}
-                      </span>
-                      <span className="text-sm text-purple-600">
-                        €{amount.toFixed(2)}
-                      </span>
-                    </div>
-                    {budget > 0 && (
-                      <>
-                        <div className="w-full bg-white/60 rounded-full h-3 overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all ${
-                              percentage > 90
-                                ? "bg-red-500"
-                                : percentage > 70
-                                ? "bg-orange-500"
-                                : "bg-gradient-to-r from-purple-500 to-pink-500"
-                            }`}
-                            style={{ width: `${Math.min(percentage, 100)}%` }}
-                          />
-                        </div>
-                        <p className="text-xs text-purple-600 mt-1">
-                          {percentage.toFixed(0)}% de €{budget} presupuesto
-                        </p>
-                      </>
-                    )}
+              <div className="space-y-6">
+                <h2 className="text-xl font-bold text-purple-900 mb-4">
+                  Distribución de gastos
+                </h2>
+
+                {/* Gráfica Circular */}
+                <div className="flex items-center justify-center">
+                  <div className="relative w-64 h-64">
+                    <svg viewBox="0 0 100 100" className="transform -rotate-90">
+                      {(() => {
+                        let currentAngle = 0;
+                        return getChartData().map((item, index) => {
+                          const angle = (item.amount / totalExpenses) * 360;
+                          const startAngle = currentAngle;
+                          currentAngle += angle;
+
+                          const startX =
+                            50 + 40 * Math.cos((startAngle * Math.PI) / 180);
+                          const startY =
+                            50 + 40 * Math.sin((startAngle * Math.PI) / 180);
+                          const endX =
+                            50 + 40 * Math.cos((currentAngle * Math.PI) / 180);
+                          const endY =
+                            50 + 40 * Math.sin((currentAngle * Math.PI) / 180);
+                          const largeArc = angle > 180 ? 1 : 0;
+
+                          return (
+                            <path
+                              key={item.category}
+                              d={`M 50 50 L ${startX} ${startY} A 40 40 0 ${largeArc} 1 ${endX} ${endY} Z`}
+                              className={`fill-current ${
+                                index % 2 === 0
+                                  ? "text-purple-500"
+                                  : "text-pink-500"
+                              }`}
+                              opacity={0.8 - index * 0.1}
+                            />
+                          );
+                        });
+                      })()}
+                      <circle cx="50" cy="50" r="20" className="fill-white" />
+                    </svg>
                   </div>
-                );
-              })
+                </div>
+
+                {/* Leyenda */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {getChartData().map((item, index) => (
+                    <div
+                      key={item.category}
+                      className="flex items-center justify-between bg-white/60 rounded-xl p-3 border border-purple-100"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-4 h-4 rounded-full bg-gradient-to-r ${
+                            colors[index % colors.length]
+                          }`}
+                        ></div>
+                        <span className="font-medium text-purple-900">
+                          {item.category}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-purple-900">
+                          €{item.amount.toFixed(2)}
+                        </p>
+                        <p className="text-xs text-purple-600">
+                          {item.percentage}%
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         ) : (
-          <div className="space-y-3">
-            {filteredExpenses.length === 0 ? (
+          <div className="space-y-4">
+            {Object.entries(groupedExpenses).length === 0 ? (
               <div className="backdrop-blur-xl bg-white/40 border border-white/60 rounded-2xl p-8 text-center">
-                <p className="text-purple-600">No hay gastos en este periodo</p>
+                <p className="text-purple-600">No hay gastos en este período</p>
               </div>
             ) : (
-              filteredExpenses.map((expense) => (
-                <div
-                  key={expense.id}
-                  className="backdrop-blur-xl bg-white/40 border border-white/60 rounded-2xl p-4 shadow-lg hover:shadow-xl transition-all"
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-semibold text-purple-900">
-                          {expense.category}
-                        </span>
-                        <span className="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded-full">
-                          {expense.subcategory}
-                        </span>
-                      </div>
-                      <p className="text-sm text-purple-600">
-                        {new Date(expense.date).toLocaleDateString("es-ES")}
-                      </p>
-                      <div className="flex gap-2 mt-1">
-                        <span className="text-xs bg-white/60 px-2 py-1 rounded-full text-purple-600">
-                          {expense.paymentMethod}
-                        </span>
-                        {expense.recurring && (
-                          <span className="text-xs bg-pink-100 text-pink-600 px-2 py-1 rounded-full">
-                            Recurrente
+              Object.entries(groupedExpenses).map(
+                ([category, subcategories]) => {
+                  const categoryTotal = Object.values(subcategories)
+                    .flat()
+                    .reduce((sum, exp) => sum + exp.amount, 0);
+
+                  return (
+                    <div
+                      key={category}
+                      className="backdrop-blur-xl bg-white/40 border border-white/60 rounded-2xl shadow-lg overflow-hidden"
+                    >
+                      {/* Category Header */}
+                      <div className="p-4 bg-purple-50/50 border-b border-purple-100">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-3">
+                            <span className="font-bold text-purple-900 text-lg">
+                              {category}
+                            </span>
+                            <span className="text-sm text-purple-600">
+                              ({Object.values(subcategories).flat().length}{" "}
+                              gastos)
+                            </span>
+                          </div>
+                          <span className="text-xl font-bold text-purple-900">
+                            €{categoryTotal.toFixed(2)}
                           </span>
+                        </div>
+                      </div>
+
+                      {/* Subcategories - Siempre visibles */}
+                      <div>
+                        {Object.entries(subcategories).map(
+                          ([subcategory, exps]) => {
+                            const subtotal = exps.reduce(
+                              (sum, exp) => sum + exp.amount,
+                              0
+                            );
+
+                            return (
+                              <div
+                                key={subcategory}
+                                className="border-b border-purple-100 last:border-b-0"
+                              >
+                                <div className="bg-purple-50/50 px-4 py-2 flex justify-between items-center">
+                                  <span className="font-medium text-purple-800">
+                                    {subcategory}
+                                  </span>
+                                  <span className="text-sm font-semibold text-purple-700">
+                                    €{subtotal.toFixed(2)}
+                                  </span>
+                                </div>
+                                <div className="divide-y divide-purple-100">
+                                  {exps.map((expense) => (
+                                    <div
+                                      key={expense.id}
+                                      className="px-4 py-3 hover:bg-white/30 transition-all flex justify-between items-center"
+                                    >
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <span className="text-sm text-purple-600">
+                                            {new Date(
+                                              expense.date
+                                            ).toLocaleDateString("es-ES")}
+                                          </span>
+                                          <span className="text-xs bg-white/60 px-2 py-1 rounded-full text-purple-600">
+                                            {expense.paymentMethod}
+                                          </span>
+                                          {expense.recurring && (
+                                            <span className="text-xs bg-pink-100 text-pink-600 px-2 py-1 rounded-full">
+                                              Recurrente
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-bold text-purple-900">
+                                          €{expense.amount.toFixed(2)}
+                                        </span>
+                                        <button
+                                          onClick={() =>
+                                            handleEditExpense(expense)
+                                          }
+                                          className="p-2 rounded-lg hover:bg-purple-100 transition-all"
+                                        >
+                                          <Pencil className="w-4 h-4 text-purple-600" />
+                                        </button>
+                                        <button
+                                          onClick={() =>
+                                            setShowDeleteConfirm({
+                                              type: "expense",
+                                              id: expense.id,
+                                            })
+                                          }
+                                          className="p-2 rounded-lg hover:bg-red-100 transition-all"
+                                        >
+                                          <Trash2 className="w-4 h-4 text-red-600" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          }
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl font-bold text-purple-900">
-                        €{expense.amount.toFixed(2)}
-                      </span>
-                      <button
-                        onClick={() => handleEditExpense(expense)}
-                        className="p-2 rounded-lg hover:bg-purple-100 transition-all"
-                      >
-                        <Pencil className="w-4 h-4 text-purple-600" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteExpense(expense.id)}
-                        className="p-2 rounded-lg hover:bg-red-100 transition-all"
-                      >
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))
+                  );
+                }
+              )
             )}
           </div>
         )}
       </div>
 
+      {/* Modal Confirmación de Eliminación - z-index mayor */}
+      {showDeleteConfirm && (
+        <div
+          className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4"
+          onClick={() => setShowDeleteConfirm(null)}
+        >
+          <div
+            className="backdrop-blur-xl bg-white/95 rounded-3xl w-full max-w-md p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle className="w-8 h-8 text-red-600" />
+              </div>
+              <h3 className="text-xl font-bold text-purple-900 mb-2">
+                ¿Estás seguro?
+              </h3>
+              <p className="text-purple-600 mb-6">
+                {showDeleteConfirm.type === "expense" &&
+                  "Esta acción eliminará el gasto permanentemente."}
+                {showDeleteConfirm.type === "category" &&
+                  `Esta acción eliminará la categoría "${showDeleteConfirm.name}" y todos sus gastos asociados.`}
+                {showDeleteConfirm.type === "subcategory" &&
+                  `Esta acción eliminará la subcategoría "${showDeleteConfirm.subname}" y todos sus gastos asociados.`}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(null)}
+                  className="flex-1 px-4 py-3 rounded-xl border border-purple-200 text-purple-900 font-medium hover:bg-purple-50 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    if (showDeleteConfirm.type === "expense") {
+                      handleDeleteExpense(showDeleteConfirm.id);
+                    } else if (showDeleteConfirm.type === "category") {
+                      handleDeleteCategory(showDeleteConfirm.name);
+                    } else if (showDeleteConfirm.type === "subcategory") {
+                      handleDeleteSubcategory(
+                        showDeleteConfirm.category,
+                        showDeleteConfirm.subname
+                      );
+                    }
+                  }}
+                  className="flex-1 px-4 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium transition-all"
+                >
+                  Eliminar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Menu Lateral */}
+      {showMenu && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex"
+          onClick={() => setShowMenu(false)}
+        >
+          <div className="ml-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="backdrop-blur-xl bg-white/95 h-full w-80 shadow-2xl p-6 overflow-auto">
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-2xl font-bold text-purple-900">Menú</h2>
+                <button
+                  onClick={() => setShowMenu(false)}
+                  className="p-2 rounded-full hover:bg-purple-100"
+                >
+                  <X className="w-5 h-5 text-purple-600" />
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    setShowBudgets(true);
+                    setShowMenu(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-purple-100 transition-all text-left"
+                >
+                  <Target className="w-5 h-5 text-purple-600" />
+                  <span className="text-purple-900 font-medium">
+                    Presupuestos
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowCategories(true);
+                    setShowMenu(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-purple-100 transition-all text-left"
+                >
+                  <Settings className="w-5 h-5 text-purple-600" />
+                  <span className="text-purple-900 font-medium">
+                    Gestionar Categorías
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    exportToCSV();
+                    setShowMenu(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-purple-100 transition-all text-left"
+                >
+                  <Download className="w-5 h-5 text-purple-600" />
+                  <span className="text-purple-900 font-medium">
+                    Exportar CSV
+                  </span>
+                </button>
+
+                <div className="border-t border-purple-200 my-4"></div>
+
+                <button
+                  onClick={() => {
+                    handleLogout();
+                    setShowMenu(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-100 transition-all text-left"
+                >
+                  <LogOut className="w-5 h-5 text-red-600" />
+                  <span className="text-red-900 font-medium">
+                    Cerrar Sesión
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Añadir Gasto */}
       {showAddExpense && (
         <div
           className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
@@ -569,7 +866,7 @@ const ClarityExpenseApp = () => {
 
               <div>
                 <label className="block text-sm font-medium text-purple-900 mb-2">
-                  Categoria
+                  Categoría
                 </label>
                 <select
                   value={newExpense.category}
@@ -582,7 +879,7 @@ const ClarityExpenseApp = () => {
                   }
                   className="w-full px-4 py-3 rounded-xl border border-purple-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none"
                 >
-                  <option value="">Selecciona categoria</option>
+                  <option value="">Selecciona categoría</option>
                   {Object.keys(categories).map((cat) => (
                     <option key={cat} value={cat}>
                       {cat}
@@ -594,7 +891,7 @@ const ClarityExpenseApp = () => {
               {newExpense.category && (
                 <div>
                   <label className="block text-sm font-medium text-purple-900 mb-2">
-                    Subcategoria
+                    Subcategoría
                   </label>
                   <select
                     value={newExpense.subcategory}
@@ -606,8 +903,8 @@ const ClarityExpenseApp = () => {
                     }
                     className="w-full px-4 py-3 rounded-xl border border-purple-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none"
                   >
-                    <option value="">Selecciona subcategoria</option>
-                    {categories[newExpense.category].map((sub) => (
+                    <option value="">Selecciona subcategoría</option>
+                    {categories[newExpense.category]?.map((sub) => (
                       <option key={sub} value={sub}>
                         {sub}
                       </option>
@@ -632,7 +929,7 @@ const ClarityExpenseApp = () => {
 
               <div>
                 <label className="block text-sm font-medium text-purple-900 mb-2">
-                  Metodo de pago
+                  Método de pago
                 </label>
                 <select
                   value={newExpense.paymentMethod}
@@ -673,74 +970,14 @@ const ClarityExpenseApp = () => {
                 }
                 className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-4 rounded-2xl shadow-lg transition-all"
               >
-                {editingExpense ? "Actualizar Gasto" : "Anadir Gasto"}
+                {editingExpense ? "Actualizar Gasto" : "Añadir Gasto"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {showFilters && (
-        <div
-          className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
-          onClick={() => setShowFilters(false)}
-        >
-          <div
-            className="backdrop-blur-xl bg-white/95 rounded-3xl w-full max-w-md p-6 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-purple-900">Filtros</h2>
-              <button
-                onClick={() => setShowFilters(false)}
-                className="p-2 rounded-full hover:bg-purple-100"
-              >
-                <X className="w-5 h-5 text-purple-600" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-purple-900 mb-2">
-                  Mes
-                </label>
-                <input
-                  type="month"
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-purple-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-purple-900 mb-2">
-                  Categoria
-                </label>
-                <select
-                  value={filterCategory}
-                  onChange={(e) => setFilterCategory(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-purple-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none"
-                >
-                  <option value="Todas">Todas</option>
-                  {Object.keys(categories).map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <button
-                onClick={() => setShowFilters(false)}
-                className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-4 rounded-2xl shadow-lg transition-all"
-              >
-                Aplicar Filtros
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* Modal Presupuestos */}
       {showBudgets && (
         <div
           className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
@@ -752,7 +989,7 @@ const ClarityExpenseApp = () => {
           >
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-purple-900">
-                Presupuestos
+                Presupuestos Mensuales
               </h2>
               <button
                 onClick={() => setShowBudgets(false)}
@@ -823,7 +1060,7 @@ const ClarityExpenseApp = () => {
             </div>
 
             <button
-              onClick={() => setShowBudgets(false)}
+              onClick={handleSaveBudgets}
               className="w-full mt-6 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-4 rounded-2xl shadow-lg transition-all"
             >
               Guardar Presupuestos
@@ -832,6 +1069,7 @@ const ClarityExpenseApp = () => {
         </div>
       )}
 
+      {/* Modal Gestionar Categorías */}
       {showCategories && (
         <div
           className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
@@ -843,7 +1081,7 @@ const ClarityExpenseApp = () => {
           >
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-purple-900">
-                Gestionar Categorias
+                Gestionar Categorías
               </h2>
               <button
                 onClick={() => setShowCategories(false)}
@@ -855,7 +1093,7 @@ const ClarityExpenseApp = () => {
 
             <div className="bg-purple-50 rounded-2xl p-4 mb-4">
               <h3 className="font-medium text-purple-900 mb-3">
-                Anadir Categoria
+                Añadir Categoría
               </h3>
               <div className="flex gap-2">
                 <input
@@ -863,7 +1101,7 @@ const ClarityExpenseApp = () => {
                   value={newCategory}
                   onChange={(e) => setNewCategory(e.target.value)}
                   className="flex-1 px-4 py-2 rounded-xl border border-purple-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none"
-                  placeholder="Nueva categoria"
+                  placeholder="Nueva categoría"
                   onKeyPress={(e) => e.key === "Enter" && handleAddCategory()}
                 />
                 <button
@@ -877,14 +1115,14 @@ const ClarityExpenseApp = () => {
 
             <div className="bg-pink-50 rounded-2xl p-4 mb-6">
               <h3 className="font-medium text-purple-900 mb-3">
-                Anadir Subcategoria
+                Añadir Subcategoría
               </h3>
               <select
                 value={selectedCategoryForSub}
                 onChange={(e) => setSelectedCategoryForSub(e.target.value)}
                 className="w-full px-4 py-2 rounded-xl border border-purple-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none mb-2"
               >
-                <option value="">Selecciona categoria</option>
+                <option value="">Selecciona categoría</option>
                 {Object.keys(categories).map((cat) => (
                   <option key={cat} value={cat}>
                     {cat}
@@ -898,7 +1136,7 @@ const ClarityExpenseApp = () => {
                     value={newSubcategory}
                     onChange={(e) => setNewSubcategory(e.target.value)}
                     className="flex-1 px-4 py-2 rounded-xl border border-purple-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none"
-                    placeholder="Nueva subcategoria"
+                    placeholder="Nueva subcategoría"
                     onKeyPress={(e) =>
                       e.key === "Enter" && handleAddSubcategory()
                     }
@@ -922,7 +1160,12 @@ const ClarityExpenseApp = () => {
                   <div className="flex justify-between items-center mb-3">
                     <h3 className="font-bold text-purple-900">{category}</h3>
                     <button
-                      onClick={() => handleDeleteCategory(category)}
+                      onClick={() =>
+                        setShowDeleteConfirm({
+                          type: "category",
+                          name: category,
+                        })
+                      }
                       className="p-1 rounded-lg hover:bg-red-100 transition-all"
                     >
                       <Trash2 className="w-4 h-4 text-red-600" />
@@ -936,7 +1179,13 @@ const ClarityExpenseApp = () => {
                       >
                         <span className="text-sm text-purple-700">{sub}</span>
                         <button
-                          onClick={() => handleDeleteSubcategory(category, sub)}
+                          onClick={() =>
+                            setShowDeleteConfirm({
+                              type: "subcategory",
+                              category,
+                              subname: sub,
+                            })
+                          }
                           className="p-1 rounded hover:bg-red-100 transition-all"
                         >
                           <X className="w-3 h-3 text-red-600" />
@@ -945,7 +1194,7 @@ const ClarityExpenseApp = () => {
                     ))}
                     {subcategories.length === 0 && (
                       <p className="text-xs text-purple-400 italic">
-                        Sin subcategorias
+                        Sin subcategorías
                       </p>
                     )}
                   </div>
