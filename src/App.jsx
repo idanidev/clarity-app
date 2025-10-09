@@ -348,7 +348,7 @@ const ClarityExpenseApp = () => {
       "Fecha",
       "Categoría",
       "Subcategoría",
-      "Monto",
+      "Precio",
       "Método de Pago",
       "Recurrente",
     ];
@@ -1002,7 +1002,7 @@ const ClarityExpenseApp = () => {
 
               <div>
                 <label className="block text-sm font-medium text-purple-900 mb-2">
-                  Monto
+                Precio
                 </label>
                 <input
                   type="number"
@@ -1153,8 +1153,8 @@ const ClarityExpenseApp = () => {
 
             <div className="space-y-4">
               {Object.keys(categories).map((category) => {
-                const spent = categoryTotals[category] || 0;
-                const budget = budgets[category] || 0;
+                const spent = categoryTotals[category] || "";
+                const budget = budgets[category] || "";
                 const percentage = budget ? (spent / budget) * 100 : 0;
 
                 return (
