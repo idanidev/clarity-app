@@ -16,7 +16,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Auth from "./components/Auth";
 import { auth } from "./firebase";
 import {
@@ -44,15 +44,12 @@ const ClarityExpenseApp = () => {
     new Date().toISOString().slice(0, 7)
   );
   const [filterCategory, setFilterCategory] = useState("Todas");
-  const [showCategoryFilter, setShowCategoryFilter] = useState(false);
   const [notification, setNotification] = useState(null);
   const [editingExpense, setEditingExpense] = useState(null);
 
   const [expenses, setExpenses] = useState([]);
   const [categories, setCategories] = useState({});
   const [budgets, setBudgets] = useState({});
-
-  const categoryFilterRef = useRef(null);
 
   const [newExpense, setNewExpense] = useState({
     name: "",
@@ -103,24 +100,6 @@ const ClarityExpenseApp = () => {
     return () => unsubscribe();
   }, [user]);
 
-  useEffect(() => {
-    if (!showCategoryFilter) return;
-
-    const handleClickOutside = (event) => {
-      if (
-        categoryFilterRef.current &&
-        !categoryFilterRef.current.contains(event.target)
-      ) {
-        setShowCategoryFilter(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [showCategoryFilter]);
 
   const showNotification = (message, type = "success") => {
     setNotification({ message, type });
@@ -530,6 +509,22 @@ const ClarityExpenseApp = () => {
 
           {/* Filtros inline */}
           <div className="flex gap-3 flex-wrap items-center">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-purple-200 bg-white/80 shadow-sm">
+              <Filter className="w-5 h-5 text-purple-600" />
+              <select
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                className="bg-transparent focus:outline-none text-sm text-purple-900"
+                aria-label="Filtrar por categoría"
+              >
+                <option value="Todas">Todas las categorías</option>
+                {Object.keys(categories).map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="flex-1 min-w-0 sm:min-w-[200px]">
               <input
                 type="month"
@@ -537,45 +532,6 @@ const ClarityExpenseApp = () => {
                 onChange={(e) => setSelectedMonth(e.target.value)}
                 className="w-full px-4 py-2 rounded-xl border border-purple-200 bg-white/80 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none text-sm"
               />
-            </div>
-            <div ref={categoryFilterRef} className="relative">
-              <button
-                type="button"
-                onClick={() => setShowCategoryFilter((prev) => !prev)}
-                className={`p-2 rounded-xl border transition-all hover:shadow-md focus:outline-none focus:ring-2 focus:ring-purple-200 ${
-                  filterCategory !== "Todas"
-                    ? "bg-purple-100 border-purple-300 text-purple-700 hover:bg-purple-50"
-                    : "bg-white/80 border-purple-200 text-purple-600 hover:bg-white"
-                }`}
-                aria-haspopup="listbox"
-                aria-expanded={showCategoryFilter}
-                aria-label="Filtrar por categoría"
-                title="Filtrar por categoría"
-              >
-                <Filter className="w-5 h-5" />
-              </button>
-              {showCategoryFilter && (
-                <div className="absolute right-0 mt-2 w-56 p-3 rounded-2xl border border-purple-200 bg-white/90 shadow-lg backdrop-blur-xl z-20">
-                  <p className="text-xs font-medium text-purple-600 mb-2">
-                    Categoría
-                  </p>
-                  <select
-                    value={filterCategory}
-                    onChange={(e) => {
-                      setFilterCategory(e.target.value);
-                      setShowCategoryFilter(false);
-                    }}
-                    className="w-full px-3 py-2 rounded-xl border border-purple-200 bg-white focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none text-sm"
-                  >
-                    <option value="Todas">Todas las categorías</option>
-                    {Object.keys(categories).map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
             </div>
             <div className="flex gap-2">
               <button
