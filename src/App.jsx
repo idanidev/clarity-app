@@ -537,7 +537,7 @@ const ClarityExpenseApp = () => {
                 className="bg-transparent focus:outline-none text-sm text-purple-900"
                 aria-label="Filtrar por categoría"
               >
-                <option value="Todas">Todas las categorías</option>
+                <option value="Todas"></option>
                 {Object.keys(categories).map((cat) => (
                   <option key={cat} value={cat}>
                     {cat}
