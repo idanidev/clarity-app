@@ -1153,8 +1153,8 @@ const ClarityExpenseApp = () => {
 
             <div className="space-y-4">
               {Object.keys(categories).map((category) => {
-                const spent = categoryTotals[category] || "";
-                const budget = budgets[category] || "";
+                const spent = categoryTotals[category];
+                const budget = budgets[category];
                 const percentage = budget ? (spent / budget) * 100 : 0;
 
                 return (
