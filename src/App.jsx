@@ -15,7 +15,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Auth from "./components/Auth";
 import { auth } from "./firebase";
 import {
@@ -39,7 +39,6 @@ const ClarityExpenseApp = () => {
   const [showCategories, setShowCategories] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [viewMode, setViewMode] = useState("table");
-  const [showBudgetsInView, setShowBudgetsInView] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(
     new Date().toISOString().slice(0, 7)
   );
@@ -297,13 +296,15 @@ const ClarityExpenseApp = () => {
       await deleteExpenseDB(user.uid, expense.id);
     }
 
-    const { [category]: removed, ...rest } = categories;
-    setCategories(rest);
-    await saveCategories(user.uid, rest);
+    const updatedCategories = { ...categories };
+    delete updatedCategories[category];
+    setCategories(updatedCategories);
+    await saveCategories(user.uid, updatedCategories);
 
-    const { [category]: removedBudget, ...restBudgets } = budgets;
-    setBudgets(restBudgets);
-    await saveBudgets(user.uid, restBudgets);
+    const updatedBudgets = { ...budgets };
+    delete updatedBudgets[category];
+    setBudgets(updatedBudgets);
+    await saveBudgets(user.uid, updatedBudgets);
 
     showNotification("Categoría eliminada", "success");
     setShowDeleteConfirm(null);
@@ -328,7 +329,25 @@ const ClarityExpenseApp = () => {
   };
 
   const handleSaveBudgets = async () => {
-    await saveBudgets(user.uid, budgets);
+    const sanitizedBudgets = Object.entries(budgets).reduce(
+      (acc, [category, value]) => {
+        if (value === "" || value === undefined || value === null) {
+          return acc;
+        }
+
+        const numericValue = Number(value);
+
+        if (!Number.isNaN(numericValue) && numericValue >= 0) {
+          acc[category] = numericValue;
+        }
+
+        return acc;
+      },
+      {}
+    );
+
+    await saveBudgets(user.uid, sanitizedBudgets);
+    setBudgets(sanitizedBudgets);
     showNotification("Presupuestos guardados", "success");
     setShowBudgets(false);
   };
@@ -1153,9 +1172,21 @@ const ClarityExpenseApp = () => {
 
             <div className="space-y-4">
               {Object.keys(categories).map((category) => {
-                const spent = categoryTotals[category];
-                const budget = budgets[category];
-                const percentage = budget ? (spent / budget) * 100 : 0;
+                const spent = categoryTotals[category] || 0;
+                const rawBudget = budgets[category];
+                const numericBudget =
+                  rawBudget === "" || rawBudget === undefined || rawBudget === null
+                    ? 0
+                    : Number(rawBudget) || 0;
+                const displayBudget =
+                  rawBudget === 0 ||
+                  rawBudget === undefined ||
+                  rawBudget === null
+                    ? ""
+                    : rawBudget;
+                const percentage = numericBudget
+                  ? (spent / numericBudget) * 100
+                  : 0;
 
                 return (
                   <div key={category} className="bg-purple-50 rounded-2xl p-4">
@@ -1164,22 +1195,24 @@ const ClarityExpenseApp = () => {
                         {category}
                       </span>
                       <span className="text-sm text-purple-600">
-                        €{spent.toFixed(2)} / €{budget}
+                        €{spent.toFixed(2)}
+                        {displayBudget !== "" ? ` / €${displayBudget}` : ""}
                       </span>
                     </div>
                     <input
                       type="number"
-                      value={budget}
-                      onChange={(e) =>
+                      value={displayBudget === "" ? "" : String(displayBudget)}
+                      onChange={(e) => {
+                        const { value } = e.target;
                         setBudgets({
                           ...budgets,
-                          [category]: parseFloat(e.target.value) || 0,
-                        })
-                      }
+                          [category]: value === "" ? "" : value,
+                        });
+                      }}
                       className="w-full px-4 py-2 rounded-xl border border-purple-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none mb-2"
                       placeholder="Establecer presupuesto"
                     />
-                    {budget > 0 && (
+                    {numericBudget > 0 && (
                       <>
                         <div className="w-full bg-white/60 rounded-full h-2 overflow-hidden">
                           <div

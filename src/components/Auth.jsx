@@ -7,7 +7,7 @@ import {
   signInWithRedirect,
 } from "firebase/auth";
 import { AlertCircle, Chrome, Lock, Mail } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 import { auth, googleProvider } from "../firebase";
 
 const Auth = () => {
