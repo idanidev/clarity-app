@@ -100,7 +100,6 @@ const ClarityExpenseApp = () => {
     return () => unsubscribe();
   }, [user]);
 
-
   const showNotification = (message, type = "success") => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3000);
@@ -509,35 +508,17 @@ const ClarityExpenseApp = () => {
 
           {/* Filtros inline */}
           <div className="relative z-30 flex gap-3 flex-wrap items-center">
-            <div className="flex gap-2">
-              <button
-                onClick={() =>
-                  setViewMode(viewMode === "chart" ? "table" : "chart")
-                }
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/80 hover:bg-white border border-purple-200 transition-all"
-              >
-                {viewMode === "chart" ? (
-                  <>
-                    <TableIcon className="w-4 h-4 text-purple-600" />
-                    <span className="text-sm text-purple-900">Tabla</span>
-                  </>
-                ) : (
-                  <>
-                    <BarChart3 className="w-4 h-4 text-purple-600" />
-                    <span className="text-sm text-purple-900">Gráfica</span>
-                  </>
-                )}
-              </button>
-            </div>
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-purple-200 bg-white/80 shadow-sm">
-              <Filter className="w-5 h-5 text-purple-600" />
+            {/* Filtro solo icono */}
+            <div className="relative inline-flex items-center justify-center w-7 h-7 rounded-lg border border-purple-200 bg-white/80 shadow-sm">
+              <Filter className="w-4 h-4 text-purple-600 pointer-events-none" />
               <select
                 value={filterCategory}
                 onChange={(e) => setFilterCategory(e.target.value)}
-                className="bg-transparent focus:outline-none text-sm text-purple-900"
                 aria-label="Filtrar por categoría"
+                title="Filtrar por categoría"
+                className="absolute inset-0 opacity-0 cursor-pointer"
               >
-                <option value="Todas"></option>
+                <option value="Todas">Todas</option>
                 {Object.keys(categories).map((cat) => (
                   <option key={cat} value={cat}>
                     {cat}
@@ -545,14 +526,47 @@ const ClarityExpenseApp = () => {
                 ))}
               </select>
             </div>
+
+            {/* Mes: misma altura/estilo que el icono */}
             <div className="flex-1 min-w-0 sm:min-w-[200px]">
               <input
                 type="month"
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="w-full px-4 py-2 rounded-xl border border-purple-200 bg-white/80 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none text-sm"
+                className="
+        w-full h-7 px-2 rounded-lg border border-purple-200 bg-white/80
+        text-sm leading-none outline-none
+        focus:border-purple-500 focus:ring-2 focus:ring-purple-200
+        [&::-webkit-datetime-edit]:p-0
+        [&::-webkit-datetime-edit]:leading-none
+        [&::-webkit-calendar-picker-indicator]:opacity-60
+      "
               />
             </div>
+
+            {/* Botón vista: misma altura/estilo */}
+            <button
+              onClick={() =>
+                setViewMode(viewMode === "chart" ? "table" : "chart")
+              }
+              className="
+      inline-flex items-center gap-2 h-7 px-2
+      rounded-lg border border-purple-200 bg-white/80
+      hover:bg-white transition-all
+    "
+            >
+              {viewMode === "chart" ? (
+                <>
+                  <TableIcon className="w-4 h-4 text-purple-600" />
+                  <span className="text-xs text-purple-900">Tabla</span>
+                </>
+              ) : (
+                <>
+                  <BarChart3 className="w-4 h-4 text-purple-600" />
+                  <span className="text-xs text-purple-900">Gráfica</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
 
@@ -800,7 +814,9 @@ const ClarityExpenseApp = () => {
                   >
                     <div className="flex justify-between items-center mb-2">
                       <div>
-                        <p className="font-semibold text-purple-900">{category}</p>
+                        <p className="font-semibold text-purple-900">
+                          {category}
+                        </p>
                         <p className="text-xs text-purple-500">
                           Presupuesto: €{budget.toFixed(2)}
                         </p>
@@ -1025,7 +1041,7 @@ const ClarityExpenseApp = () => {
 
               <div>
                 <label className="block text-sm font-medium text-purple-900 mb-2">
-                Precio
+                  Precio
                 </label>
                 <input
                   type="number"
@@ -1179,7 +1195,9 @@ const ClarityExpenseApp = () => {
                 const spent = categoryTotals[category] || 0;
                 const rawBudget = budgets[category];
                 const numericBudget =
-                  rawBudget === "" || rawBudget === undefined || rawBudget === null
+                  rawBudget === "" ||
+                  rawBudget === undefined ||
+                  rawBudget === null
                     ? 0
                     : Number(rawBudget) || 0;
                 const displayBudget =
