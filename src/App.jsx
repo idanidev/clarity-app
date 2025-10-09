@@ -434,16 +434,14 @@ const ClarityExpenseApp = () => {
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-purple-100">
       {/* Header */}
       <div className="backdrop-blur-xl bg-white/40 border-b border-white/60 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="max-w-full">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+          <div>
             <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
               Clarity
             </h1>
-            <p className="text-xs text-purple-600 break-words leading-relaxed">
-              {user.email}
-            </p>
+            <p className="text-xs text-purple-600">{user.email}</p>
           </div>
-          <div className="flex items-center gap-3 self-start sm:self-auto">
+          <div className="flex items-center gap-3">
             {overBudgetCategories.length > 0 && (
               <button
                 onClick={() => setShowBudgets(true)}
@@ -490,7 +488,7 @@ const ClarityExpenseApp = () => {
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Summary Card */}
         <div className="backdrop-blur-xl bg-white/40 border border-white/60 rounded-3xl p-6 mb-6 shadow-xl">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
+          <div className="flex justify-between items-center mb-4">
             <div>
               <p className="text-sm text-purple-600 font-medium mb-1">
                 Total del mes
@@ -531,7 +529,7 @@ const ClarityExpenseApp = () => {
                 ))}
               </select>
             </div>
-            <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+            <div className="flex gap-2">
               <button
                 onClick={() =>
                   setViewMode(viewMode === "chart" ? "table" : "chart")
@@ -766,7 +764,7 @@ const ClarityExpenseApp = () => {
       {configuredBudgets.length > 0 && (
         <div className="max-w-7xl mx-auto px-4 pb-8">
           <div className="backdrop-blur-xl bg-white/40 border border-white/60 rounded-3xl p-6 shadow-xl">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
+            <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-xl font-bold text-purple-900">
                   Seguimiento de presupuestos
