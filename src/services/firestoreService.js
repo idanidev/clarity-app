@@ -163,25 +163,42 @@ export const getBudgets = async (userId) => {
 export const initializeUser = async (userId, userData) => {
   try {
     const userDocRef = doc(db, "users", userId);
-    await setDoc(
-      userDocRef,
-      {
+    const userDoc = await getDoc(userDocRef);
+    const defaultCategories = {
+      Alimentacion: ["Supermercado", "Restaurantes", "Cafeterias"],
+      Transporte: ["Combustible", "Transporte publico", "Taxi"],
+      Vivienda: ["Alquiler", "Hipoteca", "Suministros"],
+      Ocio: ["Streaming", "Deportes", "Hobbies"],
+      Salud: ["Medico", "Farmacia", "Gimnasio"],
+      Compras: ["Ropa", "Electronica", "Otros"],
+      Educacion: ["Cursos", "Libros", "Material"],
+    };
+
+    if (userDoc.exists()) {
+      const updateData = {
         ...userData,
-        categories: {
-          Alimentacion: ["Supermercado", "Restaurantes", "Cafeterias"],
-          Transporte: ["Combustible", "Transporte publico", "Taxi"],
-          Vivienda: ["Alquiler", "Hipoteca", "Suministros"],
-          Ocio: ["Streaming", "Deportes", "Hobbies"],
-          Salud: ["Medico", "Farmacia", "Gimnasio"],
-          Compras: ["Ropa", "Electronica", "Otros"],
-          Educacion: ["Cursos", "Libros", "Material"],
-        },
-        budgets: {},
-        createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      },
-      { merge: true }
-    );
+      };
+
+      const currentData = userDoc.data();
+      if (!currentData.categories) {
+        updateData.categories = defaultCategories;
+      }
+      if (!currentData.budgets) {
+        updateData.budgets = {};
+      }
+
+      await updateDoc(userDocRef, updateData);
+      return;
+    }
+
+    await setDoc(userDocRef, {
+      ...userData,
+      categories: defaultCategories,
+      budgets: {},
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
   } catch (error) {
     console.error("Error initializing user:", error);
     throw error;

@@ -2,6 +2,7 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import {
   AlertTriangle,
   BarChart3,
+  BellRing,
   Check,
   Download,
   LogOut,
@@ -51,6 +52,7 @@ const ClarityExpenseApp = () => {
   const [budgets, setBudgets] = useState({});
 
   const [newExpense, setNewExpense] = useState({
+    name: "",
     amount: "",
     category: "",
     subcategory: "",
@@ -131,8 +133,22 @@ const ClarityExpenseApp = () => {
     return acc;
   }, {});
 
+  const configuredBudgets = Object.entries(budgets)
+    .map(([category, budget]) => [category, Number(budget) || 0])
+    .filter(([, budget]) => budget > 0);
+
+  const overBudgetCategories = configuredBudgets.filter(
+    ([category, budget]) => (categoryTotals[category] || 0) > budget
+  );
+
   const handleAddExpense = async () => {
-    if (!newExpense.amount || !newExpense.category || !newExpense.subcategory) {
+    const trimmedName = newExpense.name.trim();
+    if (
+      !trimmedName ||
+      !newExpense.amount ||
+      !newExpense.category ||
+      !newExpense.subcategory
+    ) {
       showNotification("Por favor completa todos los campos", "warning");
       return;
     }
@@ -140,6 +156,7 @@ const ClarityExpenseApp = () => {
     try {
       const expenseData = {
         ...newExpense,
+        name: trimmedName,
         amount: parseFloat(newExpense.amount),
       };
 
@@ -161,6 +178,7 @@ const ClarityExpenseApp = () => {
       }
 
       setNewExpense({
+        name: "",
         amount: "",
         category: "",
         subcategory: "",
@@ -187,19 +205,43 @@ const ClarityExpenseApp = () => {
 
   const handleEditExpense = (expense) => {
     setEditingExpense(expense);
-    setNewExpense(expense);
+    setNewExpense({
+      name: expense.name || "",
+      amount:
+        typeof expense.amount === "number"
+          ? expense.amount.toString()
+          : expense.amount || "",
+      category: expense.category || "",
+      subcategory: expense.subcategory || "",
+      date: expense.date || new Date().toISOString().split("T")[0],
+      paymentMethod: expense.paymentMethod || "Tarjeta",
+      recurring: Boolean(expense.recurring),
+    });
     setShowAddExpense(true);
   };
 
   const handleUpdateExpense = async () => {
+    const trimmedName = newExpense.name.trim();
+    if (
+      !trimmedName ||
+      !newExpense.amount ||
+      !newExpense.category ||
+      !newExpense.subcategory
+    ) {
+      showNotification("Por favor completa todos los campos", "warning");
+      return;
+    }
+
     try {
       await updateExpenseDB(user.uid, editingExpense.id, {
         ...newExpense,
+        name: trimmedName,
         amount: parseFloat(newExpense.amount),
       });
       showNotification("Gasto actualizado", "success");
       setEditingExpense(null);
       setNewExpense({
+        name: "",
         amount: "",
         category: "",
         subcategory: "",
@@ -302,6 +344,7 @@ const ClarityExpenseApp = () => {
 
   const exportToCSV = () => {
     const headers = [
+      "Nombre",
       "Fecha",
       "Categoría",
       "Subcategoría",
@@ -310,6 +353,7 @@ const ClarityExpenseApp = () => {
       "Recurrente",
     ];
     const rows = filteredExpenses.map((exp) => [
+      exp.name || "",
       exp.date,
       exp.category,
       exp.subcategory,
@@ -378,12 +422,26 @@ const ClarityExpenseApp = () => {
             </h1>
             <p className="text-xs text-purple-600">{user.email}</p>
           </div>
-          <button
-            onClick={() => setShowMenu(true)}
-            className="p-2 rounded-xl bg-white/60 hover:bg-white/80 border border-white/60 transition-all"
-          >
-            <MenuIcon className="w-6 h-6 text-purple-600" />
-          </button>
+          <div className="flex items-center gap-3">
+            {overBudgetCategories.length > 0 && (
+              <button
+                onClick={() => setShowBudgets(true)}
+                className="relative p-2 rounded-xl bg-red-100 hover:bg-red-200 border border-red-200 transition-all"
+                title="Presupuesto superado"
+              >
+                <BellRing className="w-6 h-6 text-red-600" />
+                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
+                  {overBudgetCategories.length}
+                </span>
+              </button>
+            )}
+            <button
+              onClick={() => setShowMenu(true)}
+              className="p-2 rounded-xl bg-white/60 hover:bg-white/80 border border-white/60 transition-all"
+            >
+              <MenuIcon className="w-6 h-6 text-purple-600" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -624,6 +682,9 @@ const ClarityExpenseApp = () => {
                                       className="px-4 py-3 hover:bg-white/30 transition-all flex justify-between items-center"
                                     >
                                       <div className="flex-1">
+                                        <p className="text-sm font-semibold text-purple-900 mb-1">
+                                          {expense.name || "Gasto sin nombre"}
+                                        </p>
                                         <div className="flex items-center gap-2 mb-1">
                                           <span className="text-sm text-purple-600">
                                             {new Date(
@@ -680,6 +741,81 @@ const ClarityExpenseApp = () => {
           </div>
         )}
       </div>
+
+      {configuredBudgets.length > 0 && (
+        <div className="max-w-7xl mx-auto px-4 pb-8">
+          <div className="backdrop-blur-xl bg-white/40 border border-white/60 rounded-3xl p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-bold text-purple-900">
+                  Seguimiento de presupuestos
+                </h2>
+                <p className="text-sm text-purple-600">
+                  Revisa cómo avanzas este mes en cada categoría
+                </p>
+              </div>
+              <button
+                onClick={() => setShowBudgets(true)}
+                className="px-4 py-2 rounded-xl bg-white/80 hover:bg-white border border-purple-200 text-sm font-medium text-purple-900 transition-all"
+              >
+                Gestionar presupuestos
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {configuredBudgets.map(([category, budget]) => {
+                const spent = categoryTotals[category] || 0;
+                const percentage = budget
+                  ? Math.min((spent / budget) * 100, 100)
+                  : 0;
+                const isOver = spent > budget;
+
+                return (
+                  <div
+                    key={category}
+                    className="bg-white/60 border border-purple-100 rounded-2xl p-4"
+                  >
+                    <div className="flex justify-between items-center mb-2">
+                      <div>
+                        <p className="font-semibold text-purple-900">{category}</p>
+                        <p className="text-xs text-purple-500">
+                          Presupuesto: €{budget.toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p
+                          className={`text-sm font-semibold ${
+                            isOver ? "text-red-600" : "text-purple-900"
+                          }`}
+                        >
+                          Gastado: €{spent.toFixed(2)}
+                        </p>
+                        <p className="text-xs text-purple-500">
+                          {isOver
+                            ? `Excedido por €${(spent - budget).toFixed(2)}`
+                            : `Disponible: €${(budget - spent).toFixed(2)}`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="w-full bg-purple-100/60 rounded-full h-2 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          isOver
+                            ? "bg-red-500"
+                            : percentage > 90
+                            ? "bg-orange-500"
+                            : "bg-gradient-to-r from-purple-500 to-pink-500"
+                        }`}
+                        style={{ width: `${isOver ? 100 : percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Confirmación de Eliminación - z-index mayor */}
       {showDeleteConfirm && (
@@ -833,6 +969,7 @@ const ClarityExpenseApp = () => {
                   setShowAddExpense(false);
                   setEditingExpense(null);
                   setNewExpense({
+                    name: "",
                     amount: "",
                     category: "",
                     subcategory: "",
@@ -848,6 +985,21 @@ const ClarityExpenseApp = () => {
             </div>
 
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-purple-900 mb-2">
+                  Nombre del gasto
+                </label>
+                <input
+                  type="text"
+                  value={newExpense.name}
+                  onChange={(e) =>
+                    setNewExpense({ ...newExpense, name: e.target.value })
+                  }
+                  className="w-full px-4 py-3 rounded-xl border border-purple-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none"
+                  placeholder="Ej. Compra semanal"
+                />
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-purple-900 mb-2">
                   Monto

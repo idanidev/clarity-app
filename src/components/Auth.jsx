@@ -4,6 +4,7 @@ import {
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
 } from "firebase/auth";
 import { AlertCircle, Chrome, Lock, Mail } from "lucide-react";
 import React, { useState } from "react";
@@ -54,7 +55,18 @@ const Auth = () => {
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (err) {
-      setError("Error al iniciar sesión con Google");
+      if (err.code === "auth/operation-not-supported-in-this-environment") {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        } catch (redirectError) {
+          console.error("Google redirect sign-in error", redirectError);
+          setError("Google no está disponible en este entorno. Inténtalo más tarde.");
+        }
+      } else {
+        console.error("Google popup sign-in error", err);
+        setError("Error al iniciar sesión con Google");
+      }
     } finally {
       setLoading(false);
     }
