@@ -507,7 +507,7 @@ const ClarityExpenseApp = () => {
 
           {/* Filtros inline */}
           <div className="flex gap-3 flex-wrap">
-            <div className="flex-1 min-w-[200px]">
+            <div className="flex-1 min-w-0 sm:min-w-[200px]">
               <input
                 type="month"
                 value={selectedMonth}
@@ -515,7 +515,7 @@ const ClarityExpenseApp = () => {
                 className="w-full px-4 py-2 rounded-xl border border-purple-200 bg-white/80 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none text-sm"
               />
             </div>
-            <div className="flex-1 min-w-[200px]">
+            <div className="flex-1 min-w-0 sm:min-w-[200px]">
               <select
                 value={filterCategory}
                 onChange={(e) => setFilterCategory(e.target.value)}
