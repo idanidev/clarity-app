@@ -489,7 +489,7 @@ const ClarityExpenseApp = () => {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Summary Card */}
-        <div className="backdrop-blur-xl bg-white/40 border border-white/60 rounded-3xl p-6 mb-6 shadow-xl">
+        <div className="relative z-30 backdrop-blur-xl bg-white/40 border border-white/60 rounded-3xl p-6 mb-6 shadow-xl">
           <div className="flex justify-between items-center mb-4">
             <div>
               <p className="text-sm text-purple-600 font-medium mb-1">
@@ -508,7 +508,27 @@ const ClarityExpenseApp = () => {
           </div>
 
           {/* Filtros inline */}
-          <div className="flex gap-3 flex-wrap items-center">
+          <div className="relative z-30 flex gap-3 flex-wrap items-center">
+            <div className="flex gap-2">
+              <button
+                onClick={() =>
+                  setViewMode(viewMode === "chart" ? "table" : "chart")
+                }
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/80 hover:bg-white border border-purple-200 transition-all"
+              >
+                {viewMode === "chart" ? (
+                  <>
+                    <TableIcon className="w-4 h-4 text-purple-600" />
+                    <span className="text-sm text-purple-900">Tabla</span>
+                  </>
+                ) : (
+                  <>
+                    <BarChart3 className="w-4 h-4 text-purple-600" />
+                    <span className="text-sm text-purple-900">Gráfica</span>
+                  </>
+                )}
+              </button>
+            </div>
             <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-purple-200 bg-white/80 shadow-sm">
               <Filter className="w-5 h-5 text-purple-600" />
               <select
@@ -532,26 +552,6 @@ const ClarityExpenseApp = () => {
                 onChange={(e) => setSelectedMonth(e.target.value)}
                 className="w-full px-4 py-2 rounded-xl border border-purple-200 bg-white/80 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none text-sm"
               />
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() =>
-                  setViewMode(viewMode === "chart" ? "table" : "chart")
-                }
-                className="px-4 py-2 rounded-xl bg-white/80 hover:bg-white border border-purple-200 transition-all flex items-center gap-2"
-              >
-                {viewMode === "chart" ? (
-                  <>
-                    <TableIcon className="w-4 h-4 text-purple-600" />
-                    <span className="text-sm text-purple-900">Tabla</span>
-                  </>
-                ) : (
-                  <>
-                    <BarChart3 className="w-4 h-4 text-purple-600" />
-                    <span className="text-sm text-purple-900">Gráfica</span>
-                  </>
-                )}
-              </button>
             </div>
           </div>
         </div>
