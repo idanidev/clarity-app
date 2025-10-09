@@ -448,13 +448,13 @@ const ClarityExpenseApp = () => {
       {/* Notification */}
       {notification && (
         <div
-          className={`fixed top-20 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-2xl backdrop-blur-xl border ${
+          className={`fixed top-20 left-1/2 transform -translate-x-1/2 z-[120] px-6 py-3 rounded-2xl backdrop-blur-xl border ${
             notification.type === "success"
               ? "bg-green-500/90 border-green-400"
               : "bg-orange-500/90 border-orange-400"
-          } text-white font-medium shadow-lg animate-bounce`}
+          } text-white font-medium shadow-lg animate-bounce pointer-events-none`}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 pointer-events-auto">
             {notification.type === "success" ? (
               <Check className="w-5 h-5" />
             ) : (

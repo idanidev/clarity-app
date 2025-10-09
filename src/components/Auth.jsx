@@ -55,6 +55,17 @@ const Auth = () => {
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (err) {
+      if (err.code === "auth/unauthorized-domain") {
+        const host = window?.location?.hostname;
+        console.error("Google popup sign-in error", err);
+        setError(
+          `Dominio no autorizado${
+            host ? ` (${host})` : ""
+          }. Añádelo en Firebase Authentication → Configuración → Dominios autorizados.`
+        );
+        return;
+      }
+
       if (err.code === "auth/operation-not-supported-in-this-environment") {
         try {
           await signInWithRedirect(auth, googleProvider);
