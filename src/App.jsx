@@ -538,19 +538,22 @@ const ClarityExpenseApp = () => {
             </div>
 
             {/* Mes: misma altura/estilo que el icono */}
-            <div className="flex-1 min-w-0 sm:max-w-[180px]">
+            <div className="flex-1 min-w-0 basis-0 max-w-[180px] sm:max-w-[220px]">
               <input
                 type="month"
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
                 className="
-        w-full h-7 px-2 rounded-lg border border-purple-200 bg-white/80
-        text-sm leading-none outline-none
-        focus:border-purple-500 focus:ring-2 focus:ring-purple-200
-        [&::-webkit-datetime-edit]:p-0
-        [&::-webkit-datetime-edit]:leading-none
-        [&::-webkit-calendar-picker-indicator]:opacity-60
-      "
+                            w-full min-w-0 shrink
+                            [inline-size:100%]            /* Safari: respeta ancho del contenedor */
+                            rounded-lg border border-purple-200 bg-white/80
+                            h-7 px-2 text-sm leading-none outline-none
+                            focus:border-purple-500 focus:ring-2 focus:ring-purple-200
+                            [&::-webkit-datetime-edit]:p-0
+                            [&::-webkit-datetime-edit]:leading-none
+                            [&::-webkit-calendar-picker-indicator]:opacity-60
+                            appearance-none               /* (opcional) elimina UI nativa si molesta */
+                          "
               />
             </div>
 
@@ -643,8 +646,7 @@ const ClarityExpenseApp = () => {
                       const percentage = totalExpenses
                         ? ((categoryTotal / totalExpenses) * 100).toFixed(1)
                         : "0.0";
-                      const isExpanded =
-                        expandedCategories[category] !== false;
+                      const isExpanded = expandedCategories[category] !== false;
 
                       return (
                         <div
@@ -684,9 +686,10 @@ const ClarityExpenseApp = () => {
                                     0
                                   );
                                   const subPercentage = categoryTotal
-                                    ? ((subtotal / categoryTotal) * 100).toFixed(
-                                        1
-                                      )
+                                    ? (
+                                        (subtotal / categoryTotal) *
+                                        100
+                                      ).toFixed(1)
                                     : "0.0";
 
                                   return (
@@ -696,7 +699,8 @@ const ClarityExpenseApp = () => {
                                     >
                                       <span>{subcategory}</span>
                                       <span>
-                                        €{subtotal.toFixed(2)} ({subPercentage}%)
+                                        €{subtotal.toFixed(2)} ({subPercentage}
+                                        %)
                                       </span>
                                     </div>
                                   );
@@ -811,7 +815,9 @@ const ClarityExpenseApp = () => {
                                             €{expense.amount.toFixed(2)}
                                           </span>
                                           <button
-                                            onClick={() => handleEditExpense(expense)}
+                                            onClick={() =>
+                                              handleEditExpense(expense)
+                                            }
                                             className="p-2 rounded-lg hover:bg-purple-100 transition-all"
                                           >
                                             <Pencil className="w-4 h-4 text-purple-600" />
