@@ -4,6 +4,8 @@ import {
   BarChart3,
   BellRing,
   Check,
+  ChevronDown,
+  ChevronUp,
   Download,
   Filter,
   LogOut,
@@ -46,6 +48,7 @@ const ClarityExpenseApp = () => {
   const [filterCategory, setFilterCategory] = useState("Todas");
   const [notification, setNotification] = useState(null);
   const [editingExpense, setEditingExpense] = useState(null);
+  const [expandedCategories, setExpandedCategories] = useState({});
 
   const [expenses, setExpenses] = useState([]);
   const [categories, setCategories] = useState({});
@@ -103,6 +106,13 @@ const ClarityExpenseApp = () => {
   const showNotification = (message, type = "success") => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3000);
+  };
+
+  const toggleCategory = (category) => {
+    setExpandedCategories((prev) => ({
+      ...prev,
+      [category]: prev[category] === false ? true : false,
+    }));
   };
 
   const filteredExpenses = expenses.filter((exp) => {
@@ -623,33 +633,81 @@ const ClarityExpenseApp = () => {
                   </div>
                 </div>
 
-                {/* Leyenda */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {getChartData().map((item, index) => (
-                    <div
-                      key={item.category}
-                      className="flex items-center justify-between bg-white/60 rounded-xl p-3 border border-purple-100"
-                    >
-                      <div className="flex items-center gap-3">
+                {/* Desglose por categorías */}
+                <div className="space-y-3">
+                  {Object.entries(groupedExpenses).map(
+                    ([category, subcategories], index) => {
+                      const categoryTotal = Object.values(subcategories)
+                        .flat()
+                        .reduce((sum, exp) => sum + exp.amount, 0);
+                      const percentage = totalExpenses
+                        ? ((categoryTotal / totalExpenses) * 100).toFixed(1)
+                        : "0.0";
+                      const isExpanded =
+                        expandedCategories[category] !== false;
+
+                      return (
                         <div
-                          className={`w-4 h-4 rounded-full bg-gradient-to-r ${
-                            colors[index % colors.length]
-                          }`}
-                        ></div>
-                        <span className="font-medium text-purple-900">
-                          {item.category}
-                        </span>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-purple-900">
-                          €{item.amount.toFixed(2)}
-                        </p>
-                        <p className="text-xs text-purple-600">
-                          {item.percentage}%
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                          key={category}
+                          className="border border-purple-100 rounded-2xl overflow-hidden bg-white/60"
+                        >
+                          <button
+                            onClick={() => toggleCategory(category)}
+                            className="w-full px-4 py-3 flex items-center justify-between hover:bg-purple-50/60 transition-all"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div
+                                className={`w-3 h-3 rounded-full bg-gradient-to-r ${
+                                  colors[index % colors.length]
+                                }`}
+                              />
+                              <span className="font-medium text-purple-900">
+                                {category}
+                              </span>
+                              {isExpanded ? (
+                                <ChevronUp className="w-4 h-4 text-purple-600" />
+                              ) : (
+                                <ChevronDown className="w-4 h-4 text-purple-600" />
+                              )}
+                            </div>
+                            <span className="text-sm md:text-base text-purple-700 font-semibold">
+                              €{categoryTotal.toFixed(2)} ({percentage}%)
+                            </span>
+                          </button>
+
+                          {isExpanded && (
+                            <div className="px-4 pb-4 pt-2 bg-purple-50/40 space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                              {Object.entries(subcategories).map(
+                                ([subcategory, exps]) => {
+                                  const subtotal = exps.reduce(
+                                    (sum, exp) => sum + exp.amount,
+                                    0
+                                  );
+                                  const subPercentage = categoryTotal
+                                    ? ((subtotal / categoryTotal) * 100).toFixed(
+                                        1
+                                      )
+                                    : "0.0";
+
+                                  return (
+                                    <div
+                                      key={subcategory}
+                                      className="flex justify-between items-center text-sm text-purple-700 pl-6"
+                                    >
+                                      <span>{subcategory}</span>
+                                      <span>
+                                        €{subtotal.toFixed(2)} ({subPercentage}%)
+                                      </span>
+                                    </div>
+                                  );
+                                }
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+                  )}
                 </div>
               </div>
             )}
@@ -666,6 +724,7 @@ const ClarityExpenseApp = () => {
                   const categoryTotal = Object.values(subcategories)
                     .flat()
                     .reduce((sum, exp) => sum + exp.amount, 0);
+                  const isExpanded = expandedCategories[category] !== false;
 
                   return (
                     <div
@@ -673,7 +732,10 @@ const ClarityExpenseApp = () => {
                       className="backdrop-blur-xl bg-white/40 border border-white/60 rounded-2xl shadow-lg overflow-hidden"
                     >
                       {/* Category Header */}
-                      <div className="p-4 bg-purple-50/50 border-b border-purple-100">
+                      <button
+                        onClick={() => toggleCategory(category)}
+                        className="w-full p-4 bg-purple-50/50 border-b border-purple-100 hover:bg-purple-50/70 transition-all"
+                      >
                         <div className="flex justify-between items-center">
                           <div className="flex items-center gap-3">
                             <span className="font-bold text-purple-900 text-lg">
@@ -683,93 +745,98 @@ const ClarityExpenseApp = () => {
                               ({Object.values(subcategories).flat().length}{" "}
                               gastos)
                             </span>
+                            {isExpanded ? (
+                              <ChevronUp className="w-5 h-5 text-purple-600" />
+                            ) : (
+                              <ChevronDown className="w-5 h-5 text-purple-600" />
+                            )}
                           </div>
                           <span className="text-xl font-bold text-purple-900">
                             €{categoryTotal.toFixed(2)}
                           </span>
                         </div>
-                      </div>
+                      </button>
 
-                      {/* Subcategories - Siempre visibles */}
-                      <div>
-                        {Object.entries(subcategories).map(
-                          ([subcategory, exps]) => {
-                            const subtotal = exps.reduce(
-                              (sum, exp) => sum + exp.amount,
-                              0
-                            );
+                      {/* Subcategories - Expandibles */}
+                      {isExpanded && (
+                        <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                          {Object.entries(subcategories).map(
+                            ([subcategory, exps]) => {
+                              const subtotal = exps.reduce(
+                                (sum, exp) => sum + exp.amount,
+                                0
+                              );
 
-                            return (
-                              <div
-                                key={subcategory}
-                                className="border-b border-purple-100 last:border-b-0"
-                              >
-                                <div className="bg-purple-50/50 px-4 py-2 flex justify-between items-center">
-                                  <span className="font-medium text-purple-800">
-                                    {subcategory}
-                                  </span>
-                                  <span className="text-sm font-semibold text-purple-700">
-                                    €{subtotal.toFixed(2)}
-                                  </span>
-                                </div>
-                                <div className="divide-y divide-purple-100">
-                                  {exps.map((expense) => (
-                                    <div
-                                      key={expense.id}
-                                      className="px-4 py-3 hover:bg-white/30 transition-all flex justify-between items-center"
-                                    >
-                                      <div className="flex-1">
-                                        <p className="text-sm font-semibold text-purple-900 mb-1">
-                                          {expense.name || "Gasto sin nombre"}
-                                        </p>
-                                        <div className="flex items-center gap-2 mb-1">
-                                          <span className="text-sm text-purple-600">
-                                            {new Date(
-                                              expense.date
-                                            ).toLocaleDateString("es-ES")}
-                                          </span>
-                                          <span className="text-xs bg-white/60 px-2 py-1 rounded-full text-purple-600">
-                                            {expense.paymentMethod}
-                                          </span>
-                                          {expense.recurring && (
-                                            <span className="text-xs bg-pink-100 text-pink-600 px-2 py-1 rounded-full">
-                                              Recurrente
+                              return (
+                                <div
+                                  key={subcategory}
+                                  className="border-b border-purple-100 last:border-b-0"
+                                >
+                                  <div className="bg-purple-50/50 px-4 py-2 flex justify-between items-center">
+                                    <span className="font-medium text-purple-800">
+                                      {subcategory}
+                                    </span>
+                                    <span className="text-sm font-semibold text-purple-700">
+                                      €{subtotal.toFixed(2)}
+                                    </span>
+                                  </div>
+                                  <div className="divide-y divide-purple-100">
+                                    {exps.map((expense) => (
+                                      <div
+                                        key={expense.id}
+                                        className="px-4 py-3 hover:bg-white/30 transition-all flex justify-between items-center"
+                                      >
+                                        <div className="flex-1">
+                                          <p className="text-sm font-semibold text-purple-900 mb-1">
+                                            {expense.name || "Gasto sin nombre"}
+                                          </p>
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-sm text-purple-600">
+                                              {new Date(
+                                                expense.date
+                                              ).toLocaleDateString("es-ES")}
                                             </span>
-                                          )}
+                                            <span className="text-xs bg-white/60 px-2 py-1 rounded-full text-purple-600">
+                                              {expense.paymentMethod}
+                                            </span>
+                                            {expense.recurring && (
+                                              <span className="text-xs bg-pink-100 text-pink-600 px-2 py-1 rounded-full">
+                                                Recurrente
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-bold text-purple-900">
+                                            €{expense.amount.toFixed(2)}
+                                          </span>
+                                          <button
+                                            onClick={() => handleEditExpense(expense)}
+                                            className="p-2 rounded-lg hover:bg-purple-100 transition-all"
+                                          >
+                                            <Pencil className="w-4 h-4 text-purple-600" />
+                                          </button>
+                                          <button
+                                            onClick={() =>
+                                              setShowDeleteConfirm({
+                                                type: "expense",
+                                                id: expense.id,
+                                              })
+                                            }
+                                            className="p-2 rounded-lg hover:bg-red-100 transition-all"
+                                          >
+                                            <Trash2 className="w-4 h-4 text-red-600" />
+                                          </button>
                                         </div>
                                       </div>
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-bold text-purple-900">
-                                          €{expense.amount.toFixed(2)}
-                                        </span>
-                                        <button
-                                          onClick={() =>
-                                            handleEditExpense(expense)
-                                          }
-                                          className="p-2 rounded-lg hover:bg-purple-100 transition-all"
-                                        >
-                                          <Pencil className="w-4 h-4 text-purple-600" />
-                                        </button>
-                                        <button
-                                          onClick={() =>
-                                            setShowDeleteConfirm({
-                                              type: "expense",
-                                              id: expense.id,
-                                            })
-                                          }
-                                          className="p-2 rounded-lg hover:bg-red-100 transition-all"
-                                        >
-                                          <Trash2 className="w-4 h-4 text-red-600" />
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ))}
+                                    ))}
+                                  </div>
                                 </div>
-                              </div>
-                            );
-                          }
-                        )}
-                      </div>
+                              );
+                            }
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 }
