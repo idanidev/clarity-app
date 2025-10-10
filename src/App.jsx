@@ -538,7 +538,7 @@ const ClarityExpenseApp = () => {
             </div>
 
             {/* Mes: misma altura/estilo que el icono */}
-            <div className="flex-1 min-w-0 sm:max-w-[200px]">
+            <div className="flex-1 min-w-0 sm:max-w-[180px]">
               <input
                 type="month"
                 value={selectedMonth}
