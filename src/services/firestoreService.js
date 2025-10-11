@@ -1,16 +1,17 @@
 // src/services/firestoreService.js
 import {
-    addDoc,
-    collection,
-    deleteDoc,
-    doc,
-    getDoc,
-    getDocs,
-    onSnapshot,
-    orderBy,
-    query,
-    setDoc,
-    updateDoc,
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  onSnapshot,
+  orderBy,
+  query,
+  setDoc,
+  updateDoc,
+  where,
 } from "firebase/firestore";
 import { db } from "../firebase";
 
@@ -90,6 +91,98 @@ export const subscribeToExpenses = (userId, callback) => {
   );
 };
 
+// ==================== RECURRING EXPENSES ====================
+
+export const addRecurringExpense = async (userId, recurringData) => {
+  try {
+    const recurringRef = collection(db, "users", userId, "recurringExpenses");
+    const docRef = await addDoc(recurringRef, {
+      ...recurringData,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    return { id: docRef.id, ...recurringData };
+  } catch (error) {
+    console.error("Error adding recurring expense:", error);
+    throw error;
+  }
+};
+
+export const updateRecurringExpense = async (
+  userId,
+  recurringId,
+  recurringData
+) => {
+  try {
+    const recurringRef = doc(
+      db,
+      "users",
+      userId,
+      "recurringExpenses",
+      recurringId
+    );
+    await updateDoc(recurringRef, {
+      ...recurringData,
+      updatedAt: new Date().toISOString(),
+    });
+    return { id: recurringId, ...recurringData };
+  } catch (error) {
+    console.error("Error updating recurring expense:", error);
+    throw error;
+  }
+};
+
+export const deleteRecurringExpense = async (userId, recurringId) => {
+  try {
+    const recurringRef = doc(
+      db,
+      "users",
+      userId,
+      "recurringExpenses",
+      recurringId
+    );
+    await deleteDoc(recurringRef);
+  } catch (error) {
+    console.error("Error deleting recurring expense:", error);
+    throw error;
+  }
+};
+
+export const getRecurringExpenses = async (userId) => {
+  try {
+    const recurringRef = collection(db, "users", userId, "recurringExpenses");
+    const q = query(recurringRef, where("active", "==", true));
+    const querySnapshot = await getDocs(q);
+
+    return querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+  } catch (error) {
+    console.error("Error getting recurring expenses:", error);
+    throw error;
+  }
+};
+
+export const subscribeToRecurringExpenses = (userId, callback) => {
+  const recurringRef = collection(db, "users", userId, "recurringExpenses");
+  const q = query(recurringRef, where("active", "==", true));
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const recurring = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      callback(recurring);
+    },
+    (error) => {
+      console.error("Error in recurring expenses subscription:", error);
+    }
+  );
+};
+
 // ==================== CATEGORIES ====================
 
 export const saveCategories = async (userId, categories) => {
@@ -158,6 +251,36 @@ export const getBudgets = async (userId) => {
   return getUserBudgets(userId);
 };
 
+// ==================== THEME ====================
+
+export const saveTheme = async (userId, theme) => {
+  try {
+    const userDocRef = doc(db, "users", userId);
+    await updateDoc(userDocRef, {
+      theme,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error saving theme:", error);
+    throw error;
+  }
+};
+
+export const getUserTheme = async (userId) => {
+  try {
+    const userDocRef = doc(db, "users", userId);
+    const userDoc = await getDoc(userDocRef);
+
+    if (userDoc.exists()) {
+      return userDoc.data().theme || "light";
+    }
+    return "light";
+  } catch (error) {
+    console.error("Error getting theme:", error);
+    return "light";
+  }
+};
+
 // ==================== USER INITIALIZATION ====================
 
 export const initializeUser = async (userId, userData) => {
@@ -187,6 +310,9 @@ export const initializeUser = async (userId, userData) => {
       if (!currentData.budgets) {
         updateData.budgets = {};
       }
+      if (!currentData.theme) {
+        updateData.theme = "light";
+      }
 
       await updateDoc(userDocRef, updateData);
       return;
@@ -196,6 +322,7 @@ export const initializeUser = async (userId, userData) => {
       ...userData,
       categories: defaultCategories,
       budgets: {},
+      theme: "light",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
