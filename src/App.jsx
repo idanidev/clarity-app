@@ -18,7 +18,7 @@ import {
   Table as TableIcon,
   Target,
   Trash2,
-  X
+  X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import Auth from "./components/Auth";
@@ -62,6 +62,8 @@ const ClarityExpenseApp = () => {
   // NUEVOS Estados para modo oscuro y ajustes
   const [darkMode, setDarkMode] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showManagement, setShowManagement] = useState(false);
+  const [showRecurring, setShowRecurring] = useState(false);
   const [editingRecurring, setEditingRecurring] = useState(null);
   const [recurringExpenses, setRecurringExpenses] = useState([]);
   const [newRecurring, setNewRecurring] = useState({
@@ -526,45 +528,378 @@ const ClarityExpenseApp = () => {
           darkMode ? "border-gray-700" : "border-white/60"
         } sticky top-0 z-40`}
       >
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-              Clarity
-            </h1>
-            <p className={`text-xs ${textSecondaryClass}`}>{user.email}</p>
-          </div>
-          <div className="flex items-center gap-3">
-            {overBudgetCategories.length > 0 && (
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex justify-between items-center">
+            {/* Logo */}
+            <div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                Clarity
+              </h1>
+              <p className={`text-xs ${textSecondaryClass}`}>{user.email}</p>
+            </div>
+
+            {/* Navegación Desktop */}
+            <div className="hidden md:flex items-center gap-6">
+              {/* Inicio */}
               <button
-                onClick={() => setShowBudgets(true)}
-                className="relative p-2 rounded-xl bg-red-100 hover:bg-red-200 border border-red-200 transition-all"
-                title="Presupuesto superado"
-              >
-                <BellRing className="w-6 h-6 text-red-600" />
-                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
-                  {overBudgetCategories.length}
-                </span>
-              </button>
-            )}
-            <button
-              onClick={() => setShowMenu(true)}
-              className={`p-2 rounded-xl ${
-                darkMode
-                  ? "bg-gray-700 hover:bg-gray-600"
-                  : "bg-white/60 hover:bg-white/80"
-              } border ${
-                darkMode ? "border-gray-600" : "border-white/60"
-              } transition-all`}
-            >
-              <MenuIcon
-                className={`w-6 h-6 ${
-                  darkMode ? "text-purple-400" : "text-purple-600"
+                onClick={() => {
+                  setShowAddExpense(false);
+                  setShowBudgets(false);
+                  setShowCategories(false);
+                  setShowSettings(false);
+                  setShowRecurring(false);
+                  setShowManagement(false);
+                }}
+                className={`px-4 py-2 rounded-xl font-medium transition-all ${
+                  !showAddExpense &&
+                  !showBudgets &&
+                  !showCategories &&
+                  !showSettings &&
+                  !showRecurring
+                    ? "bg-purple-600 text-white"
+                    : darkMode
+                    ? "text-gray-300 hover:bg-gray-700"
+                    : "text-purple-600 hover:bg-white/60"
                 }`}
-              />
-            </button>
+              >
+                Inicio
+              </button>
+
+              {/* Gastos */}
+              <button
+                onClick={() => {
+                  setShowAddExpense(true);
+                  setShowManagement(false);
+                }}
+                className={`px-4 py-2 rounded-xl font-medium transition-all ${
+                  showAddExpense
+                    ? "bg-purple-600 text-white"
+                    : darkMode
+                    ? "text-gray-300 hover:bg-gray-700"
+                    : "text-purple-600 hover:bg-white/60"
+                }`}
+              >
+                Gastos
+              </button>
+
+              {/* Menú desplegable Gestión */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowManagement(!showManagement)}
+                  className={`px-4 py-2 rounded-xl font-medium transition-all flex items-center gap-2 ${
+                    showBudgets || showCategories || showRecurring
+                      ? "bg-purple-600 text-white"
+                      : darkMode
+                      ? "text-gray-300 hover:bg-gray-700"
+                      : "text-purple-600 hover:bg-white/60"
+                  }`}
+                >
+                  Gestión
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+
+                {showManagement && (
+                  <div
+                    className={`absolute top-full mt-2 right-0 ${
+                      darkMode ? "bg-gray-800" : "bg-white"
+                    } rounded-xl shadow-2xl border ${
+                      darkMode ? "border-gray-700" : "border-purple-100"
+                    } py-2 min-w-[200px] z-50`}
+                  >
+                    <button
+                      onClick={() => {
+                        setShowCategories(true);
+                        setShowManagement(false);
+                      }}
+                      className={`w-full px-4 py-2 text-left hover:bg-purple-50 ${
+                        darkMode ? "hover:bg-gray-700" : ""
+                      } transition-all ${textClass} font-medium`}
+                    >
+                      Categorías
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowBudgets(true);
+                        setShowManagement(false);
+                      }}
+                      className={`w-full px-4 py-2 text-left hover:bg-purple-50 ${
+                        darkMode ? "hover:bg-gray-700" : ""
+                      } transition-all ${textClass} font-medium`}
+                    >
+                      Presupuestos
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowRecurring(true);
+                        setShowManagement(false);
+                      }}
+                      className={`w-full px-4 py-2 text-left hover:bg-purple-50 ${
+                        darkMode ? "hover:bg-gray-700" : ""
+                      } transition-all ${textClass} font-medium`}
+                    >
+                      Gastos Recurrentes
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Ajustes */}
+              <button
+                onClick={() => {
+                  setShowSettings(true);
+                  setShowManagement(false);
+                }}
+                className={`px-4 py-2 rounded-xl font-medium transition-all flex items-center gap-2 ${
+                  showSettings
+                    ? "bg-purple-600 text-white"
+                    : darkMode
+                    ? "text-gray-300 hover:bg-gray-700"
+                    : "text-purple-600 hover:bg-white/60"
+                }`}
+              >
+                <SettingsIcon className="w-4 h-4" />
+                Ajustes
+              </button>
+
+              {/* Cerrar Sesión */}
+              <button
+                onClick={handleLogout}
+                className={`px-4 py-2 rounded-xl font-medium transition-all flex items-center gap-2 ${
+                  darkMode
+                    ? "text-red-400 hover:bg-gray-700"
+                    : "text-red-600 hover:bg-red-50"
+                }`}
+              >
+                <LogOut className="w-4 h-4" />
+                Cerrar Sesión
+              </button>
+            </div>
+
+            {/* Botón Menú Móvil */}
+            <div className="md:hidden flex items-center gap-3">
+              {overBudgetCategories.length > 0 && (
+                <button
+                  onClick={() => setShowBudgets(true)}
+                  className="relative p-2 rounded-xl bg-red-100 hover:bg-red-200 border border-red-200 transition-all"
+                  title="Presupuesto superado"
+                >
+                  <BellRing className="w-6 h-6 text-red-600" />
+                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
+                    {overBudgetCategories.length}
+                  </span>
+                </button>
+              )}
+              <button
+                onClick={() => setShowMenu(true)}
+                className={`p-2 rounded-xl ${
+                  darkMode
+                    ? "bg-gray-700 hover:bg-gray-600"
+                    : "bg-white/60 hover:bg-white/80"
+                } border ${
+                  darkMode ? "border-gray-600" : "border-white/60"
+                } transition-all`}
+              >
+                <MenuIcon
+                  className={`w-6 h-6 ${
+                    darkMode ? "text-purple-400" : "text-purple-600"
+                  }`}
+                />
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Panel Lateral Menú Móvil */}
+      {showMenu && (
+        <div className="fixed inset-0 z-50">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowMenu(false)}
+          ></div>
+          <div
+            className={`absolute right-0 top-0 h-full w-80 ${
+              darkMode ? "bg-gray-800" : "bg-white"
+            } shadow-2xl p-6 overflow-y-auto`}
+          >
+            <div className="flex justify-between items-center mb-8">
+              <h3 className={`text-2xl font-bold ${textClass}`}>Menú</h3>
+              <button
+                onClick={() => setShowMenu(false)}
+                className={`p-2 rounded-lg ${
+                  darkMode ? "hover:bg-gray-700" : "hover:bg-purple-100"
+                } transition-all`}
+              >
+                <X className={`w-6 h-6 ${textClass}`} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {/* Inicio */}
+              <button
+                onClick={() => {
+                  setShowMenu(false);
+                  setShowAddExpense(false);
+                  setShowBudgets(false);
+                  setShowCategories(false);
+                  setShowSettings(false);
+                  setShowRecurring(false);
+                }}
+                className={`w-full flex items-center gap-3 p-4 rounded-xl ${
+                  darkMode
+                    ? "bg-gray-700 hover:bg-gray-600"
+                    : "bg-purple-50 hover:bg-purple-100"
+                } transition-all`}
+              >
+                <TableIcon
+                  className={`w-5 h-5 ${
+                    darkMode ? "text-purple-400" : "text-purple-600"
+                  }`}
+                />
+                <span className={`font-medium ${textClass}`}>Inicio</span>
+              </button>
+
+              {/* Añadir Gasto */}
+              <button
+                onClick={() => {
+                  setShowMenu(false);
+                  setShowAddExpense(true);
+                }}
+                className={`w-full flex items-center gap-3 p-4 rounded-xl ${
+                  darkMode
+                    ? "bg-gray-700 hover:bg-gray-600"
+                    : "bg-purple-50 hover:bg-purple-100"
+                } transition-all`}
+              >
+                <Plus
+                  className={`w-5 h-5 ${
+                    darkMode ? "text-purple-400" : "text-purple-600"
+                  }`}
+                />
+                <span className={`font-medium ${textClass}`}>Añadir Gasto</span>
+              </button>
+
+              <div
+                className={`h-px ${
+                  darkMode ? "bg-gray-700" : "bg-gray-200"
+                } my-2`}
+              ></div>
+
+              {/* Categorías */}
+              <button
+                onClick={() => {
+                  setShowMenu(false);
+                  setShowCategories(true);
+                }}
+                className={`w-full flex items-center gap-3 p-4 rounded-xl ${
+                  darkMode
+                    ? "bg-gray-700 hover:bg-gray-600"
+                    : "bg-purple-50 hover:bg-purple-100"
+                } transition-all`}
+              >
+                <Filter
+                  className={`w-5 h-5 ${
+                    darkMode ? "text-purple-400" : "text-purple-600"
+                  }`}
+                />
+                <span className={`font-medium ${textClass}`}>Categorías</span>
+              </button>
+
+              {/* Presupuestos */}
+              <button
+                onClick={() => {
+                  setShowMenu(false);
+                  setShowBudgets(true);
+                }}
+                className={`w-full flex items-center gap-3 p-4 rounded-xl ${
+                  darkMode
+                    ? "bg-gray-700 hover:bg-gray-600"
+                    : "bg-purple-50 hover:bg-purple-100"
+                } transition-all`}
+              >
+                <Target
+                  className={`w-5 h-5 ${
+                    darkMode ? "text-purple-400" : "text-purple-600"
+                  }`}
+                />
+                <span className={`font-medium ${textClass}`}>Presupuestos</span>
+              </button>
+
+              {/* Gastos Recurrentes */}
+              <button
+                onClick={() => {
+                  setShowMenu(false);
+                  setShowRecurring(true);
+                }}
+                className={`w-full flex items-center gap-3 p-4 rounded-xl ${
+                  darkMode
+                    ? "bg-gray-700 hover:bg-gray-600"
+                    : "bg-purple-50 hover:bg-purple-100"
+                } transition-all`}
+              >
+                <Clock
+                  className={`w-5 h-5 ${
+                    darkMode ? "text-purple-400" : "text-purple-600"
+                  }`}
+                />
+                <span className={`font-medium ${textClass}`}>
+                  Gastos Recurrentes
+                </span>
+              </button>
+
+              <div
+                className={`h-px ${
+                  darkMode ? "bg-gray-700" : "bg-gray-200"
+                } my-2`}
+              ></div>
+
+              {/* Ajustes */}
+              <button
+                onClick={() => {
+                  setShowSettings(true);
+                  setShowManagement(false);
+                }}
+                className={`px-4 py-2 rounded-xl font-medium transition-all flex items-center gap-2 ${
+                  showSettings
+                    ? "bg-purple-600 text-white"
+                    : darkMode
+                    ? "text-gray-300 hover:bg-gray-700"
+                    : "text-purple-600 hover:bg-white/60"
+                }`}
+              >
+                <SettingsIcon
+                  className={`w-5 h-5 ${
+                    darkMode ? "text-purple-400" : "text-purple-600"
+                  }`}
+                />
+                <span className={`font-medium ${textClass}`}>Ajustes</span>
+              </button>
+
+              {/* Cerrar Sesión */}
+              <button
+                onClick={() => {
+                  setShowMenu(false);
+                  handleLogout();
+                }}
+                className={`w-full flex items-center gap-3 p-4 rounded-xl ${
+                  darkMode
+                    ? "bg-red-900/50 hover:bg-red-900"
+                    : "bg-red-50 hover:bg-red-100"
+                } transition-all`}
+              >
+                <LogOut className="w-5 h-5 text-red-600" />
+                <span
+                  className={`font-medium ${
+                    darkMode ? "text-red-400" : "text-red-600"
+                  }`}
+                >
+                  Cerrar Sesión
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Notificación */}
       {notification && (
@@ -593,9 +928,7 @@ const ClarityExpenseApp = () => {
           <div className={`${cardClass} rounded-2xl p-4 border shadow-lg`}>
             <div className="flex flex-col items-center text-center">
               <Target className={`w-5 h-5 mb-2 ${textSecondaryClass}`} />
-              <span
-                className={`text-xs font-medium mb-1 ${textSecondaryClass}`}
-              >
+              <span className={`text-xl font-bold mb-1 ${textSecondaryClass}`}>
                 Total
               </span>
               <p className={`text-xl md:text-2xl font-bold ${textClass}`}>
@@ -992,21 +1325,21 @@ const ClarityExpenseApp = () => {
                             currentAngle += angle;
 
                             const startX =
-                              50 + 40 * Math.cos((startAngle * Math.PI) / 180);
+                              50 + 45 * Math.cos((startAngle * Math.PI) / 180);
                             const startY =
-                              50 + 40 * Math.sin((startAngle * Math.PI) / 180);
+                              50 + 45 * Math.sin((startAngle * Math.PI) / 180);
                             const endX =
                               50 +
-                              40 * Math.cos((currentAngle * Math.PI) / 180);
+                              45 * Math.cos((currentAngle * Math.PI) / 180);
                             const endY =
                               50 +
-                              40 * Math.sin((currentAngle * Math.PI) / 180);
+                              45 * Math.sin((currentAngle * Math.PI) / 180);
                             const largeArc = angle > 180 ? 1 : 0;
 
                             return (
                               <path
                                 key={item.category}
-                                d={`M 50 50 L ${startX} ${startY} A 40 40 0 ${largeArc} 1 ${endX} ${endY} Z`}
+                                d={`M 50 50 L ${startX} ${startY} A 45 45 0 ${largeArc} 1 ${endX} ${endY} Z`}
                                 className={`fill-current ${
                                   colors[index % colors.length]
                                 } opacity-90 hover:opacity-100 transition-all cursor-pointer`}
@@ -1021,22 +1354,28 @@ const ClarityExpenseApp = () => {
                       <circle
                         cx="50"
                         cy="50"
-                        r="20"
+                        r="32"
                         fill="white"
                         className="transform rotate-90"
                       />
                     </svg>
 
-                    {/* Centro de la gráfica - Mejorado */}
+                    {/* Centro de la gráfica */}
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div
-                        className={`text-center ${
-                          darkMode ? "text-gray-900" : "text-purple-900"
-                        }`}
-                      >
-                        <p className="text-xs font-medium mb-0.5">Total</p>
-                        <p className="text-2xl font-bold">
-                          €{totalExpenses.toFixed(0)}
+                      <div className="text-center">
+                        {/* <p
+                          className={`text-xl font-bold mb-0.5 ${
+                            darkMode ? "text-gray-900" : "text-purple-900"
+                          }`}
+                        >
+                          Total
+                        </p> */}
+                        <p
+                          className={`text-3xl font-bold ${
+                            darkMode ? "text-gray-900" : "text-purple-900"
+                          }`}
+                        >
+                          {totalExpenses.toFixed(0)}€
                         </p>
                       </div>
                     </div>
@@ -1296,7 +1635,7 @@ const ClarityExpenseApp = () => {
                         ></div>
                       </div>
                       {isOverBudget && (
-                        <p className="text-sm text-red-600 font-medium flex items-center gap-2 mt-2">
+                        <p className="text-sm text-red-600 font-medium flex items-center gap-2mt-2">
                           <AlertTriangle className="w-4 h-4" />
                           ¡Presupuesto superado en €
                           {(spent - budget).toFixed(2)}!
@@ -1746,119 +2085,11 @@ const ClarityExpenseApp = () => {
         </div>
       )}
 
-      {/* Panel Lateral Menú */}
-      {showMenu && (
-        <div className="fixed inset-0 z-50">
-          <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowMenu(false)}
-          ></div>
-          <div
-            className={`absolute right-0 top-0 h-full w-80 ${
-              darkMode ? "bg-gray-800" : "bg-white"
-            } shadow-2xl p-6 overflow-y-auto`}
-          >
-            <div className="flex justify-between items-center mb-8">
-              <h3 className={`text-2xl font-bold ${textClass}`}>Menú</h3>
-              <button
-                onClick={() => setShowMenu(false)}
-                className={`p-2 rounded-lg ${
-                  darkMode ? "hover:bg-gray-700" : "hover:bg-purple-100"
-                } transition-all`}
-              >
-                <X className={`w-6 h-6 ${textClass}`} />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <button
-                onClick={() => {
-                  setShowMenu(false);
-                  setShowSettings(true);
-                }}
-                className={`w-full flex items-center gap-3 p-4 rounded-xl ${
-                  darkMode
-                    ? "bg-gray-700 hover:bg-gray-600"
-                    : "bg-purple-50 hover:bg-purple-100"
-                } transition-all`}
-              >
-                <SettingsIcon
-                  className={`w-5 h-5 ${
-                    darkMode ? "text-purple-400" : "text-purple-600"
-                  }`}
-                />
-                <span className={`font-medium ${textClass}`}>Ajustes</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setShowMenu(false);
-                  setShowCategories(true);
-                }}
-                className={`w-full flex items-center gap-3 p-4 rounded-xl ${
-                  darkMode
-                    ? "bg-gray-700 hover:bg-gray-600"
-                    : "bg-purple-50 hover:bg-purple-100"
-                } transition-all`}
-              >
-                <Filter
-                  className={`w-5 h-5 ${
-                    darkMode ? "text-purple-400" : "text-purple-600"
-                  }`}
-                />
-                <span className={`font-medium ${textClass}`}>
-                  Gestionar Categorías
-                </span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setShowMenu(false);
-                  setShowBudgets(true);
-                }}
-                className={`w-full flex items-center gap-3 p-4 rounded-xl ${
-                  darkMode
-                    ? "bg-gray-700 hover:bg-gray-600"
-                    : "bg-purple-50 hover:bg-purple-100"
-                } transition-all`}
-              >
-                <Target
-                  className={`w-5 h-5 ${
-                    darkMode ? "text-purple-400" : "text-purple-600"
-                  }`}
-                />
-                <span className={`font-medium ${textClass}`}>
-                  Gestionar Presupuestos
-                </span>
-              </button>
-
-              <button
-                onClick={handleLogout}
-                className={`w-full flex items-center gap-3 p-4 rounded-xl ${
-                  darkMode
-                    ? "bg-red-900/50 hover:bg-red-900"
-                    : "bg-red-50 hover:bg-red-100"
-                } transition-all`}
-              >
-                <LogOut className="w-5 h-5 text-red-600" />
-                <span
-                  className={`font-medium ${
-                    darkMode ? "text-red-400" : "text-red-600"
-                  }`}
-                >
-                  Cerrar Sesión
-                </span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Modal Ajustes */}
       {showSettings && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div
-            className={`${cardClass} rounded-2xl p-6 max-w-2xl w-full border shadow-2xl max-h-[90vh] overflow-y-auto`}
+            className={`${cardClass} rounded-2xl p-6 max-w-md w-full border shadow-2xl max-h-[90vh] overflow-y-auto`}
           >
             <div className="flex justify-between items-center mb-6">
               <h3 className={`text-2xl font-bold ${textClass}`}>Ajustes</h3>
@@ -1918,204 +2149,235 @@ const ClarityExpenseApp = () => {
                 </div>
               </div>
 
-              {/* Gestionar Gastos Recurrentes */}
-              <div>
-                <h4 className={`text-lg font-bold ${textClass} mb-4`}>
-                  Gastos Recurrentes
-                </h4>
+              {/* Información de la app */}
+              <div
+                className={`p-4 rounded-xl ${
+                  darkMode ? "bg-gray-700" : "bg-purple-50"
+                }`}
+              >
+                <p className={`font-medium ${textClass} mb-2`}>
+                  Acerca de Clarity
+                </p>
+                <p className={`text-sm ${textSecondaryClass}`}>
+                  Versión 1.0.0 - Gestión de gastos personales
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
-                {/* Formulario añadir recurrente */}
-                <form onSubmit={handleAddRecurring} className="space-y-3 mb-4">
+      {/* Modal Gastos Recurrentes */}
+      {showRecurring && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div
+            className={`${cardClass} rounded-2xl p-6 max-w-2xl w-full border shadow-2xl max-h-[90vh] overflow-y-auto`}
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h3 className={`text-2xl font-bold ${textClass}`}>
+                Gastos Recurrentes
+              </h3>
+              <button
+                onClick={() => {
+                  setShowMenu(false);
+                  setShowRecurring(false);
+                }}
+                className={`p-2 rounded-lg ${
+                  darkMode ? "hover:bg-gray-700" : "hover:bg-purple-100"
+                } transition-all`}
+              >
+                <X className={`w-6 h-6 ${textClass}`} />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Formulario añadir recurrente */}
+              <form onSubmit={handleAddRecurring} className="space-y-3">
+                <input
+                  type="text"
+                  placeholder="Nombre"
+                  value={newRecurring.name}
+                  onChange={(e) =>
+                    setNewRecurring({ ...newRecurring, name: e.target.value })
+                  }
+                  className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                  required
+                />
+
+                <div className="grid grid-cols-2 gap-3">
                   <input
-                    type="text"
-                    placeholder="Nombre"
-                    value={newRecurring.name}
+                    type="number"
+                    step="0.01"
+                    placeholder="Cantidad"
+                    value={newRecurring.amount}
                     onChange={(e) =>
-                      setNewRecurring({ ...newRecurring, name: e.target.value })
+                      setNewRecurring({
+                        ...newRecurring,
+                        amount: e.target.value,
+                      })
                     }
-                    className={`w-full px-4 py-2 rounded-xl border ${inputClass} text-sm focus:ring-2 focus:border-transparent`}
+                    className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
                     required
                   />
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder="Cantidad"
-                      value={newRecurring.amount}
-                      onChange={(e) =>
-                        setNewRecurring({
-                          ...newRecurring,
-                          amount: e.target.value,
-                        })
-                      }
-                      className={`w-full px-4 py-2 rounded-xl border ${inputClass} text-sm focus:ring-2 focus:border-transparent`}
-                      required
-                    />
-
-                    <select
-                      value={newRecurring.category}
-                      onChange={(e) =>
-                        setNewRecurring({
-                          ...newRecurring,
-                          category: e.target.value,
-                          subcategory: "",
-                        })
-                      }
-                      className={`w-full px-4 py-2 rounded-xl border ${inputClass} text-sm focus:ring-2 focus:border-transparent`}
-                      required
-                    >
-                      <option value="">Categoría</option>
-                      {Object.keys(categories).map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {newRecurring.category && (
-                    <select
-                      value={newRecurring.subcategory}
-                      onChange={(e) =>
-                        setNewRecurring({
-                          ...newRecurring,
-                          subcategory: e.target.value,
-                        })
-                      }
-                      className={`w-full px-4 py-2 rounded-xl border ${inputClass} text-sm focus:ring-2 focus:border-transparent`}
-                      required
-                    >
-                      <option value="">Subcategoría</option>
-                      {categories[newRecurring.category]?.map((sub) => (
-                        <option key={sub} value={sub}>
-                          {sub}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <input
-                      type="number"
-                      min="1"
-                      max="31"
-                      placeholder="Día del mes"
-                      value={newRecurring.dayOfMonth}
-                      onChange={(e) =>
-                        setNewRecurring({
-                          ...newRecurring,
-                          dayOfMonth: parseInt(e.target.value),
-                        })
-                      }
-                      className={`w-full px-4 py-2 rounded-xl border ${inputClass} text-sm focus:ring-2 focus:border-transparent`}
-                      required
-                    />
-
-                    <select
-                      value={newRecurring.paymentMethod}
-                      onChange={(e) =>
-                        setNewRecurring({
-                          ...newRecurring,
-                          paymentMethod: e.target.value,
-                        })
-                      }
-                      className={`w-full px-4 py-2 rounded-xl border ${inputClass} text-sm focus:ring-2 focus:border-transparent`}
-                    >
-                      <option value="Tarjeta">Tarjeta</option>
-                      <option value="Efectivo">Efectivo</option>
-                      <option value="Bizum">Bizum</option>
-                      <option value="Transferencia">Transferencia</option>
-                    </select>
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="w-full py-2 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all text-sm"
+                  <select
+                    value={newRecurring.category}
+                    onChange={(e) =>
+                      setNewRecurring({
+                        ...newRecurring,
+                        category: e.target.value,
+                        subcategory: "",
+                      })
+                    }
+                    className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                    required
                   >
-                    <Plus className="w-4 h-4 inline mr-2" />
-                    Añadir Recurrente
-                  </button>
-                </form>
+                    <option value="">Categoría</option>
+                    {Object.keys(categories).map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-                {/* Lista de recurrentes */}
-                {recurringExpenses.length === 0 ? (
-                  <p
-                    className={`text-center ${textSecondaryClass} py-4 text-sm`}
+                {newRecurring.category && (
+                  <select
+                    value={newRecurring.subcategory}
+                    onChange={(e) =>
+                      setNewRecurring({
+                        ...newRecurring,
+                        subcategory: e.target.value,
+                      })
+                    }
+                    className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                    required
                   >
-                    No hay gastos recurrentes
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {recurringExpenses.map((recurring) => (
-                      <div
-                        key={recurring.id}
-                        className={`p-3 rounded-xl ${
-                          darkMode ? "bg-gray-700" : "bg-white"
-                        } border ${
-                          darkMode ? "border-gray-600" : "border-purple-100"
-                        }`}
-                      >
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <p className={`font-semibold text-sm ${textClass}`}>
-                              {recurring.name}
-                            </p>
-                            <p className={`text-xs ${textSecondaryClass}`}>
-                              {recurring.category} • {recurring.subcategory}
-                            </p>
-                            <p className={`text-xs ${textSecondaryClass} mt-1`}>
-                              Día {recurring.dayOfMonth} •{" "}
-                              {recurring.paymentMethod}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className={`font-bold text-sm ${textClass}`}>
-                              €{recurring.amount.toFixed(2)}
-                            </span>
-                            <button
-                              onClick={() =>
-                                handleUpdateRecurring(recurring.id, {
-                                  active: !recurring.active,
-                                })
-                              }
-                              className={`p-1 rounded ${
+                    <option value="">Subcategoría</option>
+                    {categories[newRecurring.category]?.map((sub) => (
+                      <option key={sub} value={sub}>
+                        {sub}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    type="number"
+                    min="1"
+                    max="31"
+                    placeholder="Día del mes"
+                    value={newRecurring.dayOfMonth}
+                    onChange={(e) =>
+                      setNewRecurring({
+                        ...newRecurring,
+                        dayOfMonth: parseInt(e.target.value),
+                      })
+                    }
+                    className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                    required
+                  />
+
+                  <select
+                    value={newRecurring.paymentMethod}
+                    onChange={(e) =>
+                      setNewRecurring({
+                        ...newRecurring,
+                        paymentMethod: e.target.value,
+                      })
+                    }
+                    className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                  >
+                    <option value="Tarjeta">Tarjeta</option>
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="Bizum">Bizum</option>
+                    <option value="Transferencia">Transferencia</option>
+                  </select>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all"
+                >
+                  <Plus className="w-4 h-4 inline mr-2" />
+                  Añadir Recurrente
+                </button>
+              </form>
+
+              {/* Lista de recurrentes */}
+              {recurringExpenses.length === 0 ? (
+                <p className={`text-center ${textSecondaryClass} py-8`}>
+                  No hay gastos recurrentes
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {recurringExpenses.map((recurring) => (
+                    <div
+                      key={recurring.id}
+                      className={`p-4 rounded-xl ${
+                        darkMode ? "bg-gray-700" : "bg-white"
+                      } border ${
+                        darkMode ? "border-gray-600" : "border-purple-100"
+                      }`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <p className={`font-semibold ${textClass}`}>
+                            {recurring.name}
+                          </p>
+                          <p className={`text-sm ${textSecondaryClass}`}>
+                            {recurring.category} • {recurring.subcategory}
+                          </p>
+                          <p className={`text-sm ${textSecondaryClass} mt-1`}>
+                            Día {recurring.dayOfMonth} •{" "}
+                            {recurring.paymentMethod}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`font-bold ${textClass}`}>
+                            €{recurring.amount.toFixed(2)}
+                          </span>
+                          <button
+                            onClick={() =>
+                              handleUpdateRecurring(recurring.id, {
+                                active: !recurring.active,
+                              })
+                            }
+                            className={`p-2 rounded ${
+                              recurring.active
+                                ? darkMode
+                                  ? "bg-green-900/50"
+                                  : "bg-green-100"
+                                : darkMode
+                                ? "bg-gray-600"
+                                : "bg-gray-200"
+                            }`}
+                          >
+                            <Check
+                              className={`w-4 h-4 ${
                                 recurring.active
-                                  ? darkMode
-                                    ? "bg-green-900/50"
-                                    : "bg-green-100"
-                                  : darkMode
-                                  ? "bg-gray-600"
-                                  : "bg-gray-200"
+                                  ? "text-green-600"
+                                  : "text-gray-400"
                               }`}
-                            >
-                              <Check
-                                className={`w-4 h-4 ${
-                                  recurring.active
-                                    ? "text-green-600"
-                                    : "text-gray-400"
-                                }`}
-                              />
-                            </button>
-                            <button
-                              onClick={() =>
-                                handleDeleteRecurring(recurring.id)
-                              }
-                              className={`p-1 rounded ${
-                                darkMode
-                                  ? "hover:bg-red-900/50"
-                                  : "hover:bg-red-100"
-                              }`}
-                            >
-                              <Trash2 className="w-4 h-4 text-red-600" />
-                            </button>
-                          </div>
+                            />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteRecurring(recurring.id)}
+                            className={`p-2 rounded ${
+                              darkMode
+                                ? "hover:bg-red-900/50"
+                                : "hover:bg-red-100"
+                            }`}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

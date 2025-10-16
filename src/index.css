@@ -90,3 +90,10 @@ input[type="month"] {
 .dark *:focus-visible {
   outline: 2px solid rgba(167, 139, 250, 0.5);
 }
+
+input[type="date"],
+input[type="month"] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
