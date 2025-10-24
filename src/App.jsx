@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   BarChart3,
   BellRing,
+  Calendar,
   Check,
   ChevronDown,
   ChevronUp,
@@ -74,6 +75,7 @@ const ClarityExpenseApp = () => {
     dayOfMonth: 1,
     paymentMethod: "Tarjeta",
     active: true,
+    endDate: "", // Fecha de fin opcional
   });
 
   // Estados de filtros
@@ -90,7 +92,8 @@ const ClarityExpenseApp = () => {
     subcategory: "",
     date: new Date().toISOString().slice(0, 10),
     paymentMethod: "Tarjeta",
-    recurring: false,
+    isRecurring: false,
+    recurringId: null, // ID del gasto recurrente si aplica
   });
 
   const [editingExpense, setEditingExpense] = useState(null);
@@ -137,7 +140,7 @@ const ClarityExpenseApp = () => {
           }
         );
 
-        // Cargar gastos recurrentes
+        // Cargar gastos recurrentes (todos, activos e inactivos)
         const recurring = await getRecurringExpenses(currentUser.uid);
         setRecurringExpenses(recurring);
 
@@ -166,10 +169,22 @@ const ClarityExpenseApp = () => {
     if (!user) return;
 
     try {
-      await addRecurringExpense(user.uid, {
-        ...newRecurring,
+      const recurringData = {
+        name: newRecurring.name,
         amount: parseFloat(newRecurring.amount),
-      });
+        category: newRecurring.category,
+        subcategory: newRecurring.subcategory,
+        dayOfMonth: parseInt(newRecurring.dayOfMonth),
+        paymentMethod: newRecurring.paymentMethod,
+        active: true,
+      };
+
+      // Solo agregar endDate si se ha especificado
+      if (newRecurring.endDate) {
+        recurringData.endDate = newRecurring.endDate;
+      }
+
+      await addRecurringExpense(user.uid, recurringData);
 
       setNewRecurring({
         name: "",
@@ -179,13 +194,15 @@ const ClarityExpenseApp = () => {
         dayOfMonth: 1,
         paymentMethod: "Tarjeta",
         active: true,
+        endDate: "",
       });
 
       const updated = await getRecurringExpenses(user.uid);
       setRecurringExpenses(updated);
 
-      showNotification("Gasto recurrente añadido", "success");
+      showNotification("Gasto recurrente añadido correctamente", "success");
     } catch (error) {
+      console.error("Error añadiendo gasto recurrente:", error);
       showNotification("Error al añadir gasto recurrente", "error");
     }
   };
@@ -247,7 +264,8 @@ const ClarityExpenseApp = () => {
         subcategory: "",
         date: new Date().toISOString().slice(0, 10),
         paymentMethod: "Tarjeta",
-        recurring: false,
+        isRecurring: false,
+        recurringId: null,
       });
 
       setShowAddExpense(false);
@@ -605,6 +623,7 @@ const ClarityExpenseApp = () => {
                     } rounded-xl shadow-2xl border ${
                       darkMode ? "border-gray-700" : "border-purple-100"
                     } py-2 min-w-[200px] z-50`}
+                    onMouseDown={(e) => e.stopPropagation()}
                   >
                     <button
                       onClick={() => {
@@ -856,16 +875,14 @@ const ClarityExpenseApp = () => {
               {/* Ajustes */}
               <button
                 onClick={() => {
+                  setShowMenu(false);
                   setShowSettings(true);
-                  setShowManagement(false);
                 }}
-                className={`px-4 py-2 rounded-xl font-medium transition-all flex items-center gap-2 ${
-                  showSettings
-                    ? "bg-purple-600 text-white"
-                    : darkMode
-                    ? "text-gray-300 hover:bg-gray-700"
-                    : "text-purple-600 hover:bg-white/60"
-                }`}
+                className={`w-full flex items-center gap-3 p-4 rounded-xl ${
+                  darkMode
+                    ? "bg-gray-700 hover:bg-gray-600"
+                    : "bg-purple-50 hover:bg-purple-100"
+                } transition-all`}
               >
                 <SettingsIcon
                   className={`w-5 h-5 ${
@@ -1199,12 +1216,26 @@ const ClarityExpenseApp = () => {
                                           } transition-all flex justify-between items-center`}
                                         >
                                           <div className="flex-1">
-                                            <p
-                                              className={`text-sm font-semibold ${textClass} mb-1`}
-                                            >
-                                              {expense.name ||
-                                                "Gasto sin nombre"}
-                                            </p>
+                                            <div className="flex items-center gap-2 mb-1">
+                                              <p
+                                                className={`text-sm font-semibold ${textClass}`}
+                                              >
+                                                {expense.name ||
+                                                  "Gasto sin nombre"}
+                                              </p>
+                                              {expense.isRecurring && (
+                                                <span
+                                                  className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${
+                                                    darkMode
+                                                      ? "bg-blue-900/50 text-blue-400"
+                                                      : "bg-blue-100 text-blue-700"
+                                                  }`}
+                                                >
+                                                  <Clock className="w-3 h-3" />
+                                                  Recurrente
+                                                </span>
+                                              )}
+                                            </div>
                                             <div className="flex items-center gap-2 mb-1">
                                               <span
                                                 className={`text-sm ${textSecondaryClass}`}
@@ -1363,13 +1394,6 @@ const ClarityExpenseApp = () => {
                     {/* Centro de la gráfica */}
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="text-center">
-                        {/* <p
-                          className={`text-xl font-bold mb-0.5 ${
-                            darkMode ? "text-gray-900" : "text-purple-900"
-                          }`}
-                        >
-                          Total
-                        </p> */}
                         <p
                           className={`text-3xl font-bold ${
                             darkMode ? "text-gray-900" : "text-purple-900"
@@ -1635,7 +1659,7 @@ const ClarityExpenseApp = () => {
                         ></div>
                       </div>
                       {isOverBudget && (
-                        <p className="text-sm text-red-600 font-medium flex items-center gap-2mt-2">
+                        <p className="text-sm text-red-600 font-medium flex items-center gap-2 mt-2">
                           <AlertTriangle className="w-4 h-4" />
                           ¡Presupuesto superado en €
                           {(spent - budget).toFixed(2)}!
@@ -1688,9 +1712,25 @@ const ClarityExpenseApp = () => {
                   >
                     <div className="flex justify-between items-start gap-2 mb-2">
                       <div className="flex-1 min-w-0">
-                        <p className={`font-semibold ${textClass} truncate`}>
-                          {expense.name}
-                        </p>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className={`font-semibold ${textClass} truncate`}>
+                            {expense.name}
+                          </p>
+                          {expense.isRecurring && (
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 flex-shrink-0 ${
+                                darkMode
+                                  ? "bg-blue-900/50 text-blue-400"
+                                  : "bg-blue-100 text-blue-700"
+                              }`}
+                            >
+                              <Clock className="w-3 h-3" />
+                              <span className="hidden sm:inline">
+                                Recurrente
+                              </span>
+                            </span>
+                          )}
+                        </div>
                         <p
                           className={`text-xs sm:text-sm ${textSecondaryClass} truncate`}
                         >
@@ -2167,16 +2207,21 @@ const ClarityExpenseApp = () => {
         </div>
       )}
 
-      {/* Modal Gastos Recurrentes */}
+      {/* Modal Gastos Recurrentes - MEJORADO */}
       {showRecurring && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div
             className={`${cardClass} rounded-2xl p-6 max-w-2xl w-full border shadow-2xl max-h-[90vh] overflow-y-auto`}
           >
             <div className="flex justify-between items-center mb-6">
-              <h3 className={`text-2xl font-bold ${textClass}`}>
-                Gastos Recurrentes
-              </h3>
+              <div>
+                <h3 className={`text-2xl font-bold ${textClass}`}>
+                  Gastos Recurrentes
+                </h3>
+                <p className={`text-sm ${textSecondaryClass} mt-1`}>
+                  Gestiona tus pagos mensuales automáticos
+                </p>
+              </div>
               <button
                 onClick={() => {
                   setShowMenu(false);
@@ -2191,193 +2236,423 @@ const ClarityExpenseApp = () => {
             </div>
 
             <div className="space-y-6">
-              {/* Formulario añadir recurrente */}
-              <form onSubmit={handleAddRecurring} className="space-y-3">
-                <input
-                  type="text"
-                  placeholder="Nombre"
-                  value={newRecurring.name}
-                  onChange={(e) =>
-                    setNewRecurring({ ...newRecurring, name: e.target.value })
-                  }
-                  className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
-                  required
-                />
-
-                <div className="grid grid-cols-2 gap-3">
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="Cantidad"
-                    value={newRecurring.amount}
-                    onChange={(e) =>
-                      setNewRecurring({
-                        ...newRecurring,
-                        amount: e.target.value,
-                      })
-                    }
-                    className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
-                    required
-                  />
-
-                  <select
-                    value={newRecurring.category}
-                    onChange={(e) =>
-                      setNewRecurring({
-                        ...newRecurring,
-                        category: e.target.value,
-                        subcategory: "",
-                      })
-                    }
-                    className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
-                    required
-                  >
-                    <option value="">Categoría</option>
-                    {Object.keys(categories).map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {newRecurring.category && (
-                  <select
-                    value={newRecurring.subcategory}
-                    onChange={(e) =>
-                      setNewRecurring({
-                        ...newRecurring,
-                        subcategory: e.target.value,
-                      })
-                    }
-                    className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
-                    required
-                  >
-                    <option value="">Subcategoría</option>
-                    {categories[newRecurring.category]?.map((sub) => (
-                      <option key={sub} value={sub}>
-                        {sub}
-                      </option>
-                    ))}
-                  </select>
-                )}
-
-                <div className="grid grid-cols-2 gap-3">
-                  <input
-                    type="number"
-                    min="1"
-                    max="31"
-                    placeholder="Día del mes"
-                    value={newRecurring.dayOfMonth}
-                    onChange={(e) =>
-                      setNewRecurring({
-                        ...newRecurring,
-                        dayOfMonth: parseInt(e.target.value),
-                      })
-                    }
-                    className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
-                    required
-                  />
-
-                  <select
-                    value={newRecurring.paymentMethod}
-                    onChange={(e) =>
-                      setNewRecurring({
-                        ...newRecurring,
-                        paymentMethod: e.target.value,
-                      })
-                    }
-                    className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
-                  >
-                    <option value="Tarjeta">Tarjeta</option>
-                    <option value="Efectivo">Efectivo</option>
-                    <option value="Bizum">Bizum</option>
-                    <option value="Transferencia">Transferencia</option>
-                  </select>
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all"
-                >
-                  <Plus className="w-4 h-4 inline mr-2" />
-                  Añadir Recurrente
-                </button>
-              </form>
-
-              {/* Lista de recurrentes */}
-              {recurringExpenses.length === 0 ? (
-                <p className={`text-center ${textSecondaryClass} py-8`}>
-                  No hay gastos recurrentes
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {recurringExpenses.map((recurring) => (
-                    <div
-                      key={recurring.id}
-                      className={`p-4 rounded-xl ${
-                        darkMode ? "bg-gray-700" : "bg-white"
-                      } border ${
-                        darkMode ? "border-gray-600" : "border-purple-100"
-                      }`}
+              {/* Formulario añadir recurrente - MEJORADO */}
+              <div
+                className={`p-4 rounded-xl ${
+                  darkMode ? "bg-gray-700/50" : "bg-purple-50/50"
+                } border ${darkMode ? "border-gray-600" : "border-purple-200"}`}
+              >
+                <h4 className={`text-lg font-semibold ${textClass} mb-4`}>
+                  Añadir Nuevo Gasto Recurrente
+                </h4>
+                <form onSubmit={handleAddRecurring} className="space-y-3">
+                  {/* Nombre */}
+                  <div>
+                    <label
+                      className={`block text-sm font-medium ${textClass} mb-1`}
                     >
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <p className={`font-semibold ${textClass}`}>
-                            {recurring.name}
-                          </p>
-                          <p className={`text-sm ${textSecondaryClass}`}>
-                            {recurring.category} • {recurring.subcategory}
-                          </p>
-                          <p className={`text-sm ${textSecondaryClass} mt-1`}>
-                            Día {recurring.dayOfMonth} •{" "}
-                            {recurring.paymentMethod}
-                          </p>
+                      Nombre del gasto
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ej: Netflix, Alquiler, Gimnasio..."
+                      value={newRecurring.name}
+                      onChange={(e) =>
+                        setNewRecurring({
+                          ...newRecurring,
+                          name: e.target.value,
+                        })
+                      }
+                      className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                      required
+                    />
+                  </div>
+
+                  {/* Cantidad y Día del mes */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label
+                        className={`block text-sm font-medium ${textClass} mb-1`}
+                      >
+                        Cantidad (€)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={newRecurring.amount}
+                        onChange={(e) =>
+                          setNewRecurring({
+                            ...newRecurring,
+                            amount: e.target.value,
+                          })
+                        }
+                        className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        className={`block text-sm font-medium ${textClass} mb-1`}
+                      >
+                        Día del mes
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="31"
+                        placeholder="1-31"
+                        value={newRecurring.dayOfMonth}
+                        onChange={(e) =>
+                          setNewRecurring({
+                            ...newRecurring,
+                            dayOfMonth: parseInt(e.target.value),
+                          })
+                        }
+                        className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Categoría y Método de pago */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label
+                        className={`block text-sm font-medium ${textClass} mb-1`}
+                      >
+                        Categoría
+                      </label>
+                      <select
+                        value={newRecurring.category}
+                        onChange={(e) =>
+                          setNewRecurring({
+                            ...newRecurring,
+                            category: e.target.value,
+                            subcategory: "",
+                          })
+                        }
+                        className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                        required
+                      >
+                        <option value="">Seleccionar</option>
+                        {Object.keys(categories).map((cat) => (
+                          <option key={cat} value={cat}>
+                            {cat}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label
+                        className={`block text-sm font-medium ${textClass} mb-1`}
+                      >
+                        Método de pago
+                      </label>
+                      <select
+                        value={newRecurring.paymentMethod}
+                        onChange={(e) =>
+                          setNewRecurring({
+                            ...newRecurring,
+                            paymentMethod: e.target.value,
+                          })
+                        }
+                        className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                      >
+                        <option value="Tarjeta">Tarjeta</option>
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Bizum">Bizum</option>
+                        <option value="Transferencia">Transferencia</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Subcategoría (solo si hay categoría seleccionada) */}
+                  {newRecurring.category && (
+                    <div>
+                      <label
+                        className={`block text-sm font-medium ${textClass} mb-1`}
+                      >
+                        Subcategoría
+                      </label>
+                      <select
+                        value={newRecurring.subcategory}
+                        onChange={(e) =>
+                          setNewRecurring({
+                            ...newRecurring,
+                            subcategory: e.target.value,
+                          })
+                        }
+                        className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                        required
+                      >
+                        <option value="">Seleccionar subcategoría</option>
+                        {categories[newRecurring.category]?.map((sub) => (
+                          <option key={sub} value={sub}>
+                            {sub}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Fecha de fin OPCIONAL */}
+                  <div>
+                    <label
+                      className={`block text-sm font-medium ${textClass} mb-1`}
+                    >
+                      Fecha de fin (opcional)
+                      <span className={`text-xs ml-2 ${textSecondaryClass}`}>
+                        Déjalo vacío si no tiene fin
+                      </span>
+                    </label>
+                    <div className="relative">
+                      <Calendar
+                        className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${textSecondaryClass}`}
+                      />
+                      <input
+                        type="date"
+                        value={newRecurring.endDate}
+                        onChange={(e) =>
+                          setNewRecurring({
+                            ...newRecurring,
+                            endDate: e.target.value,
+                          })
+                        }
+                        min={new Date().toISOString().split("T")[0]}
+                        className={`w-full pl-10 pr-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                  >
+                    <Plus className="w-5 h-5" />
+                    Añadir Gasto Recurrente
+                  </button>
+                </form>
+              </div>
+
+              {/* Lista de recurrentes - MEJORADA */}
+              <div>
+                <h4 className={`text-lg font-semibold ${textClass} mb-3`}>
+                  Gastos Recurrentes Activos
+                </h4>
+                {recurringExpenses.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Clock
+                      className={`w-16 h-16 ${textSecondaryClass} mx-auto mb-4`}
+                    />
+                    <p className={`${textClass} font-medium mb-2`}>
+                      No hay gastos recurrentes todavía
+                    </p>
+                    <p className={`text-sm ${textSecondaryClass}`}>
+                      Añade tus suscripciones y pagos mensuales aquí
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {recurringExpenses.map((recurring) => (
+                      <div
+                        key={recurring.id}
+                        className={`p-4 rounded-xl ${
+                          darkMode ? "bg-gray-700" : "bg-white"
+                        } border ${
+                          darkMode ? "border-gray-600" : "border-purple-100"
+                        } hover:shadow-md transition-all ${
+                          !recurring.active ? "opacity-50" : ""
+                        }`}
+                      >
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <h5
+                                className={`font-bold text-lg ${
+                                  recurring.active
+                                    ? textClass
+                                    : darkMode
+                                    ? "text-gray-500"
+                                    : "text-gray-400"
+                                }`}
+                              >
+                                {recurring.name}
+                              </h5>
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  recurring.active
+                                    ? darkMode
+                                      ? "bg-green-900/50 text-green-400"
+                                      : "bg-green-100 text-green-700"
+                                    : darkMode
+                                    ? "bg-gray-600 text-gray-400"
+                                    : "bg-gray-200 text-gray-600"
+                                }`}
+                              >
+                                {recurring.active ? "Activo" : "Pausado"}
+                              </span>
+                            </div>
+                            <div
+                              className={`flex flex-wrap items-center gap-x-4 gap-y-1 text-sm ${
+                                recurring.active
+                                  ? textSecondaryClass
+                                  : darkMode
+                                  ? "text-gray-600"
+                                  : "text-gray-400"
+                              }`}
+                            >
+                              <span className="flex items-center gap-1">
+                                <span className="font-medium">Categoría:</span>
+                                {recurring.category} • {recurring.subcategory}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Calendar className="w-4 h-4" />
+                                Día {recurring.dayOfMonth} de cada mes
+                              </span>
+                              <span>{recurring.paymentMethod}</span>
+                            </div>
+                            {recurring.endDate && (
+                              <div
+                                className={`mt-2 flex items-center gap-1 text-sm ${
+                                  darkMode
+                                    ? "text-orange-400"
+                                    : "text-orange-600"
+                                }`}
+                              >
+                                <AlertTriangle className="w-4 h-4" />
+                                Finaliza el{" "}
+                                {new Date(recurring.endDate).toLocaleDateString(
+                                  "es-ES"
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 ml-4">
+                            <div className="text-right">
+                              <p
+                                className={`text-2xl font-bold ${
+                                  recurring.active
+                                    ? textClass
+                                    : darkMode
+                                    ? "text-gray-500"
+                                    : "text-gray-400"
+                                }`}
+                              >
+                                €{recurring.amount.toFixed(2)}
+                              </p>
+                              <p
+                                className={`text-xs mt-0.5 ${
+                                  recurring.active
+                                    ? textSecondaryClass
+                                    : darkMode
+                                    ? "text-gray-600"
+                                    : "text-gray-400"
+                                }`}
+                              >
+                                por mes
+                              </p>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className={`font-bold ${textClass}`}>
-                            €{recurring.amount.toFixed(2)}
-                          </span>
+
+                        <div className="flex gap-2 pt-3 border-t border-purple-100">
                           <button
                             onClick={() =>
                               handleUpdateRecurring(recurring.id, {
                                 active: !recurring.active,
                               })
                             }
-                            className={`p-2 rounded ${
+                            className={`flex-1 py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-2 ${
                               recurring.active
                                 ? darkMode
-                                  ? "bg-green-900/50"
-                                  : "bg-green-100"
+                                  ? "bg-orange-900/50 hover:bg-orange-900"
+                                  : "bg-orange-100 hover:bg-orange-200"
                                 : darkMode
-                                ? "bg-gray-600"
-                                : "bg-gray-200"
+                                ? "bg-green-900/50 hover:bg-green-900"
+                                : "bg-green-100 hover:bg-green-200"
                             }`}
                           >
-                            <Check
-                              className={`w-4 h-4 ${
-                                recurring.active
-                                  ? "text-green-600"
-                                  : "text-gray-400"
-                              }`}
-                            />
+                            {recurring.active ? (
+                              <>
+                                <X className="w-4 h-4" />
+                                <span
+                                  className={`text-sm font-medium ${
+                                    darkMode
+                                      ? "text-orange-400"
+                                      : "text-orange-700"
+                                  }`}
+                                >
+                                  Pausar
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <Check className="w-4 h-4" />
+                                <span
+                                  className={`text-sm font-medium ${
+                                    darkMode
+                                      ? "text-green-400"
+                                      : "text-green-700"
+                                  }`}
+                                >
+                                  Reactivar
+                                </span>
+                              </>
+                            )}
                           </button>
                           <button
-                            onClick={() => handleDeleteRecurring(recurring.id)}
-                            className={`p-2 rounded ${
+                            onClick={() =>
+                              setShowDeleteConfirm({
+                                type: "recurring",
+                                id: recurring.id,
+                              })
+                            }
+                            className={`py-2 px-4 rounded-lg transition-all flex items-center gap-2 ${
                               darkMode
-                                ? "hover:bg-red-900/50"
-                                : "hover:bg-red-100"
+                                ? "bg-red-900/50 hover:bg-red-900"
+                                : "bg-red-100 hover:bg-red-200"
                             }`}
                           >
                             <Trash2 className="w-4 h-4 text-red-600" />
+                            <span className="text-sm font-medium text-red-600">
+                              Eliminar
+                            </span>
                           </button>
                         </div>
                       </div>
+                    ))}
+
+                    {/* Resumen total */}
+                    <div
+                      className={`p-4 rounded-xl ${
+                        darkMode
+                          ? "bg-purple-900/30 border-purple-700"
+                          : "bg-purple-50 border-purple-200"
+                      } border-2`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className={`font-semibold ${textClass}`}>
+                          Total Gastos Recurrentes Mensuales
+                        </span>
+                        <span
+                          className={`text-2xl font-bold ${
+                            darkMode ? "text-purple-400" : "text-purple-600"
+                          }`}
+                        >
+                          €
+                          {recurringExpenses
+                            .filter((r) => r.active)
+                            .reduce((sum, r) => sum + r.amount, 0)
+                            .toFixed(2)}
+                        </span>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -2698,6 +2973,8 @@ const ClarityExpenseApp = () => {
                       );
                     } else if (showDeleteConfirm.type === "budget") {
                       handleDeleteBudget(showDeleteConfirm.category);
+                    } else if (showDeleteConfirm.type === "recurring") {
+                      handleDeleteRecurring(showDeleteConfirm.id);
                     }
                   }}
                   className="flex-1 py-3 rounded-xl bg-gradient-to-r from-red-600 to-red-700 text-white font-semibold hover:shadow-lg transition-all"

@@ -10,8 +10,7 @@ import {
   orderBy,
   query,
   setDoc,
-  updateDoc,
-  where,
+  updateDoc
 } from "firebase/firestore";
 import { db } from "../firebase";
 
@@ -151,8 +150,8 @@ export const deleteRecurringExpense = async (userId, recurringId) => {
 export const getRecurringExpenses = async (userId) => {
   try {
     const recurringRef = collection(db, "users", userId, "recurringExpenses");
-    const q = query(recurringRef, where("active", "==", true));
-    const querySnapshot = await getDocs(q);
+    // Traer TODOS los gastos recurrentes (activos e inactivos)
+    const querySnapshot = await getDocs(recurringRef);
 
     return querySnapshot.docs.map((doc) => ({
       id: doc.id,
@@ -166,10 +165,10 @@ export const getRecurringExpenses = async (userId) => {
 
 export const subscribeToRecurringExpenses = (userId, callback) => {
   const recurringRef = collection(db, "users", userId, "recurringExpenses");
-  const q = query(recurringRef, where("active", "==", true));
+  // Traer TODOS los gastos recurrentes (activos e inactivos)
 
   return onSnapshot(
-    q,
+    recurringRef,
     (snapshot) => {
       const recurring = snapshot.docs.map((doc) => ({
         id: doc.id,
