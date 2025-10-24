@@ -255,4 +255,4 @@ Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) par
 
 ⭐ ¡Si te gusta el proyecto, dale una estrella en GitHub!
 
-**Made with 💜 by [Tu Nombre]**
+**Made with 💜 by idanidev**

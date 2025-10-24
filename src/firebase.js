@@ -1,25 +1,29 @@
-// src/firebase.js
-import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeApp } from 'firebase/app';
+import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 
+// Tu configuración de Firebase
+// IMPORTANTE: Reemplaza esto con tu propia configuración de Firebase Console
 const firebaseConfig = {
-  apiKey: "AIzaSyCFhaSfL2VGvSA0PtSCRISB7l_e9ig1kSI",
-  authDomain: "clarity-gastos.firebaseapp.com",
-  projectId: "clarity-gastos",
-  storageBucket: "clarity-gastos.firebasestorage.app",
-  messagingSenderId: "318846020421",
-  appId: "1:318846020421:web:d55aadfbe492db8d29ec2c",
-  measurementId: "G-WWTL6X7SV1",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "YOUR_API_KEY",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "YOUR_PROJECT_ID",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "YOUR_SENDER_ID",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "YOUR_APP_ID"
 };
 
-// Initialize Firebase
+// Inicializar Firebase
 const app = initializeApp(firebaseConfig);
 
-// Export services
+// Inicializar servicios
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
-googleProvider.setCustomParameters({ prompt: "select_account" });
+
+// Configurar Google Provider
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+});
 
 export default app;

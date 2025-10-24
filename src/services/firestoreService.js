@@ -1,31 +1,50 @@
-// src/services/firestoreService.js
 import {
-  addDoc,
   collection,
-  deleteDoc,
   doc,
   getDoc,
-  getDocs,
-  onSnapshot,
-  orderBy,
-  query,
   setDoc,
   updateDoc,
+  deleteDoc,
+  query,
   where,
+  getDocs,
+  orderBy,
+  Timestamp,
 } from "firebase/firestore";
 import { db } from "../firebase";
 
 // ==================== EXPENSES ====================
 
+export const fetchExpenses = async (userId) => {
+  try {
+    const expensesRef = collection(db, "users", userId, "expenses");
+    const q = query(expensesRef, orderBy("date", "desc"));
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+      date: doc.data().date?.toDate?.() || new Date(doc.data().date),
+    }));
+  } catch (error) {
+    console.error("Error fetching expenses:", error);
+    throw error;
+  }
+};
+
 export const addExpense = async (userId, expenseData) => {
   try {
     const expensesRef = collection(db, "users", userId, "expenses");
-    const docRef = await addDoc(expensesRef, {
+    const newDocRef = doc(expensesRef);
+
+    const expense = {
       ...expenseData,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-    return { id: docRef.id, ...expenseData };
+      date: Timestamp.fromDate(new Date(expenseData.date)),
+      createdAt: Timestamp.now(),
+    };
+
+    await setDoc(newDocRef, expense);
+    return { id: newDocRef.id, ...expense };
   } catch (error) {
     console.error("Error adding expense:", error);
     throw error;
@@ -35,11 +54,18 @@ export const addExpense = async (userId, expenseData) => {
 export const updateExpense = async (userId, expenseId, expenseData) => {
   try {
     const expenseRef = doc(db, "users", userId, "expenses", expenseId);
-    await updateDoc(expenseRef, {
+
+    const expense = {
       ...expenseData,
-      updatedAt: new Date().toISOString(),
-    });
-    return { id: expenseId, ...expenseData };
+      date:
+        expenseData.date instanceof Date
+          ? Timestamp.fromDate(expenseData.date)
+          : expenseData.date,
+      updatedAt: Timestamp.now(),
+    };
+
+    await updateDoc(expenseRef, expense);
+    return { id: expenseId, ...expense };
   } catch (error) {
     console.error("Error updating expense:", error);
     throw error;
@@ -50,58 +76,98 @@ export const deleteExpense = async (userId, expenseId) => {
   try {
     const expenseRef = doc(db, "users", userId, "expenses", expenseId);
     await deleteDoc(expenseRef);
+    return expenseId;
   } catch (error) {
     console.error("Error deleting expense:", error);
     throw error;
   }
 };
 
-export const getExpenses = async (userId) => {
-  try {
-    const expensesRef = collection(db, "users", userId, "expenses");
-    const q = query(expensesRef, orderBy("date", "desc"));
-    const querySnapshot = await getDocs(q);
+// ==================== CATEGORIES ====================
 
-    return querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+export const fetchCategories = async (userId) => {
+  try {
+    const userRef = doc(db, "users", userId);
+    const userDoc = await getDoc(userRef);
+
+    if (userDoc.exists()) {
+      return userDoc.data().categories || {};
+    }
+    return {};
   } catch (error) {
-    console.error("Error getting expenses:", error);
+    console.error("Error fetching categories:", error);
     throw error;
   }
 };
 
-export const subscribeToExpenses = (userId, callback) => {
-  const expensesRef = collection(db, "users", userId, "expenses");
-  const q = query(expensesRef, orderBy("date", "desc"));
+export const saveCategories = async (userId, categories) => {
+  try {
+    const userRef = doc(db, "users", userId);
+    await setDoc(userRef, { categories }, { merge: true });
+    return categories;
+  } catch (error) {
+    console.error("Error saving categories:", error);
+    throw error;
+  }
+};
 
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      const expenses = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      callback(expenses);
-    },
-    (error) => {
-      console.error("Error in expenses subscription:", error);
+// ==================== BUDGETS ====================
+
+export const fetchBudgets = async (userId) => {
+  try {
+    const userRef = doc(db, "users", userId);
+    const userDoc = await getDoc(userRef);
+
+    if (userDoc.exists()) {
+      return userDoc.data().budgets || {};
     }
-  );
+    return {};
+  } catch (error) {
+    console.error("Error fetching budgets:", error);
+    throw error;
+  }
+};
+
+export const saveBudgets = async (userId, budgets) => {
+  try {
+    const userRef = doc(db, "users", userId);
+    await setDoc(userRef, { budgets }, { merge: true });
+    return budgets;
+  } catch (error) {
+    console.error("Error saving budgets:", error);
+    throw error;
+  }
 };
 
 // ==================== RECURRING EXPENSES ====================
 
+export const fetchRecurringExpenses = async (userId) => {
+  try {
+    const recurringRef = collection(db, "users", userId, "recurringExpenses");
+    const snapshot = await getDocs(recurringRef);
+
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+  } catch (error) {
+    console.error("Error fetching recurring expenses:", error);
+    throw error;
+  }
+};
+
 export const addRecurringExpense = async (userId, recurringData) => {
   try {
     const recurringRef = collection(db, "users", userId, "recurringExpenses");
-    const docRef = await addDoc(recurringRef, {
+    const newDocRef = doc(recurringRef);
+
+    const recurring = {
       ...recurringData,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-    return { id: docRef.id, ...recurringData };
+      createdAt: Timestamp.now(),
+    };
+
+    await setDoc(newDocRef, recurring);
+    return { id: newDocRef.id, ...recurring };
   } catch (error) {
     console.error("Error adding recurring expense:", error);
     throw error;
@@ -121,11 +187,14 @@ export const updateRecurringExpense = async (
       "recurringExpenses",
       recurringId
     );
-    await updateDoc(recurringRef, {
+
+    const recurring = {
       ...recurringData,
-      updatedAt: new Date().toISOString(),
-    });
-    return { id: recurringId, ...recurringData };
+      updatedAt: Timestamp.now(),
+    };
+
+    await updateDoc(recurringRef, recurring);
+    return { id: recurringId, ...recurring };
   } catch (error) {
     console.error("Error updating recurring expense:", error);
     throw error;
@@ -142,192 +211,54 @@ export const deleteRecurringExpense = async (userId, recurringId) => {
       recurringId
     );
     await deleteDoc(recurringRef);
+    return recurringId;
   } catch (error) {
     console.error("Error deleting recurring expense:", error);
     throw error;
   }
 };
 
-export const getRecurringExpenses = async (userId) => {
+// ==================== USER SETTINGS ====================
+
+export const fetchUserSettings = async (userId) => {
   try {
-    const recurringRef = collection(db, "users", userId, "recurringExpenses");
-    const q = query(recurringRef, where("active", "==", true));
-    const querySnapshot = await getDocs(q);
-
-    return querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-  } catch (error) {
-    console.error("Error getting recurring expenses:", error);
-    throw error;
-  }
-};
-
-export const subscribeToRecurringExpenses = (userId, callback) => {
-  const recurringRef = collection(db, "users", userId, "recurringExpenses");
-  const q = query(recurringRef, where("active", "==", true));
-
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      const recurring = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      callback(recurring);
-    },
-    (error) => {
-      console.error("Error in recurring expenses subscription:", error);
-    }
-  );
-};
-
-// ==================== CATEGORIES ====================
-
-export const saveCategories = async (userId, categories) => {
-  try {
-    const userDocRef = doc(db, "users", userId);
-    await updateDoc(userDocRef, {
-      categories,
-      updatedAt: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error("Error saving categories:", error);
-    throw error;
-  }
-};
-
-export const getUserCategories = async (userId) => {
-  try {
-    const userDocRef = doc(db, "users", userId);
-    const userDoc = await getDoc(userDocRef);
+    const userRef = doc(db, "users", userId);
+    const userDoc = await getDoc(userRef);
 
     if (userDoc.exists()) {
-      return userDoc.data().categories || null;
+      return userDoc.data().settings || {};
     }
-    return null;
+    return {};
   } catch (error) {
-    console.error("Error getting categories:", error);
+    console.error("Error fetching user settings:", error);
     throw error;
   }
 };
 
-export const getCategories = async (userId) => {
-  return getUserCategories(userId);
-};
-
-// ==================== BUDGETS ====================
-
-export const saveBudgets = async (userId, budgets) => {
+export const saveUserSettings = async (userId, settings) => {
   try {
-    const userDocRef = doc(db, "users", userId);
-    await updateDoc(userDocRef, {
-      budgets,
-      updatedAt: new Date().toISOString(),
-    });
+    const userRef = doc(db, "users", userId);
+    await setDoc(userRef, { settings }, { merge: true });
+    return settings;
   } catch (error) {
-    console.error("Error saving budgets:", error);
+    console.error("Error saving user settings:", error);
     throw error;
   }
 };
-
-export const getUserBudgets = async (userId) => {
-  try {
-    const userDocRef = doc(db, "users", userId);
-    const userDoc = await getDoc(userDocRef);
-
-    if (userDoc.exists()) {
-      return userDoc.data().budgets || null;
-    }
-    return null;
-  } catch (error) {
-    console.error("Error getting budgets:", error);
-    throw error;
-  }
-};
-
-export const getBudgets = async (userId) => {
-  return getUserBudgets(userId);
-};
-
-// ==================== THEME ====================
 
 export const saveTheme = async (userId, theme) => {
   try {
-    const userDocRef = doc(db, "users", userId);
-    await updateDoc(userDocRef, {
-      theme,
-      updatedAt: new Date().toISOString(),
-    });
+    const userRef = doc(db, "users", userId);
+    await setDoc(
+      userRef,
+      {
+        settings: { theme },
+      },
+      { merge: true }
+    );
+    return theme;
   } catch (error) {
     console.error("Error saving theme:", error);
-    throw error;
-  }
-};
-
-export const getUserTheme = async (userId) => {
-  try {
-    const userDocRef = doc(db, "users", userId);
-    const userDoc = await getDoc(userDocRef);
-
-    if (userDoc.exists()) {
-      return userDoc.data().theme || "light";
-    }
-    return "light";
-  } catch (error) {
-    console.error("Error getting theme:", error);
-    return "light";
-  }
-};
-
-// ==================== USER INITIALIZATION ====================
-
-export const initializeUser = async (userId, userData) => {
-  try {
-    const userDocRef = doc(db, "users", userId);
-    const userDoc = await getDoc(userDocRef);
-    const defaultCategories = {
-      Alimentacion: ["Supermercado", "Restaurantes", "Cafeterias"],
-      Transporte: ["Combustible", "Transporte publico", "Taxi"],
-      Vivienda: ["Alquiler", "Hipoteca", "Suministros"],
-      Ocio: ["Streaming", "Deportes", "Hobbies"],
-      Salud: ["Medico", "Farmacia", "Gimnasio"],
-      Compras: ["Ropa", "Electronica", "Otros"],
-      Educacion: ["Cursos", "Libros", "Material"],
-    };
-
-    if (userDoc.exists()) {
-      const updateData = {
-        ...userData,
-        updatedAt: new Date().toISOString(),
-      };
-
-      const currentData = userDoc.data();
-      if (!currentData.categories) {
-        updateData.categories = defaultCategories;
-      }
-      if (!currentData.budgets) {
-        updateData.budgets = {};
-      }
-      if (!currentData.theme) {
-        updateData.theme = "light";
-      }
-
-      await updateDoc(userDocRef, updateData);
-      return;
-    }
-
-    await setDoc(userDocRef, {
-      ...userData,
-      categories: defaultCategories,
-      budgets: {},
-      theme: "light",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error("Error initializing user:", error);
     throw error;
   }
 };
