@@ -466,222 +466,174 @@ const RecurringExpensesModal = ({
             )}
           </div>
 
-          {/* editing handled in dedicated dialog */}
-
           {editingRecurring && (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
-              <div
-                className={`${cardClass} w-full max-w-xl rounded-2xl border shadow-2xl ${
-                  darkMode ? "bg-gray-800" : "bg-white"
-                }`}
-              >
-                <div
-                  className={`flex items-center justify-between px-6 py-4 border-b ${
-                    darkMode ? "border-gray-700" : "border-purple-100"
-                  }`}
+            <div
+              className={`p-4 rounded-xl ${
+                darkMode ? "bg-gray-800" : "bg-white"
+              } border ${darkMode ? "border-gray-700" : "border-purple-100"}`}
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h4 className={`text-lg font-semibold ${textClass}`}>
+                  Editar Gasto Recurrente
+                </h4>
+                <button
+                  onClick={onCancelEdit}
+                  className={`p-2 rounded-lg ${
+                    darkMode ? "hover:bg-gray-700" : "hover:bg-purple-100"
+                  } transition-all`}
                 >
-                  <h4 className={`text-lg font-semibold ${textClass}`}>
-                    Editar Gasto Recurrente
-                  </h4>
-                  <button
-                    onClick={onCancelEdit}
-                    className={`p-2 rounded-lg ${
-                      darkMode ? "hover:bg-gray-700" : "hover:bg-purple-100"
-                    } transition-all`}
-                    aria-label="Cerrar edición de gasto recurrente"
-                  >
-                    <X className={`w-5 h-5 ${textClass}`} />
-                  </button>
+                  <X className={`w-5 h-5 ${textClass}`} />
+                </button>
+              </div>
+
+              <form onSubmit={onSubmitEditRecurring} className="space-y-3">
+                <div>
+                  <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                    Nombre del gasto
+                  </label>
+                  <input
+                    type="text"
+                    value={editingRecurring.name}
+                    onChange={(e) => updateEditingRecurring("name", e.target.value)}
+                    className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                    required
+                  />
                 </div>
 
-                <form onSubmit={onSubmitEditRecurring} className="px-6 py-5 space-y-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className={`block text-sm font-medium ${textClass} mb-2`}>
-                      Nombre del gasto
+                      Cantidad (€)
                     </label>
                     <input
-                      type="text"
-                      value={editingRecurring.name}
-                      onChange={(e) => updateEditingRecurring("name", e.target.value)}
+                      type="number"
+                      step="0.01"
+                      value={editingRecurring.amount}
+                      onChange={(e) => updateEditingRecurring("amount", e.target.value)}
                       className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
                       required
                     />
                   </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className={`block text-sm font-medium ${textClass} mb-2`}>
-                        Cantidad (€)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={editingRecurring.amount}
-                        onChange={(e) => updateEditingRecurring("amount", e.target.value)}
-                        className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className={`block text-sm font-medium ${textClass} mb-2`}>
-                        Categoría
-                      </label>
-                      <select
-                        value={editingRecurring.category}
-                        onChange={(e) =>
-                          onEditingRecurringChange({
-                            ...editingRecurring,
-                            category: e.target.value,
-                            subcategory: "",
-                          })
-                        }
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onTouchStart={(e) => e.stopPropagation()}
-                        className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
-                        required
-                      >
-                        <option value="">Seleccionar categoría</option>
-                        {Object.keys(categories).map((cat) => (
-                          <option key={cat} value={cat}>
-                            {cat}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  {editingRecurring.category && (
-                    <div>
-                      <label className={`block text-sm font-medium ${textClass} mb-2`}>
-                        Subcategoría
-                      </label>
-                      <select
-                        value={editingRecurring.subcategory}
-                        onChange={(e) => updateEditingRecurring("subcategory", e.target.value)}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onTouchStart={(e) => e.stopPropagation()}
-                        className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
-                        required
-                      >
-                        <option value="">Seleccionar subcategoría</option>
-                        {categories[editingRecurring.category]?.map((sub) => (
-                          <option key={sub} value={sub}>
-                            {sub}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className={`block text-sm font-medium ${textClass} mb-2`}>
-                        Día del mes
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="31"
-                        value={editingRecurring.dayOfMonth}
-                        onChange={(e) => updateEditingRecurring("dayOfMonth", e.target.value)}
-                        className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className={`block text-sm font-medium ${textClass} mb-2`}>
-                        Método de pago
-                      </label>
-                      <select
-                        value={editingRecurring.paymentMethod}
-                        onChange={(e) => updateEditingRecurring("paymentMethod", e.target.value)}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onTouchStart={(e) => e.stopPropagation()}
-                        className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
-                      >
-                        <option value="Tarjeta">Tarjeta</option>
-                        <option value="Efectivo">Efectivo</option>
-                        <option value="Bizum">Bizum</option>
-                        <option value="Transferencia">Transferencia</option>
-                      </select>
-                    </div>
-                  </div>
-
                   <div>
                     <label className={`block text-sm font-medium ${textClass} mb-2`}>
-                      Fecha de fin (opcional)
-                      <span className={`text-xs ml-2 ${textSecondaryClass}`}>
-                        Déjalo vacío si no tiene fin
-                      </span>
+                      Categoría
                     </label>
-                    <div className="relative">
-                      <Calendar
-                        className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${textSecondaryClass} pointer-events-none`}
-                      />
-                      <input
-                        type="date"
-                        value={editingRecurring.endDate || ""}
-                        onChange={(e) => updateEditingRecurring("endDate", e.target.value)}
-                        className={`w-full pl-10 pr-10 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
-                      />
-                      {editingRecurring.endDate && (
-                        <button
-                          type="button"
-                          onClick={() => updateEditingRecurring("endDate", "")}
-                          className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded ${
-                            darkMode ? "hover:bg-gray-700" : "hover:bg-purple-100"
-                          }`}
-                          aria-label="Limpiar fecha"
-                          title="Limpiar fecha"
-                        >
-                          <X className={`w-4 h-4 ${textSecondaryClass}`} />
-                        </button>
-                      )}
-                    </div>
+                    <select
+                      value={editingRecurring.category}
+                      onChange={(e) =>
+                        onEditingRecurringChange({
+                          ...editingRecurring,
+                          category: e.target.value,
+                          subcategory: "",
+                        })
+                      }
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onTouchStart={(e) => e.stopPropagation()}
+                      className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                      required
+                    >
+                      {Object.keys(categories).map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
                   </div>
+                </div>
 
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-2">
-                      <input
-                        id="editing-recurring-active"
-                        type="checkbox"
-                        checked={editingRecurring.active}
-                        onChange={(e) => updateEditingRecurring("active", e.target.checked)}
-                        className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                      />
-                      <label
-                        htmlFor="editing-recurring-active"
-                        className={`text-sm font-medium ${textClass}`}
-                      >
-                        Activo
-                      </label>
-                    </div>
-                    <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <div>
+                  <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                    Subcategoría
+                  </label>
+                  <select
+                    value={editingRecurring.subcategory}
+                    onChange={(e) => updateEditingRecurring("subcategory", e.target.value)}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                    required
+                  >
+                    {categories[editingRecurring.category]?.map((sub) => (
+                      <option key={sub} value={sub}>
+                        {sub}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                      Día del mes
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="31"
+                      value={editingRecurring.dayOfMonth}
+                      onChange={(e) => updateEditingRecurring("dayOfMonth", e.target.value)}
+                      className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                      Método de pago
+                    </label>
+                    <select
+                      value={editingRecurring.paymentMethod}
+                      onChange={(e) => updateEditingRecurring("paymentMethod", e.target.value)}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onTouchStart={(e) => e.stopPropagation()}
+                      className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                    >
+                      <option value="Tarjeta">Tarjeta</option>
+                      <option value="Efectivo">Efectivo</option>
+                      <option value="Bizum">Bizum</option>
+                      <option value="Transferencia">Transferencia</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                    Fecha de fin (opcional)
+                  </label>
+                  <div className="relative">
+                    <Calendar
+                      className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${textSecondaryClass} pointer-events-none`}
+                    />
+                    <input
+                      type="date"
+                      value={editingRecurring.endDate || ""}
+                      onChange={(e) => updateEditingRecurring("endDate", e.target.value)}
+                      className={`w-full pl-10 pr-10 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                    />
+                    {editingRecurring.endDate && (
                       <button
                         type="button"
-                        onClick={onCancelEdit}
-                        className={`px-4 py-2 rounded-lg border ${
-                          darkMode
-                            ? "border-gray-600 text-gray-300 hover:bg-gray-700"
-                            : "border-purple-200 text-purple-700 hover:bg-purple-50"
-                        } transition-all`}
+                        onClick={() => updateEditingRecurring("endDate", "")}
+                        className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded ${
+                          darkMode ? "hover:bg-gray-600" : "hover:bg-purple-100"
+                        }`}
+                        aria-label="Limpiar fecha"
+                        title="Limpiar fecha"
                       >
-                        Cancelar
+                        <X className={`w-4 h-4 ${textSecondaryClass}`} />
                       </button>
-                      <button
-                        type="submit"
-                        className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all flex items-center gap-2"
-                      >
-                        <Pencil className="w-4 h-4" />
-                        Guardar cambios
-                      </button>
-                    </div>
+                    )}
                   </div>
-                </form>
-              </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all"
+                >
+                  Guardar Cambios
+                </button>
+              </form>
             </div>
           )}
-
         </div>
       </div>
     </div>
