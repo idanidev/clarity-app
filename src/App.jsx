@@ -21,7 +21,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Auth from "./components/Auth";
 import { auth } from "./firebase";
 import {
@@ -38,6 +38,7 @@ import {
   saveCategories,
   saveTheme,
   subscribeToExpenses,
+  subscribeToRecurringExpenses,
   updateExpense as updateExpenseDB,
   updateRecurringExpense,
 } from "./services/firestoreService";
@@ -140,11 +141,18 @@ const ClarityExpenseApp = () => {
           }
         );
 
-        // Cargar gastos recurrentes (todos, activos e inactivos)
-        const recurring = await getRecurringExpenses(currentUser.uid);
-        setRecurringExpenses(recurring);
+        // Suscribirse a gastos recurrentes (activos e inactivos)
+        const unsubscribeRecurring = subscribeToRecurringExpenses(
+          currentUser.uid,
+          (recurringData) => {
+            setRecurringExpenses(recurringData);
+          }
+        );
 
-        return () => unsubscribeExpenses();
+        return () => {
+          unsubscribeExpenses();
+          unsubscribeRecurring();
+        };
       } else {
         setUser(null);
         setLoading(false);
@@ -197,9 +205,6 @@ const ClarityExpenseApp = () => {
         endDate: "",
       });
 
-      const updated = await getRecurringExpenses(user.uid);
-      setRecurringExpenses(updated);
-
       showNotification("Gasto recurrente añadido correctamente", "success");
     } catch (error) {
       console.error("Error añadiendo gasto recurrente:", error);
@@ -212,6 +217,31 @@ const ClarityExpenseApp = () => {
 
     try {
       await updateRecurringExpense(user.uid, id, updates);
+      setEditingRecurring(null);
+      showNotification("Gasto recurrente actualizado", "success");
+    } catch (error) {
+      showNotification("Error al actualizar", "error");
+    }
+  };
+
+  const handleEditRecurringSubmit = async (e) => {
+    e.preventDefault();
+    if (!user || !editingRecurring) return;
+
+    try {
+      const updates = {
+        name: editingRecurring.name,
+        amount: parseFloat(editingRecurring.amount),
+        category: editingRecurring.category,
+        subcategory: editingRecurring.subcategory,
+        dayOfMonth: parseInt(editingRecurring.dayOfMonth),
+        paymentMethod: editingRecurring.paymentMethod,
+      };
+
+      // Permitir limpiar la fecha de fin estableciendo cadena vacía
+      updates.endDate = editingRecurring.endDate ? editingRecurring.endDate : "";
+
+      await updateRecurringExpense(user.uid, editingRecurring.id, updates);
       const updated = await getRecurringExpenses(user.uid);
       setRecurringExpenses(updated);
       setEditingRecurring(null);
@@ -226,8 +256,6 @@ const ClarityExpenseApp = () => {
 
     try {
       await deleteRecurringExpense(user.uid, id);
-      const updated = await getRecurringExpenses(user.uid);
-      setRecurringExpenses(updated);
       showNotification("Gasto recurrente eliminado", "success");
     } catch (error) {
       showNotification("Error al eliminar", "error");
@@ -460,51 +488,60 @@ const ClarityExpenseApp = () => {
     }
   };
 
-  // Cálculos y filtros
-  const filteredExpenses = expenses.filter((expense) => {
-    const matchesMonth = expense.date.startsWith(selectedMonth);
-    const matchesCategory =
-      selectedCategory === "all" || expense.category === selectedCategory;
-    return matchesMonth && matchesCategory;
-  });
+  // Cálculos y filtros (memoizados)
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter((expense) => {
+      const matchesMonth = expense.date.startsWith(selectedMonth);
+      const matchesCategory =
+        selectedCategory === "all" || expense.category === selectedCategory;
+      return matchesMonth && matchesCategory;
+    });
+  }, [expenses, selectedMonth, selectedCategory]);
 
-  const totalExpenses = filteredExpenses.reduce(
-    (sum, expense) => sum + expense.amount,
-    0
-  );
+  const totalExpenses = useMemo(() => {
+    return filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  }, [filteredExpenses]);
 
-  const expensesByCategory = filteredExpenses.reduce((acc, expense) => {
-    if (!acc[expense.category]) {
-      acc[expense.category] = {};
-    }
-    if (!acc[expense.category][expense.subcategory]) {
-      acc[expense.category][expense.subcategory] = [];
-    }
-    acc[expense.category][expense.subcategory].push(expense);
-    return acc;
-  }, {});
+  const expensesByCategory = useMemo(() => {
+    return filteredExpenses.reduce((acc, expense) => {
+      if (!acc[expense.category]) {
+        acc[expense.category] = {};
+      }
+      if (!acc[expense.category][expense.subcategory]) {
+        acc[expense.category][expense.subcategory] = [];
+      }
+      acc[expense.category][expense.subcategory].push(expense);
+      return acc;
+    }, {});
+  }, [filteredExpenses]);
 
-  const categoryTotals = Object.entries(expensesByCategory).map(
-    ([category, subcategories]) => {
-      const total = Object.values(subcategories)
-        .flat()
-        .reduce((sum, exp) => sum + exp.amount, 0);
-      return { category, total };
-    }
-  );
+  const categoryTotals = useMemo(() => {
+    return Object.entries(expensesByCategory).map(
+      ([category, subcategories]) => {
+        const total = Object.values(subcategories)
+          .flat()
+          .reduce((sum, exp) => sum + exp.amount, 0);
+        return { category, total };
+      }
+    );
+  }, [expensesByCategory]);
 
-  const overBudgetCategories = Object.entries(budgets)
-    .filter(([category, budget]) => {
-      const categoryTotal =
-        categoryTotals.find((ct) => ct.category === category)?.total || 0;
-      return categoryTotal > budget;
-    })
-    .map(([category]) => category);
+  const overBudgetCategories = useMemo(() => {
+    return Object.entries(budgets)
+      .filter(([category, budget]) => {
+        const categoryTotal =
+          categoryTotals.find((ct) => ct.category === category)?.total || 0;
+        return categoryTotal > budget;
+      })
+      .map(([category]) => category);
+  }, [budgets, categoryTotals]);
 
   // Obtener gastos recientes (últimos 10)
-  const recentExpenses = [...expenses]
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .slice(0, 10);
+  const recentExpenses = useMemo(() => {
+    return [...expenses]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 10);
+  }, [expenses]);
 
   // Clases de tema
   const bgClass = darkMode
@@ -921,19 +958,29 @@ const ClarityExpenseApp = () => {
       {/* Notificación */}
       {notification && (
         <div
-          className={`fixed top-20 left-1/2 transform -translate-x-1/2 z-[120] px-6 py-3 rounded-2xl backdrop-blur-xl border ${
+          className={`fixed top-6 right-6 z-[120] px-5 py-3 rounded-xl backdrop-blur-xl border ${
             notification.type === "success"
               ? "bg-green-500/90 border-green-400"
               : "bg-orange-500/90 border-orange-400"
-          } text-white font-medium shadow-lg animate-bounce`}
+          } text-white font-medium shadow-lg`}
+          role="status"
+          aria-live="polite"
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {notification.type === "success" ? (
               <Check className="w-5 h-5" />
             ) : (
               <AlertTriangle className="w-5 h-5" />
             )}
-            {notification.message}
+            <span>{notification.message}</span>
+            <button
+              onClick={() => setNotification(null)}
+              className="ml-2 p-1 rounded hover:bg-white/10 transition-colors"
+              aria-label="Cerrar notificación"
+              title="Cerrar"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         </div>
       )}
@@ -1036,6 +1083,8 @@ const ClarityExpenseApp = () => {
                 </label>
                 <select
                   value={selectedCategory}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
                   onChange={(e) => setSelectedCategory(e.target.value)}
                   className={`w-full px-3 py-2 rounded-xl border ${inputClass} text-sm focus:ring-2 focus:border-transparent`}
                 >
@@ -1860,6 +1909,8 @@ const ClarityExpenseApp = () => {
                 </label>
                 <select
                   value={newExpense.category}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
                   onChange={(e) =>
                     setNewExpense({
                       ...newExpense,
@@ -1888,6 +1939,8 @@ const ClarityExpenseApp = () => {
                   </label>
                   <select
                     value={newExpense.subcategory}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
                     onChange={(e) =>
                       setNewExpense({
                         ...newExpense,
@@ -1932,6 +1985,8 @@ const ClarityExpenseApp = () => {
                 </label>
                 <select
                   value={newExpense.paymentMethod}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
                   onChange={(e) =>
                     setNewExpense({
                       ...newExpense,
@@ -2028,6 +2083,8 @@ const ClarityExpenseApp = () => {
                 </label>
                 <select
                   value={editingExpense.category}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
                   onChange={(e) =>
                     setEditingExpense({
                       ...editingExpense,
@@ -2054,6 +2111,8 @@ const ClarityExpenseApp = () => {
                 </label>
                 <select
                   value={editingExpense.subcategory}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
                   onChange={(e) =>
                     setEditingExpense({
                       ...editingExpense,
@@ -2099,6 +2158,8 @@ const ClarityExpenseApp = () => {
                 </label>
                 <select
                   value={editingExpense.paymentMethod}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
                   onChange={(e) =>
                     setEditingExpense({
                       ...editingExpense,
@@ -2199,7 +2260,7 @@ const ClarityExpenseApp = () => {
                   Acerca de Clarity
                 </p>
                 <p className={`text-sm ${textSecondaryClass}`}>
-                  Versión 1.0.0 - Gestión de gastos personales
+                  Versión 1.0.1 - Gestión de gastos personales
                 </p>
               </div>
             </div>
@@ -2211,9 +2272,13 @@ const ClarityExpenseApp = () => {
       {showRecurring && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div
-            className={`${cardClass} rounded-2xl p-6 max-w-2xl w-full border shadow-2xl max-h-[90vh] overflow-y-auto`}
+            className={`${cardClass} rounded-2xl p-0 max-w-2xl w-full border shadow-2xl max-h-[90vh] overflow-y-auto`}
           >
-            <div className="flex justify-between items-center mb-6">
+            <div
+              className={`sticky top-0 z-10 px-6 py-4 flex justify-between items-center ${
+                darkMode ? "bg-gray-800/95 border-b border-gray-700" : "bg-white/80 border-b border-purple-100"
+              } backdrop-blur`}
+            >
               <div>
                 <h3 className={`text-2xl font-bold ${textClass}`}>
                   Gastos Recurrentes
@@ -2235,7 +2300,33 @@ const ClarityExpenseApp = () => {
               </button>
             </div>
 
-            <div className="space-y-6">
+            {/* Total recurrente debajo del título */}
+            <div className="px-6 pt-4">
+              <div
+                className={`mb-4 p-4 rounded-xl ${
+                  darkMode ? "bg-purple-900/30 border-purple-700" : "bg-purple-50 border-purple-200"
+                } border-2`}
+              >
+                <div className="flex justify-between items-center">
+                  <span className={`font-semibold ${textClass}`}>
+                    Total Gastos Recurrentes Mensuales (activos)
+                  </span>
+                  <span
+                    className={`text-2xl font-bold ${
+                      darkMode ? "text-purple-400" : "text-purple-600"
+                    }`}
+                  >
+                    €
+                    {recurringExpenses
+                      .filter((r) => r.active)
+                      .reduce((sum, r) => sum + r.amount, 0)
+                      .toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-6 px-6 pb-6">
               {/* Formulario añadir recurrente - MEJORADO */}
               <div
                 className={`p-4 rounded-xl ${
@@ -2333,6 +2424,8 @@ const ClarityExpenseApp = () => {
                             subcategory: "",
                           })
                         }
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
                         className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
                         required
                       >
@@ -2359,6 +2452,8 @@ const ClarityExpenseApp = () => {
                             paymentMethod: e.target.value,
                           })
                         }
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
                         className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
                       >
                         <option value="Tarjeta">Tarjeta</option>
@@ -2385,6 +2480,8 @@ const ClarityExpenseApp = () => {
                             subcategory: e.target.value,
                           })
                         }
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
                         className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
                         required
                       >
@@ -2410,7 +2507,7 @@ const ClarityExpenseApp = () => {
                     </label>
                     <div className="relative">
                       <Calendar
-                        className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${textSecondaryClass}`}
+                        className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${textSecondaryClass} pointer-events-none`}
                       />
                       <input
                         type="date"
@@ -2422,8 +2519,23 @@ const ClarityExpenseApp = () => {
                           })
                         }
                         min={new Date().toISOString().split("T")[0]}
-                        className={`w-full pl-10 pr-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                        className={`w-full pl-10 pr-10 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
                       />
+                    {newRecurring.endDate && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setNewRecurring({ ...newRecurring, endDate: "" })
+                        }
+                        className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded ${
+                          darkMode ? "hover:bg-gray-600" : "hover:bg-purple-100"
+                        }`}
+                        aria-label="Limpiar fecha"
+                        title="Limpiar fecha"
+                      >
+                        <X className={`w-4 h-4 ${textSecondaryClass}`} />
+                      </button>
+                    )}
                     </div>
                   </div>
 
@@ -2558,7 +2670,20 @@ const ClarityExpenseApp = () => {
                           </div>
                         </div>
 
-                        <div className="flex gap-2 pt-3 border-t border-purple-100">
+                        <div className="flex flex-wrap gap-2 pt-3 border-t border-purple-100">
+                          <button
+                            onClick={() => setEditingRecurring(recurring)}
+                            className={`py-2 px-4 rounded-lg transition-all flex items-center gap-2 sm:flex-none flex-1 ${
+                              darkMode
+                                ? "bg-purple-900/50 hover:bg-purple-900"
+                                : "bg-purple-100 hover:bg-purple-200"
+                            }`}
+                          >
+                            <Pencil className={`w-4 h-4 ${darkMode ? "text-purple-300" : "text-purple-700"}`} />
+                            <span className={`text-sm font-medium ${darkMode ? "text-purple-300" : "text-purple-700"}`}>
+                              Editar
+                            </span>
+                          </button>
                           <button
                             onClick={() =>
                               handleUpdateRecurring(recurring.id, {
@@ -2610,7 +2735,7 @@ const ClarityExpenseApp = () => {
                                 id: recurring.id,
                               })
                             }
-                            className={`py-2 px-4 rounded-lg transition-all flex items-center gap-2 ${
+                            className={`py-2 px-4 rounded-lg transition-all flex items-center gap-2 sm:flex-none flex-1 justify-center ${
                               darkMode
                                 ? "bg-red-900/50 hover:bg-red-900"
                                 : "bg-red-100 hover:bg-red-200"
@@ -2625,35 +2750,209 @@ const ClarityExpenseApp = () => {
                       </div>
                     ))}
 
-                    {/* Resumen total */}
-                    <div
-                      className={`p-4 rounded-xl ${
-                        darkMode
-                          ? "bg-purple-900/30 border-purple-700"
-                          : "bg-purple-50 border-purple-200"
-                      } border-2`}
-                    >
-                      <div className="flex justify-between items-center">
-                        <span className={`font-semibold ${textClass}`}>
-                          Total Gastos Recurrentes Mensuales
-                        </span>
-                        <span
-                          className={`text-2xl font-bold ${
-                            darkMode ? "text-purple-400" : "text-purple-600"
-                          }`}
-                        >
-                          €
-                          {recurringExpenses
-                            .filter((r) => r.active)
-                            .reduce((sum, r) => sum + r.amount, 0)
-                            .toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
+                    {/* Resumen total movido debajo del título */}
                   </div>
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Editar Gasto Recurrente */}
+      {editingRecurring && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div
+            className={`${cardClass} rounded-2xl p-0 max-w-md w-full border shadow-2xl max-h-[90vh] overflow-y-auto`}
+          >
+            <div
+              className={`sticky top-0 z-10 px-6 py-4 flex justify-between items-center ${
+                darkMode ? "bg-gray-800/95 border-b border-gray-700" : "bg-white/80 border-b border-purple-100"
+              } backdrop-blur`}
+            >
+              <h3 className={`text-2xl font-bold ${textClass}`}>Editar Gasto Recurrente</h3>
+              <button
+                onClick={() => setEditingRecurring(null)}
+                className={`p-2 rounded-lg ${
+                  darkMode ? "hover:bg-gray-700" : "hover:bg-purple-100"
+                } transition-all`}
+              >
+                <X className={`w-6 h-6 ${textClass}`} />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditRecurringSubmit} className="space-y-4 px-6 pb-6 pt-4">
+              <div>
+                <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                  Nombre
+                </label>
+                <input
+                  type="text"
+                  value={editingRecurring.name}
+                  onChange={(e) =>
+                    setEditingRecurring({ ...editingRecurring, name: e.target.value })
+                  }
+                  className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                  Cantidad (€)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editingRecurring.amount}
+                  onChange={(e) =>
+                    setEditingRecurring({ ...editingRecurring, amount: e.target.value })
+                  }
+                  className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                  Categoría
+                </label>
+                <select
+                  value={editingRecurring.category}
+                  onChange={(e) =>
+                    setEditingRecurring({
+                      ...editingRecurring,
+                      category: e.target.value,
+                      subcategory: "",
+                    })
+                  }
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
+                  className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                  required
+                >
+                  {Object.keys(categories).map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                  Subcategoría
+                </label>
+                <select
+                  value={editingRecurring.subcategory}
+                  onChange={(e) =>
+                    setEditingRecurring({
+                      ...editingRecurring,
+                      subcategory: e.target.value,
+                    })
+                  }
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
+                  className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                  required
+                >
+                  {categories[editingRecurring.category]?.map((sub) => (
+                    <option key={sub} value={sub}>
+                      {sub}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                    Día del mes
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={editingRecurring.dayOfMonth}
+                    onChange={(e) =>
+                      setEditingRecurring({
+                        ...editingRecurring,
+                        dayOfMonth: e.target.value,
+                      })
+                    }
+                    className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                    Método de pago
+                  </label>
+                  <select
+                    value={editingRecurring.paymentMethod}
+                    onChange={(e) =>
+                      setEditingRecurring({
+                        ...editingRecurring,
+                        paymentMethod: e.target.value,
+                      })
+                    }
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                  >
+                    <option value="Tarjeta">Tarjeta</option>
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="Bizum">Bizum</option>
+                    <option value="Transferencia">Transferencia</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                  Fecha de fin (opcional)
+                </label>
+                <div className="relative">
+                  <Calendar
+                    className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${textSecondaryClass} pointer-events-none`}
+                  />
+                  <input
+                    type="date"
+                    value={editingRecurring.endDate || ""}
+                    onChange={(e) =>
+                      setEditingRecurring({
+                        ...editingRecurring,
+                        endDate: e.target.value,
+                      })
+                    }
+                    className={`w-full pl-10 pr-10 py-3 rounded-xl border ${inputClass} focus:ring-2 focus-border-transparent`}
+                  />
+                  {editingRecurring.endDate && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditingRecurring({ ...editingRecurring, endDate: "" })
+                      }
+                      className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded ${
+                        darkMode ? "hover:bg-gray-600" : "hover:bg-purple-100"
+                      }`}
+                      aria-label="Limpiar fecha"
+                      title="Limpiar fecha"
+                    >
+                      <X className={`w-4 h-4 ${textSecondaryClass}`} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all"
+              >
+                Guardar Cambios
+              </button>
+            </form>
           </div>
         </div>
       )}
@@ -2708,6 +3007,8 @@ const ClarityExpenseApp = () => {
                 </label>
                 <select
                   value={selectedCategoryForSub}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
                   onChange={(e) => setSelectedCategoryForSub(e.target.value)}
                   className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
                 >
@@ -2832,6 +3133,8 @@ const ClarityExpenseApp = () => {
                 </label>
                 <select
                   value={budgetCategory}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
                   onChange={(e) => setBudgetCategory(e.target.value)}
                   className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
                   required
