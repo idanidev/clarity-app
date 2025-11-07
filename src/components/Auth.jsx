@@ -9,8 +9,10 @@ import {
 import { AlertCircle, Chrome, Lock, Mail } from "lucide-react";
 import { useState } from "react";
 import { auth, googleProvider } from "../firebase";
+import { useTranslation } from "../contexts/LanguageContext";
 
 const Auth = () => {
+  const { t } = useTranslation();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,16 +34,16 @@ const Auth = () => {
     } catch (err) {
       setError(
         err.code === "auth/email-already-in-use"
-          ? "Email ya registrado"
+          ? t("auth.emailAlreadyInUse")
           : err.code === "auth/invalid-email"
-          ? "Email inválido"
+          ? t("auth.invalidEmail")
           : err.code === "auth/user-not-found"
-          ? "Usuario no encontrado"
+          ? t("auth.userNotFound")
           : err.code === "auth/wrong-password"
-          ? "Contraseña incorrecta"
+          ? t("auth.wrongPassword")
           : err.code === "auth/weak-password"
-          ? "Contraseña muy débil (mínimo 6 caracteres)"
-          : "Error al autenticar. Intenta de nuevo."
+          ? t("auth.weakPassword")
+          : t("auth.authError")
       );
     } finally {
       setLoading(false);
@@ -59,7 +61,7 @@ const Auth = () => {
         const host = window?.location?.hostname;
         console.error("Google popup sign-in error", err);
         setError(
-          `Dominio no autorizado${
+          `${t("auth.unauthorizedDomain")}${
             host ? ` (${host})` : ""
           }. Añádelo en Firebase Authentication → Configuración → Dominios autorizados.`
         );
@@ -72,11 +74,11 @@ const Auth = () => {
           return;
         } catch (redirectError) {
           console.error("Google redirect sign-in error", redirectError);
-          setError("Google no está disponible en este entorno. Inténtalo más tarde.");
+          setError(t("auth.googleNotAvailable"));
         }
       } else {
         console.error("Google popup sign-in error", err);
-        setError("Error al iniciar sesión con Google");
+        setError(t("auth.googleSignInError"));
       }
     } finally {
       setLoading(false);
@@ -85,7 +87,7 @@ const Auth = () => {
 
   const handlePasswordReset = async () => {
     if (!email) {
-      setError("Introduce tu email para recuperar la contraseña");
+      setError(t("auth.enterEmailReset"));
       return;
     }
 
@@ -96,7 +98,7 @@ const Auth = () => {
       await sendPasswordResetEmail(auth, email);
       setResetSent(true);
     } catch (err) {
-      setError("Error al enviar email de recuperación");
+      setError(t("auth.resetEmailError"));
     } finally {
       setLoading(false);
     }
@@ -127,7 +129,7 @@ const Auth = () => {
                 : "bg-white/60 text-purple-600 hover:bg-white/80"
             }`}
           >
-            Iniciar Sesión
+            {t("auth.login")}
           </button>
           <button
             onClick={() => {
@@ -141,7 +143,7 @@ const Auth = () => {
                 : "bg-white/60 text-purple-600 hover:bg-white/80"
             }`}
           >
-            Registrarse
+            {t("auth.register")}
           </button>
         </div>
 
@@ -156,7 +158,7 @@ const Auth = () => {
         {resetSent && (
           <div className="bg-green-50 border border-green-200 rounded-xl p-3 mb-4">
             <p className="text-sm text-green-600">
-              ✓ Email de recuperación enviado. Revisa tu bandeja de entrada.
+              ✓ {t("auth.resetPasswordSent")}
             </p>
           </div>
         )}
@@ -165,7 +167,7 @@ const Auth = () => {
         <form onSubmit={handleEmailAuth} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-purple-900 mb-2">
-              Email
+              {t("auth.email")}
             </label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-purple-400" />
@@ -182,7 +184,7 @@ const Auth = () => {
 
           <div>
             <label className="block text-sm font-medium text-purple-900 mb-2">
-              Contraseña
+              {t("auth.password")}
             </label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-purple-400" />
@@ -204,7 +206,7 @@ const Auth = () => {
               onClick={handlePasswordReset}
               className="text-sm text-purple-600 hover:text-purple-800 font-medium"
             >
-              ¿Olvidaste tu contraseña?
+              {t("auth.forgotPassword")}
             </button>
           )}
 
@@ -214,10 +216,10 @@ const Auth = () => {
             className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl shadow-lg transition-all"
           >
             {loading
-              ? "Cargando..."
+              ? t("common.loading")
               : isLogin
-              ? "Iniciar Sesión"
-              : "Registrarse"}
+              ? t("auth.login")
+              : t("auth.register")}
           </button>
         </form>
 

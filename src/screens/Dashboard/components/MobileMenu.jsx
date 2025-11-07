@@ -1,27 +1,31 @@
+import { memo } from "react";
 import {
   Clock,
+  Download,
   Filter,
+  Lightbulb,
   LogOut,
-  Plus,
   Settings as SettingsIcon,
-  Table as TableIcon,
   Target,
   X,
 } from "lucide-react";
+import { useTranslation } from "../../../contexts/LanguageContext";
 
-const MobileMenu = ({
+const MobileMenu = memo(({
   visible,
   darkMode,
   textClass,
   onClose,
-  onNavigateHome,
-  onOpenAddExpense,
   onShowCategories,
   onShowBudgets,
   onShowRecurring,
   onShowSettings,
+  onShowTips,
+  onExportCSV,
   onLogout,
 }) => {
+  const { t } = useTranslation();
+  
   if (!visible) {
     return null;
   }
@@ -46,7 +50,7 @@ const MobileMenu = ({
         className={`absolute right-0 top-0 h-full w-80 ${panelClasses} shadow-2xl p-6 overflow-y-auto`}
       >
         <div className="flex justify-between items-center mb-8">
-          <h3 className={`text-2xl font-bold ${textClass}`}>Menú</h3>
+          <h3 className={`text-2xl font-bold ${textClass}`}>{t("dashboard.menu")}</h3>
           <button
             onClick={onClose}
             className={`p-2 rounded-lg ${
@@ -58,33 +62,6 @@ const MobileMenu = ({
         </div>
 
         <div className="space-y-3">
-          <button
-            onClick={() => handleAction(onNavigateHome)}
-            className={`w-full flex items-center gap-3 p-4 rounded-xl ${buttonBase} transition-all`}
-          >
-            <TableIcon
-              className={`w-5 h-5 ${
-                darkMode ? "text-purple-400" : "text-purple-600"
-              }`}
-            />
-            <span className={`font-medium ${textClass}`}>Inicio</span>
-          </button>
-
-          <button
-            onClick={() => handleAction(onOpenAddExpense)}
-            className={`w-full flex items-center gap-3 p-4 rounded-xl ${buttonBase} transition-all`}
-          >
-            <Plus
-              className={`w-5 h-5 ${
-                darkMode ? "text-purple-400" : "text-purple-600"
-              }`}
-            />
-            <span className={`font-medium ${textClass}`}>Añadir Gasto</span>
-          </button>
-
-          <div
-            className={`h-px ${darkMode ? "bg-gray-700" : "bg-gray-200"} my-2`}
-          ></div>
 
           <button
             onClick={() => handleAction(onShowCategories)}
@@ -95,7 +72,7 @@ const MobileMenu = ({
                 darkMode ? "text-purple-400" : "text-purple-600"
               }`}
             />
-            <span className={`font-medium ${textClass}`}>Categorías</span>
+            <span className={`font-medium ${textClass}`}>{t("dashboard.categories")}</span>
           </button>
 
           <button
@@ -107,7 +84,7 @@ const MobileMenu = ({
                 darkMode ? "text-purple-400" : "text-purple-600"
               }`}
             />
-            <span className={`font-medium ${textClass}`}>Presupuestos</span>
+            <span className={`font-medium ${textClass}`}>{t("dashboard.budgets")}</span>
           </button>
 
           <button
@@ -120,13 +97,37 @@ const MobileMenu = ({
               }`}
             />
             <span className={`font-medium ${textClass}`}>
-              Gastos Recurrentes
+              {t("dashboard.recurringExpenses")}
             </span>
           </button>
 
           <div
             className={`h-px ${darkMode ? "bg-gray-700" : "bg-gray-200"} my-2`}
           ></div>
+
+          <button
+            onClick={() => handleAction(onShowTips)}
+            className={`w-full flex items-center gap-3 p-4 rounded-xl ${buttonBase} transition-all`}
+          >
+            <Lightbulb
+              className={`w-5 h-5 ${
+                darkMode ? "text-amber-400" : "text-amber-600"
+              }`}
+            />
+            <span className={`font-medium ${textClass}`}>{t("dashboard.tips")}</span>
+          </button>
+
+          <button
+            onClick={() => handleAction(onExportCSV)}
+            className={`w-full flex items-center gap-3 p-4 rounded-xl ${buttonBase} transition-all`}
+          >
+            <Download
+              className={`w-5 h-5 ${
+                darkMode ? "text-purple-400" : "text-purple-600"
+              }`}
+            />
+            <span className={`font-medium ${textClass}`}>{t("dashboard.exportCSV")}</span>
+          </button>
 
           <button
             onClick={() => handleAction(onShowSettings)}
@@ -137,7 +138,7 @@ const MobileMenu = ({
                 darkMode ? "text-purple-400" : "text-purple-600"
               }`}
             />
-            <span className={`font-medium ${textClass}`}>Ajustes</span>
+            <span className={`font-medium ${textClass}`}>{t("dashboard.settings")}</span>
           </button>
 
           <button
@@ -154,13 +155,15 @@ const MobileMenu = ({
                 darkMode ? "text-red-400" : "text-red-600"
               }`}
             >
-              Cerrar Sesión
+              {t("auth.logout")}
             </span>
           </button>
         </div>
       </div>
     </div>
   );
-};
+});
+
+MobileMenu.displayName = "MobileMenu";
 
 export default MobileMenu;

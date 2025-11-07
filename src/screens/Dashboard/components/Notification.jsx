@@ -1,6 +1,7 @@
+import { memo } from "react";
 import { AlertTriangle, Check, X } from "lucide-react";
 
-const Notification = ({ notification, onClose }) => {
+const Notification = memo(({ notification, onClose }) => {
   if (!notification) {
     return null;
   }
@@ -35,6 +36,8 @@ const Notification = ({ notification, onClose }) => {
       </div>
     </div>
   );
-};
+});
+
+Notification.displayName = "Notification";
 
 export default Notification;

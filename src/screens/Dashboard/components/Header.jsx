@@ -1,33 +1,37 @@
+import { memo } from "react";
 import {
   BellRing,
   ChevronDown,
+  Download,
+  Lightbulb,
   LogOut,
   Menu as MenuIcon,
   Settings as SettingsIcon,
 } from "lucide-react";
+import { useTranslation } from "../../../contexts/LanguageContext";
 
-const Header = ({
+const Header = memo(({
   darkMode,
   textClass,
   textSecondaryClass,
   userEmail,
-  showAddExpense,
   showBudgets,
   showCategories,
   showSettings,
   showRecurring,
   showManagement,
   overBudgetCount,
-  onSelectHome,
-  onOpenAddExpense,
   onToggleManagement,
   onSelectCategories,
   onSelectBudgets,
   onSelectRecurring,
   onOpenSettings,
+  onOpenTips,
+  onExportCSV,
   onLogout,
   onOpenMenu,
 }) => {
+  const { t } = useTranslation();
   const headerClasses = darkMode ? "bg-gray-800/95" : "bg-white/60";
   const borderClasses = darkMode ? "border-gray-700" : "border-white/60";
   const desktopButtonBase = darkMode
@@ -48,30 +52,6 @@ const Header = ({
           </div>
 
           <div className="hidden md:flex items-center gap-6">
-            <button
-              onClick={onSelectHome}
-              className={`px-4 py-2 rounded-xl font-medium transition-all ${
-                !showAddExpense &&
-                !showBudgets &&
-                !showCategories &&
-                !showSettings &&
-                !showRecurring
-                  ? "bg-purple-600 text-white"
-                  : desktopButtonBase
-              }`}
-            >
-              Inicio
-            </button>
-
-            <button
-              onClick={onOpenAddExpense}
-              className={`px-4 py-2 rounded-xl font-medium transition-all ${
-                showAddExpense ? "bg-purple-600 text-white" : desktopButtonBase
-              }`}
-            >
-              Gastos
-            </button>
-
             <div className="relative">
               <button
                 onClick={onToggleManagement}
@@ -81,7 +61,7 @@ const Header = ({
                     : desktopButtonBase
                 }`}
               >
-                Gestión
+                {t("dashboard.manage")}
                 <ChevronDown className="w-4 h-4" />
               </button>
 
@@ -99,7 +79,7 @@ const Header = ({
                       darkMode ? "hover:bg-gray-700" : ""
                     } transition-all ${textClass} font-medium`}
                   >
-                    Categorías
+                    {t("dashboard.categories")}
                   </button>
                   <button
                     onClick={onSelectBudgets}
@@ -107,7 +87,7 @@ const Header = ({
                       darkMode ? "hover:bg-gray-700" : ""
                     } transition-all ${textClass} font-medium`}
                   >
-                    Presupuestos
+                    {t("dashboard.budgets")}
                   </button>
                   <button
                     onClick={onSelectRecurring}
@@ -115,11 +95,28 @@ const Header = ({
                       darkMode ? "hover:bg-gray-700" : ""
                     } transition-all ${textClass} font-medium`}
                   >
-                    Gastos Recurrentes
+                    {t("dashboard.recurringExpenses")}
                   </button>
                 </div>
               )}
             </div>
+
+            <button
+              onClick={onOpenTips}
+              className={`px-4 py-2 rounded-xl font-medium transition-all flex items-center gap-2 ${desktopButtonBase}`}
+            >
+              <Lightbulb className="w-4 h-4" />
+              {t("dashboard.tips")}
+            </button>
+
+            <button
+              onClick={onExportCSV}
+              className={`px-4 py-2 rounded-xl font-medium transition-all flex items-center gap-2 ${desktopButtonBase}`}
+              title={t("export.success")}
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden lg:inline">{t("dashboard.export")}</span>
+            </button>
 
             <button
               onClick={onOpenSettings}
@@ -128,7 +125,7 @@ const Header = ({
               }`}
             >
               <SettingsIcon className="w-4 h-4" />
-              Ajustes
+              {t("dashboard.settings")}
             </button>
 
             <button
@@ -140,16 +137,16 @@ const Header = ({
               }`}
             >
               <LogOut className="w-4 h-4" />
-              Cerrar Sesión
+              {t("auth.logout")}
             </button>
           </div>
 
           <div className="md:hidden flex items-center gap-3">
-            {overBudgetCount > 0 && (
+              {overBudgetCount > 0 && (
               <button
                 onClick={onSelectBudgets}
                 className="relative p-2 rounded-xl bg-red-100 hover:bg-red-200 border border-red-200 transition-all"
-                title="Presupuesto superado"
+                title={t("budgets.overBudget")}
               >
                 <BellRing className="w-6 h-6 text-red-600" />
                 <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
@@ -174,6 +171,8 @@ const Header = ({
       </div>
     </div>
   );
-};
+});
+
+Header.displayName = "Header";
 
 export default Header;

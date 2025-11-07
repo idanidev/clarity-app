@@ -78,9 +78,10 @@ exports.createRecurringExpenses = onSchedule(
         for (const recurringDoc of recurringExpensesSnapshot.docs) {
           const recurring = recurringDoc.data();
           const recurringId = recurringDoc.id;
+          const frequency = recurring.frequency || "monthly";
 
           logger.info(
-            `  💰 Procesando: ${recurring.name} (€${recurring.amount})`
+            `  💰 Procesando: ${recurring.name} (€${recurring.amount}, frecuencia: ${frequency})`
           );
 
           // Verificar si tiene fecha de fin y ya expiró
@@ -107,19 +108,76 @@ exports.createRecurringExpenses = onSchedule(
             }
           }
 
-          // Verificar si ya se creó el gasto este mes
-          const existingExpenseSnapshot = await db
-            .collection("users")
-            .doc(userId)
-            .collection("expenses")
-            .where("recurringId", "==", recurringId)
-            .where("date", ">=", `${currentMonth}-01`)
-            .where("date", "<=", `${currentMonth}-31`)
-            .get();
+          // Verificar frecuencia y si corresponde crear el gasto
+          let shouldCreate = false;
 
-          if (!existingExpenseSnapshot.empty) {
+          if (frequency === "monthly") {
+            // Mensual: verificar si ya se creó este mes
+            const existingExpenseSnapshot = await db
+              .collection("users")
+              .doc(userId)
+              .collection("expenses")
+              .where("recurringId", "==", recurringId)
+              .where("date", ">=", `${currentMonth}-01`)
+              .where("date", "<=", `${currentMonth}-31`)
+              .get();
+
+            shouldCreate = existingExpenseSnapshot.empty;
+          } else if (frequency === "quarterly") {
+            // Trimestral: verificar si corresponde crear (cada 3 meses)
+            const currentMonthNum = today.getMonth() + 1; // 1-12
+            // Trimestres: Ene, Abr, Jul, Oct (meses 1, 4, 7, 10)
+            const quarterMonths = [1, 4, 7, 10];
+            if (quarterMonths.includes(currentMonthNum)) {
+              const existingExpenseSnapshot = await db
+                .collection("users")
+                .doc(userId)
+                .collection("expenses")
+                .where("recurringId", "==", recurringId)
+                .where("date", ">=", `${currentMonth}-01`)
+                .where("date", "<=", `${currentMonth}-31`)
+                .get();
+
+              shouldCreate = existingExpenseSnapshot.empty;
+            }
+          } else if (frequency === "semiannual") {
+            // Semestral: verificar si corresponde crear (cada 6 meses)
+            const currentMonthNum = today.getMonth() + 1; // 1-12
+            // Semestres: Ene, Jul (meses 1, 7)
+            const semiannualMonths = [1, 7];
+            if (semiannualMonths.includes(currentMonthNum)) {
+              const existingExpenseSnapshot = await db
+                .collection("users")
+                .doc(userId)
+                .collection("expenses")
+                .where("recurringId", "==", recurringId)
+                .where("date", ">=", `${currentMonth}-01`)
+                .where("date", "<=", `${currentMonth}-31`)
+                .get();
+
+              shouldCreate = existingExpenseSnapshot.empty;
+            }
+          } else if (frequency === "annual") {
+            // Anual: verificar si corresponde crear (una vez al año)
+            const currentMonthNum = today.getMonth() + 1; // 1-12
+            // Anual: solo en Enero (mes 1)
+            if (currentMonthNum === 1) {
+              const existingExpenseSnapshot = await db
+                .collection("users")
+                .doc(userId)
+                .collection("expenses")
+                .where("recurringId", "==", recurringId)
+                .where("date", ">=", `${currentMonth}-01`)
+                .where("date", "<=", `${currentMonth}-31`)
+                .get();
+
+              shouldCreate = existingExpenseSnapshot.empty;
+            }
+          }
+
+          if (!shouldCreate) {
             logger.info(
-              `  ✅ Gasto "${recurring.name}" ya existe para este mes`
+              `  ⏭️  Se omite "${recurring.name}" (freq: ${frequency})`
             );
             totalExpensesSkipped++;
             continue;

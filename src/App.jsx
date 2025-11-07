@@ -3,6 +3,19 @@ import { onAuthStateChanged } from "firebase/auth";
 import Auth from "./components/Auth";
 import { auth } from "./firebase";
 import Dashboard from "./screens/Dashboard/Dashboard";
+import { LanguageProvider, useTranslation } from "./contexts/LanguageContext";
+import { saveUserLanguage } from "./services/firestoreService";
+
+const LoadingScreen = () => {
+  const { t } = useTranslation();
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-white to-blue-50">
+      <span className="text-purple-600 font-semibold text-lg">
+        {t("common.loading")}
+      </span>
+    </div>
+  );
+};
 
 const App = () => {
   const [user, setUser] = useState(null);
@@ -17,21 +30,37 @@ const App = () => {
     return () => unsubscribe();
   }, []);
 
+  const handleLanguageChange = async (language) => {
+    if (user) {
+      try {
+        await saveUserLanguage(user.uid, language);
+      } catch (error) {
+        console.error("Error saving language:", error);
+      }
+    }
+  };
+
   if (initializing) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-white to-blue-50">
-        <span className="text-purple-600 font-semibold text-lg">
-          Cargando...
-        </span>
-      </div>
+      <LanguageProvider user={null} onLanguageChange={handleLanguageChange}>
+        <LoadingScreen />
+      </LanguageProvider>
     );
   }
 
   if (!user) {
-    return <Auth />;
+    return (
+      <LanguageProvider user={user} onLanguageChange={handleLanguageChange}>
+        <Auth />
+      </LanguageProvider>
+    );
   }
 
-  return <Dashboard user={user} />;
+  return (
+    <LanguageProvider user={user} onLanguageChange={handleLanguageChange}>
+      <Dashboard user={user} />
+    </LanguageProvider>
+  );
 };
 
 export default App;

@@ -23,11 +23,21 @@ const BudgetsModal = ({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      onMouseDown={onClose}
+    >
       <div
-        className={`${cardClass} rounded-2xl p-6 max-w-md w-full border shadow-2xl max-h-[90vh] overflow-y-auto`}
+        className={`${cardClass} rounded-2xl p-0 max-w-md w-full border shadow-2xl max-h-[90vh] overflow-y-auto`}
+        onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex justify-between items-center mb-6">
+        <div
+          className={`sticky top-0 z-10 px-6 py-4 flex justify-between items-center ${
+            darkMode
+              ? "bg-gray-800/95 border-b border-gray-700"
+              : "bg-white/80 border-b border-purple-100"
+          } backdrop-blur`}
+        >
           <h3 className={`text-2xl font-bold ${textClass}`}>
             Gestionar Presupuestos
           </h3>
@@ -41,7 +51,8 @@ const BudgetsModal = ({
           </button>
         </div>
 
-        <form onSubmit={onAddBudget} className="space-y-4 mb-6">
+        <div className="px-6 py-6">
+          <form onSubmit={onAddBudget} className="space-y-4 mb-6">
           <div>
             <label className={`block text-sm font-medium ${textClass} mb-2`}>
               Categoría
@@ -135,6 +146,7 @@ const BudgetsModal = ({
               </div>
             );
           })}
+        </div>
         </div>
       </div>
     </div>

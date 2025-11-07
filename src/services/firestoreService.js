@@ -184,11 +184,75 @@ export const subscribeToRecurringExpenses = (userId, callback) => {
 
 // ==================== CATEGORIES ====================
 
+// Helper functions for category structure compatibility
+export const getCategorySubcategories = (categoryData) => {
+  if (Array.isArray(categoryData)) {
+    // Old format: ["Sub1", "Sub2"]
+    return categoryData;
+  }
+  if (categoryData && categoryData.subcategories) {
+    // New format: { subcategories: ["Sub1", "Sub2"], color: "#..." }
+    return categoryData.subcategories;
+  }
+  return [];
+};
+
+export const getCategoryColor = (categoryData, defaultColor = "#8B5CF6") => {
+  if (Array.isArray(categoryData)) {
+    // Old format: return default color
+    return defaultColor;
+  }
+  if (categoryData && categoryData.color) {
+    return categoryData.color;
+  }
+  return defaultColor;
+};
+
+export const migrateCategoriesToNewFormat = (categories) => {
+  if (!categories) return {};
+  
+  const migrated = {};
+  const defaultColors = [
+    "#8B5CF6", // purple
+    "#3B82F6", // blue
+    "#EC4899", // pink
+    "#10B981", // green
+    "#F59E0B", // amber
+    "#EF4444", // red
+    "#6366F1", // indigo
+    "#A855F7", // violet
+  ];
+  
+  let colorIndex = 0;
+  
+  Object.entries(categories).forEach(([categoryName, categoryData]) => {
+    if (Array.isArray(categoryData)) {
+      // Old format: migrate to new format
+      migrated[categoryName] = {
+        subcategories: categoryData,
+        color: defaultColors[colorIndex % defaultColors.length],
+      };
+      colorIndex++;
+    } else if (categoryData && typeof categoryData === 'object') {
+      // Already in new format or partially migrated
+      migrated[categoryName] = {
+        subcategories: categoryData.subcategories || [],
+        color: categoryData.color || defaultColors[colorIndex % defaultColors.length],
+      };
+      colorIndex++;
+    }
+  });
+  
+  return migrated;
+};
+
 export const saveCategories = async (userId, categories) => {
   try {
+    // Ensure categories are in new format
+    const migratedCategories = migrateCategoriesToNewFormat(categories);
     const userDocRef = doc(db, "users", userId);
     await updateDoc(userDocRef, {
-      categories,
+      categories: migratedCategories,
       updatedAt: new Date().toISOString(),
     });
   } catch (error) {
@@ -203,7 +267,9 @@ export const getUserCategories = async (userId) => {
     const userDoc = await getDoc(userDocRef);
 
     if (userDoc.exists()) {
-      return userDoc.data().categories || null;
+      const categories = userDoc.data().categories || null;
+      // Migrate to new format if needed
+      return categories ? migrateCategoriesToNewFormat(categories) : null;
     }
     return null;
   } catch (error) {
@@ -280,6 +346,66 @@ export const getUserTheme = async (userId) => {
   }
 };
 
+// ==================== LANGUAGE ====================
+
+export const saveUserLanguage = async (userId, language) => {
+  try {
+    const userDocRef = doc(db, "users", userId);
+    await updateDoc(userDocRef, {
+      language,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error saving language:", error);
+    throw error;
+  }
+};
+
+export const getUserLanguage = async (userId) => {
+  try {
+    const userDocRef = doc(db, "users", userId);
+    const userDoc = await getDoc(userDocRef);
+
+    if (userDoc.exists()) {
+      return userDoc.data().language || null;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error getting language:", error);
+    return null;
+  }
+};
+
+// ==================== CHANGELOG ====================
+
+export const markChangelogAsSeen = async (userId, version) => {
+  try {
+    const userDocRef = doc(db, "users", userId);
+    await updateDoc(userDocRef, {
+      changelogSeen: version,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error marking changelog as seen:", error);
+    throw error;
+  }
+};
+
+export const getChangelogSeenVersion = async (userId) => {
+  try {
+    const userDocRef = doc(db, "users", userId);
+    const userDoc = await getDoc(userDocRef);
+
+    if (userDoc.exists()) {
+      return userDoc.data().changelogSeen || null;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error getting changelog seen version:", error);
+    return null;
+  }
+};
+
 // ==================== USER INITIALIZATION ====================
 
 export const initializeUser = async (userId, userData) => {
@@ -287,13 +413,34 @@ export const initializeUser = async (userId, userData) => {
     const userDocRef = doc(db, "users", userId);
     const userDoc = await getDoc(userDocRef);
     const defaultCategories = {
-      Alimentacion: ["Supermercado", "Restaurantes", "Cafeterias"],
-      Transporte: ["Combustible", "Transporte publico", "Taxi"],
-      Vivienda: ["Alquiler", "Hipoteca", "Suministros"],
-      Ocio: ["Streaming", "Deportes", "Hobbies"],
-      Salud: ["Medico", "Farmacia", "Gimnasio"],
-      Compras: ["Ropa", "Electronica", "Otros"],
-      Educacion: ["Cursos", "Libros", "Material"],
+      Alimentacion: {
+        subcategories: ["Supermercado", "Restaurantes", "Cafeterias"],
+        color: "#8B5CF6",
+      },
+      Transporte: {
+        subcategories: ["Combustible", "Transporte publico", "Taxi"],
+        color: "#3B82F6",
+      },
+      Vivienda: {
+        subcategories: ["Alquiler", "Hipoteca", "Suministros"],
+        color: "#EC4899",
+      },
+      Ocio: {
+        subcategories: ["Streaming", "Deportes", "Hobbies"],
+        color: "#10B981",
+      },
+      Salud: {
+        subcategories: ["Medico", "Farmacia", "Gimnasio"],
+        color: "#F59E0B",
+      },
+      Compras: {
+        subcategories: ["Ropa", "Electronica", "Otros"],
+        color: "#EF4444",
+      },
+      Educacion: {
+        subcategories: ["Cursos", "Libros", "Material"],
+        color: "#6366F1",
+      },
     };
 
     if (userDoc.exists()) {

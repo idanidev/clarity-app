@@ -11,16 +11,33 @@
   transition-duration: 150ms;
 }
 
+html,
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
     "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Fondo dinámico según modo oscuro/claro - aplicado al body */
+body.dark-mode {
+  background-color: #111827; /* gray-900 */
+  color: #f3f4f6;
+}
+
+body.light-mode {
+  background: linear-gradient(to bottom right, #faf5ff, #fdf2f8, #eff6ff); /* purple-50, pink-50, blue-50 */
+  color: #1f2937;
 }
 
 #root {
   min-height: 100vh;
+  width: 100%;
 }
 
 /* Scrollbar personalizado */
@@ -96,4 +113,22 @@ input[type="month"] {
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
+}
+
+/* Utilidad para ocultar scrollbar */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Mejoras para el efecto liquid glass en móvil */
+@supports (backdrop-filter: blur(20px)) {
+  .backdrop-blur-2xl {
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+  }
 }

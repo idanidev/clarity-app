@@ -1,16 +1,21 @@
 import { signOut } from "firebase/auth";
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { auth } from "../../firebase";
+import { exportToCSV } from "../../utils/exportUtils";
 import {
   addExpense as addExpenseDB,
   addRecurringExpense,
   deleteExpense as deleteExpenseDB,
   deleteRecurringExpense,
+  getCategorySubcategories,
+  getChangelogSeenVersion,
   getRecurringExpenses,
   getUserBudgets,
   getUserCategories,
+  getUserLanguage,
   getUserTheme,
   initializeUser,
+  markChangelogAsSeen,
   saveBudgets,
   saveCategories,
   saveTheme,
@@ -19,19 +24,33 @@ import {
   updateExpense as updateExpenseDB,
   updateRecurringExpense,
 } from "../../services/firestoreService";
-import AddExpenseModal from "./components/AddExpenseModal";
-import BudgetsModal from "./components/BudgetsModal";
-import CategoriesModal from "./components/CategoriesModal";
-import DeleteConfirmationDialog from "./components/DeleteConfirmationDialog";
-import EditExpenseModal from "./components/EditExpenseModal";
+import { useLanguage } from "../../contexts/LanguageContext";
+// Lazy loading para componentes pesados
+const AddExpenseModal = lazy(() => import("./components/AddExpenseModal"));
+const BudgetsModal = lazy(() => import("./components/BudgetsModal"));
+const CategoriesModal = lazy(() => import("./components/CategoriesModal"));
+const ChangelogModal = lazy(() => import("./components/ChangelogModal"));
+const DeleteConfirmationDialog = lazy(() => import("./components/DeleteConfirmationDialog"));
+const EditExpenseModal = lazy(() => import("./components/EditExpenseModal"));
+const RecurringExpensesModal = lazy(() => import("./components/RecurringExpensesModal"));
+const SettingsModal = lazy(() => import("./components/SettingsModal"));
+const TipsModal = lazy(() => import("./components/TipsModal"));
+
+// Componentes que se usan siempre, sin lazy loading
 import Header from "./components/Header";
 import MainContent from "./components/MainContent";
 import MobileMenu from "./components/MobileMenu";
 import Notification from "./components/Notification";
-import RecurringExpensesModal from "./components/RecurringExpensesModal";
-import SettingsModal from "./components/SettingsModal";
+
+// Componente de carga para modales
+const ModalLoader = () => (
+  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-purple-600"></div>
+  </div>
+);
 
 const Dashboard = ({ user }) => {
+  const { initializeLanguage } = useLanguage();
   const [expenses, setExpenses] = useState([]);
   const [categories, setCategories] = useState({});
   const [budgets, setBudgets] = useState({});
@@ -50,14 +69,20 @@ const Dashboard = ({ user }) => {
   const [showSettings, setShowSettings] = useState(false);
   const [showManagement, setShowManagement] = useState(false);
   const [showRecurring, setShowRecurring] = useState(false);
+  const [showTips, setShowTips] = useState(false);
+  const [showChangelog, setShowChangelog] = useState(false);
   const [editingRecurring, setEditingRecurring] = useState(null);
   const [recurringExpenses, setRecurringExpenses] = useState([]);
+  
+  // Versión actual del changelog - incrementar cuando hay nuevos cambios
+  const CURRENT_CHANGELOG_VERSION = "1.0.0";
   const [newRecurring, setNewRecurring] = useState({
     name: "",
     amount: "",
     category: "",
     subcategory: "",
     dayOfMonth: 1,
+    frequency: "monthly", // monthly, quarterly, semiannual, annual
     paymentMethod: "Tarjeta",
     active: true,
     endDate: "",
@@ -82,8 +107,10 @@ const Dashboard = ({ user }) => {
   const [editingExpense, setEditingExpense] = useState(null);
 
   const [newCategory, setNewCategory] = useState("");
+  const [newCategoryColor, setNewCategoryColor] = useState("#8B5CF6");
   const [newSubcategory, setNewSubcategory] = useState("");
   const [selectedCategoryForSub, setSelectedCategoryForSub] = useState("");
+  const [editingCategory, setEditingCategory] = useState(null);
 
   const [budgetCategory, setBudgetCategory] = useState("");
   const [budgetAmount, setBudgetAmount] = useState("");
@@ -113,10 +140,12 @@ const Dashboard = ({ user }) => {
           email: user.email,
         });
 
-        const [userCategories, userBudgets, userTheme] = await Promise.all([
+        const [userCategories, userBudgets, userTheme, userLanguage, changelogSeen] = await Promise.all([
           getUserCategories(user.uid),
           getUserBudgets(user.uid),
           getUserTheme(user.uid),
+          getUserLanguage(user.uid),
+          getChangelogSeenVersion(user.uid),
         ]);
 
         if (!isMounted) {
@@ -126,6 +155,16 @@ const Dashboard = ({ user }) => {
         setCategories(userCategories);
         setBudgets(userBudgets);
         setDarkMode(userTheme === "dark");
+        
+        // Inicializar idioma
+        if (userLanguage) {
+          initializeLanguage(userLanguage);
+        }
+        
+        // Mostrar changelog si el usuario no ha visto esta versión
+        if (changelogSeen !== CURRENT_CHANGELOG_VERSION) {
+          setShowChangelog(true);
+        }
 
         const initialExpanded = {};
         Object.keys(userCategories).forEach((cat) => {
@@ -133,16 +172,13 @@ const Dashboard = ({ user }) => {
         });
         setExpandedCategories(initialExpanded);
 
-        unsubscribeExpenses = subscribeToExpenses(
-          user.uid,
-          (expensesData) => {
-            if (!isMounted) {
-              return;
-            }
-            setExpenses(expensesData);
-            setLoading(false);
+        unsubscribeExpenses = subscribeToExpenses(user.uid, (expensesData) => {
+          if (!isMounted) {
+            return;
           }
-        );
+          setExpenses(expensesData);
+          setLoading(false);
+        });
 
         unsubscribeRecurring = subscribeToRecurringExpenses(
           user.uid,
@@ -168,7 +204,7 @@ const Dashboard = ({ user }) => {
       unsubscribeExpenses?.();
       unsubscribeRecurring?.();
     };
-  }, [user]);
+  }, [user, initializeLanguage]);
 
   const toggleDarkMode = async () => {
     const newTheme = !darkMode;
@@ -189,6 +225,7 @@ const Dashboard = ({ user }) => {
         category: newRecurring.category,
         subcategory: newRecurring.subcategory,
         dayOfMonth: parseInt(newRecurring.dayOfMonth, 10),
+        frequency: newRecurring.frequency || "monthly",
         paymentMethod: newRecurring.paymentMethod,
         active: true,
       };
@@ -205,6 +242,7 @@ const Dashboard = ({ user }) => {
         category: "",
         subcategory: "",
         dayOfMonth: 1,
+        frequency: "monthly",
         paymentMethod: "Tarjeta",
         active: true,
         endDate: "",
@@ -229,28 +267,29 @@ const Dashboard = ({ user }) => {
     }
   };
 
-  const handleEditRecurringSubmit = async (e) => {
-    e.preventDefault();
-    if (!user || !editingRecurring) return;
+  const handleEditRecurringSubmit = async (data) => {
+    if (!user || !data) return;
 
     try {
       const updates = {
-        name: editingRecurring.name,
-        amount: parseFloat(editingRecurring.amount),
-        category: editingRecurring.category,
-        subcategory: editingRecurring.subcategory,
-        dayOfMonth: parseInt(editingRecurring.dayOfMonth, 10),
-        paymentMethod: editingRecurring.paymentMethod,
+        name: (data.name ?? "").trim(),
+        amount: Number(data.amount ?? 0),
+        category: data.category || "",
+        subcategory: data.subcategory || "",
+        dayOfMonth: Number(data.dayOfMonth ?? 1),
+        frequency: data.frequency || "monthly",
+        paymentMethod: data.paymentMethod || "Tarjeta",
+        endDate: data.endDate || null,
+        active: !!data.active,
       };
 
-      updates.endDate = editingRecurring.endDate ? editingRecurring.endDate : "";
-
-      await updateRecurringExpense(user.uid, editingRecurring.id, updates);
-      const updated = await getRecurringExpenses(user.uid);
-      setRecurringExpenses(updated);
+      await updateRecurringExpense(user.uid, data.id, updates);
+      const refreshed = await getRecurringExpenses(user.uid);
+      setRecurringExpenses(refreshed);
       setEditingRecurring(null);
       showNotification("Gasto recurrente actualizado", "success");
     } catch (error) {
+      console.error(error);
       showNotification("Error al actualizar", "error");
     }
   };
@@ -266,17 +305,17 @@ const Dashboard = ({ user }) => {
     }
   };
 
-  const toggleCategory = (category) => {
+  const toggleCategory = useCallback((category) => {
     setExpandedCategories((prev) => ({
       ...prev,
       [category]: !prev[category],
     }));
-  };
+  }, []);
 
-  const showNotification = (message, type = "success") => {
+  const showNotification = useCallback((message, type = "success") => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3000);
-  };
+  }, []);
 
   const handleAddExpense = async (e) => {
     e.preventDefault();
@@ -350,7 +389,10 @@ const Dashboard = ({ user }) => {
     try {
       const updatedCategories = {
         ...categories,
-        [newCategory]: [],
+        [newCategory]: {
+          subcategories: [],
+          color: newCategoryColor,
+        },
       };
 
       await saveCategories(user.uid, updatedCategories);
@@ -360,6 +402,7 @@ const Dashboard = ({ user }) => {
         [newCategory]: true,
       }));
       setNewCategory("");
+      setNewCategoryColor("#8B5CF6");
       showNotification("Categoría añadida correctamente");
     } catch (error) {
       showNotification("Error al añadir la categoría", "error");
@@ -371,12 +414,16 @@ const Dashboard = ({ user }) => {
     if (!user || !selectedCategoryForSub || !newSubcategory.trim()) return;
 
     try {
+      const categoryData = categories[selectedCategoryForSub];
+      const subcategories = getCategorySubcategories(categoryData);
+      const color = categoryData?.color || "#8B5CF6";
+      
       const updatedCategories = {
         ...categories,
-        [selectedCategoryForSub]: [
-          ...(categories[selectedCategoryForSub] || []),
-          newSubcategory,
-        ],
+        [selectedCategoryForSub]: {
+          subcategories: [...subcategories, newSubcategory],
+          color: color,
+        },
       };
 
       await saveCategories(user.uid, updatedCategories);
@@ -428,9 +475,16 @@ const Dashboard = ({ user }) => {
     }
 
     try {
+      const categoryData = categories[category];
+      const subcategories = getCategorySubcategories(categoryData);
+      const color = categoryData?.color || "#8B5CF6";
+      
       const updatedCategories = {
         ...categories,
-        [category]: categories[category].filter((sub) => sub !== subcategory),
+        [category]: {
+          subcategories: subcategories.filter((sub) => sub !== subcategory),
+          color: color,
+        },
       };
 
       await saveCategories(user.uid, updatedCategories);
@@ -439,6 +493,76 @@ const Dashboard = ({ user }) => {
       showNotification("Subcategoría eliminada correctamente");
     } catch (error) {
       showNotification("Error al eliminar la subcategoría", "error");
+    }
+  };
+
+  const handleEditCategory = async (oldCategoryName, newCategoryName, newColor) => {
+    if (!user || !oldCategoryName || !newCategoryName.trim()) return;
+
+    // Check if category name is being changed and new name already exists
+    if (oldCategoryName !== newCategoryName && categories[newCategoryName]) {
+      showNotification("Ya existe una categoría con ese nombre", "error");
+      return;
+    }
+
+    try {
+      const categoryData = categories[oldCategoryName];
+      const subcategories = getCategorySubcategories(categoryData);
+      
+      const updatedCategories = { ...categories };
+      const updatedBudgets = { ...budgets };
+      
+      // If name changed, we need to update all expenses, budgets, and recurring expenses
+      if (oldCategoryName !== newCategoryName) {
+        // Delete old category
+        delete updatedCategories[oldCategoryName];
+        
+        // Update budgets if category has a budget
+        if (budgets[oldCategoryName]) {
+          updatedBudgets[newCategoryName] = budgets[oldCategoryName];
+          delete updatedBudgets[oldCategoryName];
+          await saveBudgets(user.uid, updatedBudgets);
+          setBudgets(updatedBudgets);
+        }
+        
+        // Update expenses with new category name
+        const expensesToUpdate = expenses.filter(
+          (exp) => exp.category === oldCategoryName
+        );
+        
+        for (const expense of expensesToUpdate) {
+          await updateExpenseDB(user.uid, expense.id, {
+            ...expense,
+            category: newCategoryName,
+          });
+        }
+        
+        // Update recurring expenses with new category name
+        const recurringToUpdate = recurringExpenses.filter(
+          (rec) => rec.category === oldCategoryName
+        );
+        
+        for (const recurring of recurringToUpdate) {
+          await updateRecurringExpense(user.uid, recurring.id, {
+            ...recurring,
+            category: newCategoryName,
+          });
+        }
+      }
+      
+      // Add/update category with new data
+      updatedCategories[newCategoryName] = {
+        subcategories: subcategories,
+        color: newColor,
+      };
+
+      await saveCategories(user.uid, updatedCategories);
+      setCategories(updatedCategories);
+      setEditingCategory(null);
+      showNotification("Categoría actualizada correctamente");
+    } catch (error) {
+      console.error("Error updating category:", error);
+      showNotification("Error al actualizar la categoría", "error");
     }
   };
 
@@ -543,89 +667,126 @@ const Dashboard = ({ user }) => {
       .slice(0, 10);
   }, [expenses]);
 
-  const bgClass = darkMode
-    ? "bg-gray-900"
-    : "bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50";
-  const cardClass = darkMode
-    ? "bg-gray-800 border-gray-700"
-    : "bg-white/80 backdrop-blur-sm border-white/60";
-  const textClass = darkMode ? "text-gray-100" : "text-purple-900";
-  const textSecondaryClass = darkMode ? "text-gray-400" : "text-purple-600";
-  const inputClass = darkMode
-    ? "bg-gray-700 border-gray-600 text-gray-100 focus:ring-purple-500"
-    : "bg-white border-purple-200 text-purple-900 focus:ring-purple-500";
+  // Aplicar clase al body según modo oscuro/claro
+  useEffect(() => {
+    if (darkMode) {
+      document.body.classList.remove("light-mode");
+      document.body.classList.add("dark-mode");
+      document.documentElement.style.backgroundColor = "#111827";
+    } else {
+      document.body.classList.remove("dark-mode");
+      document.body.classList.add("light-mode");
+      document.documentElement.style.backgroundColor = "#faf5ff";
+    }
+    return () => {
+      document.body.classList.remove("dark-mode", "light-mode");
+      document.documentElement.style.backgroundColor = "";
+    };
+  }, [darkMode]);
 
-  const handleNavigateHome = () => {
-    setShowAddExpense(false);
-    setShowBudgets(false);
-    setShowCategories(false);
-    setShowSettings(false);
-    setShowRecurring(false);
-    setShowManagement(false);
-  };
+  // Memoizar clases CSS para evitar recálculos
+  const { bgClass, cardClass, textClass, textSecondaryClass, inputClass } = useMemo(() => ({
+    bgClass: darkMode
+      ? "bg-gray-900"
+      : "bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50",
+    cardClass: darkMode
+      ? "bg-gray-800 border-gray-700"
+      : "bg-white/80 backdrop-blur-sm border-white/60",
+    textClass: darkMode ? "text-gray-100" : "text-purple-900",
+    textSecondaryClass: darkMode ? "text-gray-400" : "text-purple-600",
+    inputClass: darkMode
+      ? "bg-gray-700 border-gray-600 text-gray-100 focus:ring-purple-500"
+      : "bg-white border-purple-200 text-purple-900 focus:ring-purple-500",
+  }), [darkMode]);
 
-  const handleOpenAddExpense = () => {
+  const handleOpenAddExpense = useCallback(() => {
     setShowAddExpense(true);
     setShowManagement(false);
-  };
+  }, []);
 
-  const handleOpenCategories = () => {
+  const handleOpenCategories = useCallback(() => {
     setShowCategories(true);
     setShowManagement(false);
-  };
+  }, []);
 
-  const handleOpenBudgets = () => {
+  const handleOpenBudgets = useCallback(() => {
     setShowBudgets(true);
     setShowManagement(false);
-  };
+  }, []);
 
-  const handleOpenRecurring = () => {
+  const handleOpenRecurring = useCallback(() => {
     setShowRecurring(true);
     setShowManagement(false);
-  };
+  }, []);
 
-  const handleOpenSettings = () => {
+  const handleOpenSettings = useCallback(() => {
     setShowSettings(true);
     setShowManagement(false);
-  };
+  }, []);
 
-  const handleToggleFilters = () => {
+  const handleOpenTips = useCallback(() => {
+    setShowTips(true);
+    setShowManagement(false);
+  }, []);
+
+  const handleCloseChangelog = useCallback(async () => {
+    setShowChangelog(false);
+    if (user) {
+      try {
+        await markChangelogAsSeen(user.uid, CURRENT_CHANGELOG_VERSION);
+      } catch (error) {
+        console.error("Error marking changelog as seen:", error);
+      }
+    }
+  }, [user]);
+
+  const handleExportCSV = useCallback(() => {
+    try {
+      exportToCSV(filteredExpenses, `gastos_${selectedMonth}`);
+      showNotification("Gastos exportados correctamente");
+    } catch (error) {
+      console.error("Error exporting CSV:", error);
+      showNotification("Error al exportar los gastos", "error");
+    }
+  }, [filteredExpenses, selectedMonth, showNotification]);
+
+  const handleToggleFilters = useCallback(() => {
     setShowFilters((prev) => !prev);
-  };
+  }, []);
 
-  const handleMonthChange = (value) => {
+  const handleMonthChange = useCallback((value) => {
     setSelectedMonth(value);
-  };
+  }, []);
 
-  const handleCategoryFilterChange = (value) => {
+  const handleCategoryFilterChange = useCallback((value) => {
     setSelectedCategory(value);
-  };
+  }, []);
 
-  const handleViewChange = (view) => {
+  const handleViewChange = useCallback((view) => {
     setActiveView(view);
-  };
+  }, []);
 
-  const handleNotificationClose = () => {
+  const handleNotificationClose = useCallback(() => {
     setNotification(null);
-  };
+  }, []);
 
-  const handleRequestDelete = (payload) => {
+  const handleRequestDelete = useCallback((payload) => {
     setShowDeleteConfirm(payload);
-  };
+  }, []);
 
-  const handleRecurringStartEdit = (recurring) => {
+  const handleRecurringStartEdit = useCallback((recurring) => {
     setEditingRecurring(recurring);
-  };
+  }, []);
 
-  const handleRecurringEditChange = (updated) => {
+  const handleRecurringEditChange = useCallback((updated) => {
     setEditingRecurring(updated);
-  };
+  }, []);
 
-  const handleRecurringClose = () => {
+  const handleRecurringClose = useCallback(() => {
     setEditingRecurring(null);
     setShowRecurring(false);
     setShowMenu(false);
-  };
+  }, []);
 
   const handleConfirmDeletion = (context) => {
     if (!context) {
@@ -671,20 +832,19 @@ const Dashboard = ({ user }) => {
         textClass={textClass}
         textSecondaryClass={textSecondaryClass}
         userEmail={user.email}
-        showAddExpense={showAddExpense}
         showBudgets={showBudgets}
         showCategories={showCategories}
         showSettings={showSettings}
         showRecurring={showRecurring}
         showManagement={showManagement}
         overBudgetCount={overBudgetCategories.length}
-        onSelectHome={handleNavigateHome}
-        onOpenAddExpense={handleOpenAddExpense}
         onToggleManagement={() => setShowManagement((prev) => !prev)}
         onSelectCategories={handleOpenCategories}
         onSelectBudgets={handleOpenBudgets}
         onSelectRecurring={handleOpenRecurring}
         onOpenSettings={handleOpenSettings}
+        onOpenTips={handleOpenTips}
+        onExportCSV={handleExportCSV}
         onLogout={handleLogout}
         onOpenMenu={() => setShowMenu(true)}
       />
@@ -694,12 +854,12 @@ const Dashboard = ({ user }) => {
         darkMode={darkMode}
         textClass={textClass}
         onClose={() => setShowMenu(false)}
-        onNavigateHome={handleNavigateHome}
-        onOpenAddExpense={handleOpenAddExpense}
         onShowCategories={handleOpenCategories}
         onShowBudgets={handleOpenBudgets}
         onShowRecurring={handleOpenRecurring}
         onShowSettings={handleOpenSettings}
+        onShowTips={handleOpenTips}
+        onExportCSV={handleExportCSV}
         onLogout={handleLogout}
       />
 
@@ -707,7 +867,6 @@ const Dashboard = ({ user }) => {
         cardClass={cardClass}
         textClass={textClass}
         textSecondaryClass={textSecondaryClass}
-        inputClass={inputClass}
         darkMode={darkMode}
         totalExpenses={totalExpenses}
         filteredExpenses={filteredExpenses}
@@ -729,114 +888,173 @@ const Dashboard = ({ user }) => {
         categoryTotals={categoryTotals}
         budgets={budgets}
         recentExpenses={recentExpenses}
-      />
-
-      <AddExpenseModal
-        visible={showAddExpense}
-        darkMode={darkMode}
-        cardClass={cardClass}
-        textClass={textClass}
-        inputClass={inputClass}
-        categories={categories}
-        newExpense={newExpense}
-        onChange={setNewExpense}
-        onSubmit={handleAddExpense}
-        onClose={() => setShowAddExpense(false)}
-      />
-
-      <EditExpenseModal
-        expense={editingExpense}
-        darkMode={darkMode}
-        cardClass={cardClass}
-        textClass={textClass}
-        inputClass={inputClass}
-        categories={categories}
-        onChange={setEditingExpense}
-        onSubmit={handleUpdateExpense}
-        onClose={() => setEditingExpense(null)}
-      />
-
-      <CategoriesModal
-        visible={showCategories}
-        darkMode={darkMode}
-        cardClass={cardClass}
-        textClass={textClass}
-        inputClass={inputClass}
-        categories={categories}
-        newCategory={newCategory}
-        onNewCategoryChange={setNewCategory}
-        onAddCategory={handleAddCategory}
-        selectedCategoryForSub={selectedCategoryForSub}
-        onSelectCategoryForSub={setSelectedCategoryForSub}
-        newSubcategory={newSubcategory}
-        onNewSubcategoryChange={setNewSubcategory}
-        onAddSubcategory={handleAddSubcategory}
-        onRequestDelete={handleRequestDelete}
-        onClose={() => setShowCategories(false)}
-      />
-
-      <BudgetsModal
-        visible={showBudgets}
-        darkMode={darkMode}
-        cardClass={cardClass}
-        textClass={textClass}
-        textSecondaryClass={textSecondaryClass}
-        inputClass={inputClass}
-        categories={categories}
-        budgets={budgets}
-        budgetCategory={budgetCategory}
-        onBudgetCategoryChange={setBudgetCategory}
-        budgetAmount={budgetAmount}
-        onBudgetAmountChange={setBudgetAmount}
-        onAddBudget={handleAddBudget}
-        categoryTotals={categoryTotals}
-        onRequestDelete={handleRequestDelete}
-        onClose={() => setShowBudgets(false)}
-      />
-
-      <RecurringExpensesModal
-        visible={showRecurring}
-        darkMode={darkMode}
-        cardClass={cardClass}
-        textClass={textClass}
-        textSecondaryClass={textSecondaryClass}
-        inputClass={inputClass}
-        categories={categories}
         recurringExpenses={recurringExpenses}
-        newRecurring={newRecurring}
-        onNewRecurringChange={setNewRecurring}
-        onAddRecurring={handleAddRecurring}
-        onUpdateRecurring={handleUpdateRecurring}
-        onRequestDelete={handleRequestDelete}
-        onStartEdit={handleRecurringStartEdit}
-        editingRecurring={editingRecurring}
-        onEditingRecurringChange={handleRecurringEditChange}
-        onSubmitEditRecurring={handleEditRecurringSubmit}
-        onCancelEdit={() => setEditingRecurring(null)}
-        onClose={handleRecurringClose}
       />
 
-      <SettingsModal
-        visible={showSettings}
-        darkMode={darkMode}
-        cardClass={cardClass}
-        textClass={textClass}
-        textSecondaryClass={textSecondaryClass}
-        toggleDarkMode={toggleDarkMode}
-        onClose={() => setShowSettings(false)}
-      />
+      <Suspense fallback={showAddExpense ? <ModalLoader /> : null}>
+        <AddExpenseModal
+          visible={showAddExpense}
+          darkMode={darkMode}
+          cardClass={cardClass}
+          textClass={textClass}
+          inputClass={inputClass}
+          categories={categories}
+          newExpense={newExpense}
+          onChange={setNewExpense}
+          onSubmit={handleAddExpense}
+          onClose={() => setShowAddExpense(false)}
+        />
+      </Suspense>
 
-      <DeleteConfirmationDialog
-        context={showDeleteConfirm}
-        darkMode={darkMode}
-        cardClass={cardClass}
-        textClass={textClass}
-        textSecondaryClass={textSecondaryClass}
-        onCancel={() => setShowDeleteConfirm(null)}
-        onConfirm={handleConfirmDeletion}
-      />
+      <Suspense fallback={editingExpense ? <ModalLoader /> : null}>
+        <EditExpenseModal
+          expense={editingExpense}
+          darkMode={darkMode}
+          cardClass={cardClass}
+          textClass={textClass}
+          inputClass={inputClass}
+          categories={categories}
+          onChange={setEditingExpense}
+          onSubmit={handleUpdateExpense}
+          onClose={() => setEditingExpense(null)}
+        />
+      </Suspense>
 
-      <Notification notification={notification} onClose={handleNotificationClose} />
+      <Suspense fallback={showCategories ? <ModalLoader /> : null}>
+        <CategoriesModal
+          visible={showCategories}
+          darkMode={darkMode}
+          cardClass={cardClass}
+          textClass={textClass}
+          inputClass={inputClass}
+          categories={categories}
+          newCategory={newCategory}
+          onNewCategoryChange={setNewCategory}
+          newCategoryColor={newCategoryColor}
+          onNewCategoryColorChange={setNewCategoryColor}
+          onAddCategory={handleAddCategory}
+          selectedCategoryForSub={selectedCategoryForSub}
+          onSelectCategoryForSub={setSelectedCategoryForSub}
+          newSubcategory={newSubcategory}
+          onNewSubcategoryChange={setNewSubcategory}
+          onAddSubcategory={handleAddSubcategory}
+          editingCategory={editingCategory}
+          onStartEditCategory={setEditingCategory}
+          onCancelEditCategory={() => setEditingCategory(null)}
+          onSaveEditCategory={() => {
+            if (editingCategory) {
+              handleEditCategory(
+                editingCategory.name,
+                editingCategory.newName,
+                editingCategory.newColor
+              );
+            }
+          }}
+          onRequestDelete={handleRequestDelete}
+          onClose={() => {
+            setShowCategories(false);
+            setEditingCategory(null);
+            setNewCategory("");
+            setNewCategoryColor("#8B5CF6");
+          }}
+        />
+      </Suspense>
+
+      <Suspense fallback={showBudgets ? <ModalLoader /> : null}>
+        <BudgetsModal
+          visible={showBudgets}
+          darkMode={darkMode}
+          cardClass={cardClass}
+          textClass={textClass}
+          textSecondaryClass={textSecondaryClass}
+          inputClass={inputClass}
+          categories={categories}
+          budgets={budgets}
+          budgetCategory={budgetCategory}
+          onBudgetCategoryChange={setBudgetCategory}
+          budgetAmount={budgetAmount}
+          onBudgetAmountChange={setBudgetAmount}
+          onAddBudget={handleAddBudget}
+          categoryTotals={categoryTotals}
+          onRequestDelete={handleRequestDelete}
+          onClose={() => setShowBudgets(false)}
+        />
+      </Suspense>
+
+      <Suspense fallback={showRecurring ? <ModalLoader /> : null}>
+        <RecurringExpensesModal
+          visible={showRecurring}
+          darkMode={darkMode}
+          cardClass={cardClass}
+          textClass={textClass}
+          textSecondaryClass={textSecondaryClass}
+          inputClass={inputClass}
+          categories={categories}
+          recurringExpenses={recurringExpenses}
+          newRecurring={newRecurring}
+          onNewRecurringChange={setNewRecurring}
+          onAddRecurring={handleAddRecurring}
+          onUpdateRecurring={handleUpdateRecurring}
+          onRequestDelete={handleRequestDelete}
+          onStartEdit={handleRecurringStartEdit}
+          editingRecurring={editingRecurring}
+          onEditingRecurringChange={handleRecurringEditChange}
+          onSubmitEditRecurring={handleEditRecurringSubmit}
+          onCancelEdit={() => setEditingRecurring(null)}
+          onClose={handleRecurringClose}
+        />
+      </Suspense>
+
+      <Suspense fallback={showSettings ? <ModalLoader /> : null}>
+        <SettingsModal
+          visible={showSettings}
+          darkMode={darkMode}
+          cardClass={cardClass}
+          textClass={textClass}
+          textSecondaryClass={textSecondaryClass}
+          toggleDarkMode={toggleDarkMode}
+          onClose={() => setShowSettings(false)}
+        />
+      </Suspense>
+
+      <Suspense fallback={showTips ? <ModalLoader /> : null}>
+        <TipsModal
+          visible={showTips}
+          darkMode={darkMode}
+          cardClass={cardClass}
+          textClass={textClass}
+          textSecondaryClass={textSecondaryClass}
+          onClose={() => setShowTips(false)}
+        />
+      </Suspense>
+
+      <Suspense fallback={showChangelog ? <ModalLoader /> : null}>
+        <ChangelogModal
+          visible={showChangelog}
+          darkMode={darkMode}
+          cardClass={cardClass}
+          textClass={textClass}
+          textSecondaryClass={textSecondaryClass}
+          onClose={handleCloseChangelog}
+        />
+      </Suspense>
+
+      <Suspense fallback={showDeleteConfirm ? <ModalLoader /> : null}>
+        <DeleteConfirmationDialog
+          context={showDeleteConfirm}
+          darkMode={darkMode}
+          cardClass={cardClass}
+          textClass={textClass}
+          textSecondaryClass={textSecondaryClass}
+          onCancel={() => setShowDeleteConfirm(null)}
+          onConfirm={handleConfirmDeletion}
+        />
+      </Suspense>
+
+      <Notification
+        notification={notification}
+        onClose={handleNotificationClose}
+      />
     </div>
   );
 };
