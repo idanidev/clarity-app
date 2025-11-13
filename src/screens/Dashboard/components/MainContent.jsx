@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo, useMemo, useState } from "react";
 import {
   AlertTriangle,
   BarChart3,
@@ -13,7 +13,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { getCategoryColor } from "../../../services/firestoreService";
 import { useTranslation } from "../../../contexts/LanguageContext";
 
@@ -26,10 +26,15 @@ const MainContent = memo(({
   filteredExpenses,
   showFilters,
   onToggleFilters,
+  filterPeriodType,
+  onFilterPeriodTypeChange,
   selectedMonth,
   onMonthChange,
+  selectedYear,
+  onYearChange,
   selectedCategory,
   onCategoryChange,
+  onClearFilters,
   categories,
   activeView,
   onChangeView,
@@ -40,32 +45,64 @@ const MainContent = memo(({
   onEditExpense,
   onRequestDelete,
   categoryTotals,
+  categoryTotalsForBudgets,
   budgets,
   recentExpenses,
   recurringExpenses = [],
 }) => {
   const { t } = useTranslation();
+  const [activeIndex, setActiveIndex] = useState(null);
+  const [clickedCategory, setClickedCategory] = useState(null);
   
-  // Calcular promedio diario del mes actual
+  // Calcular promedio diario según el tipo de filtro
   const averageDaily = useMemo(() => {
-    if (filteredExpenses.length === 0 || !selectedMonth) return 0;
+    if (filteredExpenses.length === 0) return 0;
+    const today = new Date();
+    
     try {
-      const [year, month] = selectedMonth.split("-").map(Number);
-      if (!year || !month) return 0;
-      const daysInMonth = new Date(year, month, 0).getDate();
-      const today = new Date();
-      const isCurrentMonth = 
-        today.getFullYear() === year && 
-        (today.getMonth() + 1) === month;
-      const daysPassed = isCurrentMonth 
-        ? Math.min(today.getDate(), daysInMonth)
-        : daysInMonth;
-      return daysPassed > 0 ? totalExpenses / daysPassed : 0;
+      switch (filterPeriodType) {
+        case "all": {
+          // Promedio desde los inicios: calcular días desde el primer gasto
+          const firstExpense = filteredExpenses.reduce((earliest, exp) => 
+            exp.date < earliest.date ? exp : earliest
+          );
+          const firstDate = new Date(firstExpense.date);
+          const daysDiff = Math.ceil((today - firstDate) / (1000 * 60 * 60 * 24));
+          return daysDiff > 0 ? totalExpenses / daysDiff : 0;
+        }
+        
+        case "year": {
+          // Promedio diario del año
+          const yearNum = parseInt(selectedYear);
+          const isCurrentYear = today.getFullYear() === yearNum;
+          const startOfYear = new Date(yearNum, 0, 1);
+          const daysInYear = isCurrentYear
+            ? Math.ceil((today - startOfYear) / (1000 * 60 * 60 * 24))
+            : (yearNum % 4 === 0 && (yearNum % 100 !== 0 || yearNum % 400 === 0)) ? 366 : 365;
+          return daysInYear > 0 ? totalExpenses / daysInYear : 0;
+        }
+        
+        case "month":
+        default: {
+          // Promedio del mes
+          if (!selectedMonth) return 0;
+          const [yearNum, month] = selectedMonth.split("-").map(Number);
+          if (!yearNum || !month) return 0;
+          const daysInMonth = new Date(yearNum, month, 0).getDate();
+          const isCurrentMonth = 
+            today.getFullYear() === yearNum && 
+            (today.getMonth() + 1) === month;
+          const daysPassed = isCurrentMonth 
+            ? Math.min(today.getDate(), daysInMonth)
+            : daysInMonth;
+          return daysPassed > 0 ? totalExpenses / daysPassed : 0;
+        }
+      }
     } catch (error) {
       console.error("Error calculating average:", error);
       return 0;
     }
-  }, [totalExpenses, selectedMonth, filteredExpenses.length]);
+  }, [totalExpenses, filterPeriodType, selectedMonth, selectedYear, filteredExpenses]);
 
   const frequencyLabels = useMemo(
     () => ({
@@ -85,6 +122,8 @@ const MainContent = memo(({
       return acc;
     }, {});
   }, [recurringExpenses]);
+
+
 
   return (
     <div className="max-w-7xl mx-auto px-2 md:px-4 py-6 pb-32 md:pb-6">
@@ -185,25 +224,27 @@ const MainContent = memo(({
           </div>
         </div>
         
-        {/* Botón de filtrar en móvil - arriba a la derecha */}
-        <button
-          onClick={onToggleFilters}
-          className={`md:hidden absolute -top-2 -right-2 p-3 rounded-full shadow-xl backdrop-blur-xl border transition-all active:scale-95 z-10 ${
-            showFilters
-              ? darkMode
-                ? "bg-purple-600/90 border-purple-500/50 text-white"
-                : "bg-purple-600/90 border-purple-400/50 text-white"
-              : darkMode
-              ? "bg-gray-800/80 backdrop-blur-xl border-gray-700/50 text-gray-300"
-              : "bg-white/80 backdrop-blur-xl border-white/60 text-purple-600"
-          }`}
-        >
-          <Filter className="w-5 h-5" />
-        </button>
+        {/* Botón de filtrar en móvil - arriba a la derecha - Solo en table y chart */}
+        {(activeView === "table" || activeView === "chart") && (
+          <button
+            onClick={onToggleFilters}
+            className={`md:hidden absolute -top-2 -right-2 p-3 rounded-full shadow-xl backdrop-blur-xl border transition-all active:scale-95 z-10 ${
+              showFilters
+                ? darkMode
+                  ? "bg-purple-600/90 border-purple-500/50 text-white"
+                  : "bg-purple-600/90 border-purple-400/50 text-white"
+                : darkMode
+                ? "bg-gray-800/80 backdrop-blur-xl border-gray-700/50 text-gray-300"
+                : "bg-white/80 backdrop-blur-xl border-white/60 text-purple-600"
+            }`}
+          >
+            <Filter className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
-      {/* Panel de filtros para móvil */}
-      {showFilters && (
+      {/* Panel de filtros para móvil - Solo en table y chart */}
+      {showFilters && (activeView === "table" || activeView === "chart") && (
         <div className="md:hidden mb-4">
           <div
             className={`mt-2 rounded-2xl border shadow-xl ${
@@ -219,32 +260,88 @@ const MainContent = memo(({
                   {t("filters.title")}
                 </h4>
               </div>
-              <button
-                onClick={onToggleFilters}
-                className={`p-2 rounded-lg ${
-                  darkMode ? "hover:bg-gray-700" : "hover:bg-purple-100"
-                } transition-all`}
-              >
-                <X className={`w-4 h-4 ${textSecondaryClass}`} />
-              </button>
+              <div className="flex items-center gap-2">
+                {onClearFilters && (
+                  <button
+                    onClick={onClearFilters}
+                    className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-all ${
+                      darkMode
+                        ? "bg-gray-700 hover:bg-gray-600 text-gray-200"
+                        : "bg-purple-100 hover:bg-purple-200 text-purple-700"
+                    }`}
+                  >
+                    {t("filters.clear")}
+                  </button>
+                )}
+                <button
+                  onClick={onToggleFilters}
+                  className={`p-2 rounded-lg ${
+                    darkMode ? "hover:bg-gray-700" : "hover:bg-purple-100"
+                  } transition-all`}
+                >
+                  <X className={`w-4 h-4 ${textSecondaryClass}`} />
+                </button>
+              </div>
             </div>
 
             <div className="space-y-3">
               <div>
                 <label className={`block text-xs font-medium mb-1 ${textSecondaryClass}`}>
-                  {t("filters.month")}
+                  {t("filters.period")}
                 </label>
-                <input
-                  type="month"
-                  value={selectedMonth}
-                  onChange={(e) => onMonthChange(e.target.value)}
+                <select
+                  value={filterPeriodType}
+                  onChange={(e) => onFilterPeriodTypeChange(e.target.value)}
                   className={`w-full px-3 py-2 rounded-xl border text-sm transition-all ${
                     darkMode
                       ? "bg-gray-800 border-gray-700 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/40"
                       : "bg-white border-purple-200 text-purple-900 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/40"
                   }`}
-                />
+                >
+                  <option value="month">{t("filters.monthly")}</option>
+                  <option value="year">{t("filters.yearly")}</option>
+                  <option value="all">{t("filters.allTime")}</option>
+                </select>
               </div>
+
+              {filterPeriodType === "month" && (
+                <div>
+                  <label className={`block text-xs font-medium mb-1 ${textSecondaryClass}`}>
+                    {t("filters.selectMonth")}
+                  </label>
+                  <input
+                    type="month"
+                    value={selectedMonth}
+                    onChange={(e) => onMonthChange(e.target.value)}
+                    className={`w-full px-3 py-2 rounded-xl border text-sm transition-all ${
+                      darkMode
+                        ? "bg-gray-800 border-gray-700 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/40"
+                        : "bg-white border-purple-200 text-purple-900 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/40"
+                    }`}
+                  />
+                </div>
+              )}
+
+              {filterPeriodType === "year" && (
+                <div>
+                  <label className={`block text-xs font-medium mb-1 ${textSecondaryClass}`}>
+                    {t("filters.selectYear")}
+                  </label>
+                  <input
+                    type="number"
+                    min="2020"
+                    max={new Date().getFullYear()}
+                    value={selectedYear}
+                    onChange={(e) => onYearChange(e.target.value)}
+                    className={`w-full px-3 py-2 rounded-xl border text-sm transition-all ${
+                      darkMode
+                        ? "bg-gray-800 border-gray-700 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/40"
+                        : "bg-white border-purple-200 text-purple-900 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/40"
+                    }`}
+                  />
+                </div>
+              )}
+
 
               <div>
                 <label className={`block text-xs font-medium mb-1 ${textSecondaryClass}`}>
@@ -272,48 +369,80 @@ const MainContent = memo(({
         </div>
       )}
 
-      {/* Barra superior estilo Liquid Glass para desktop */}
-      <div className="hidden md:block mb-6">
-        <div
-          className={`rounded-3xl border backdrop-blur-2xl p-4 shadow-xl ${
-            darkMode
-              ? "bg-gray-800/60 border-gray-700/40"
-              : "bg-white/60 border-white/40"
-          }`}
-          style={{
-            boxShadow: darkMode
-              ? "0 8px 32px 0 rgba(0, 0, 0, 0.3), 0 0 0 0.5px rgba(255, 255, 255, 0.05) inset"
-              : "0 8px 32px 0 rgba(31, 38, 135, 0.12), 0 0 0 0.5px rgba(255, 255, 255, 0.6) inset",
-            backdropFilter: "blur(20px) saturate(180%)",
-            WebkitBackdropFilter: "blur(20px) saturate(180%)",
-          }}
-        >
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            {/* Sección izquierda: Filtros integrados */}
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/50 dark:bg-gray-700/50 border border-white/60 dark:border-gray-600/40">
-                <Filter className={`w-4 h-4 ${textSecondaryClass}`} />
-                <span className={`text-xs font-medium ${textSecondaryClass}`}>
-                  {t("filters.title")}
-                </span>
-              </div>
-              
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <input
-                  type="month"
-                  value={selectedMonth}
-                  onChange={(e) => onMonthChange(e.target.value)}
-                  className={`flex-1 min-w-[140px] px-3 py-2 rounded-xl border text-sm transition-all ${
+      {/* Barra superior estilo Liquid Glass para desktop - Solo en table y chart */}
+      {(activeView === "table" || activeView === "chart") && (
+        <div className="hidden md:block mb-6">
+          <div
+            className={`rounded-3xl border backdrop-blur-2xl p-4 shadow-xl ${
+              darkMode
+                ? "bg-gray-800/60 border-gray-700/40"
+                : "bg-white/60 border-white/40"
+            }`}
+            style={{
+              boxShadow: darkMode
+                ? "0 8px 32px 0 rgba(0, 0, 0, 0.3), 0 0 0 0.5px rgba(255, 255, 255, 0.05) inset"
+                : "0 8px 32px 0 rgba(31, 38, 135, 0.12), 0 0 0 0.5px rgba(255, 255, 255, 0.6) inset",
+              backdropFilter: "blur(20px) saturate(180%)",
+              WebkitBackdropFilter: "blur(20px) saturate(180%)",
+            }}
+          >
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              {/* Sección izquierda: Filtros integrados */}
+              <div className="flex items-center gap-3 flex-1 min-w-0 flex-wrap">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/50 dark:bg-gray-700/50 border border-white/60 dark:border-gray-600/40">
+                  <Filter className={`w-4 h-4 ${textSecondaryClass}`} />
+                  <span className={`text-xs font-medium ${textSecondaryClass}`}>
+                    {t("filters.title")}
+                  </span>
+                </div>
+                
+                <select
+                  value={filterPeriodType}
+                  onChange={(e) => onFilterPeriodTypeChange(e.target.value)}
+                  className={`px-3 py-2 rounded-xl border text-sm transition-all ${
                     darkMode
                       ? "bg-gray-700/50 border-gray-600/40 text-gray-100 focus:bg-gray-700 focus:border-purple-500/50"
                       : "bg-white/70 border-white/60 text-purple-900 focus:bg-white focus:border-purple-400"
                   } focus:ring-2 focus:ring-purple-500/20 focus:outline-none`}
-                />
+                >
+                  <option value="month">{t("filters.monthly")}</option>
+                  <option value="year">{t("filters.yearly")}</option>
+                  <option value="all">{t("filters.allTime")}</option>
+                </select>
+
+                {filterPeriodType === "month" && (
+                  <input
+                    type="month"
+                    value={selectedMonth}
+                    onChange={(e) => onMonthChange(e.target.value)}
+                    className={`min-w-[140px] px-3 py-2 rounded-xl border text-sm transition-all ${
+                      darkMode
+                        ? "bg-gray-700/50 border-gray-600/40 text-gray-100 focus:bg-gray-700 focus:border-purple-500/50"
+                        : "bg-white/70 border-white/60 text-purple-900 focus:bg-white focus:border-purple-400"
+                    } focus:ring-2 focus:ring-purple-500/20 focus:outline-none`}
+                  />
+                )}
+
+                {filterPeriodType === "year" && (
+                  <input
+                    type="number"
+                    min="2020"
+                    max={new Date().getFullYear()}
+                    value={selectedYear}
+                    onChange={(e) => onYearChange(e.target.value)}
+                    className={`min-w-[100px] px-3 py-2 rounded-xl border text-sm transition-all ${
+                      darkMode
+                        ? "bg-gray-700/50 border-gray-600/40 text-gray-100 focus:bg-gray-700 focus:border-purple-500/50"
+                        : "bg-white/70 border-white/60 text-purple-900 focus:bg-white focus:border-purple-400"
+                    } focus:ring-2 focus:ring-purple-500/20 focus:outline-none`}
+                  />
+                )}
+
                 
                 <select
                   value={selectedCategory}
                   onChange={(e) => onCategoryChange(e.target.value)}
-                  className={`flex-1 min-w-[140px] px-3 py-2 rounded-xl border text-sm transition-all ${
+                  className={`min-w-[140px] px-3 py-2 rounded-xl border text-sm transition-all ${
                     darkMode
                       ? "bg-gray-700/50 border-gray-600/40 text-gray-100 focus:bg-gray-700 focus:border-purple-500/50"
                       : "bg-white/70 border-white/60 text-purple-900 focus:bg-white focus:border-purple-400"
@@ -326,23 +455,38 @@ const MainContent = memo(({
                     </option>
                   ))}
                 </select>
-              </div>
-            </div>
 
-            {/* Sección derecha: Botón Añadir Gasto */}
-            <button
-              onClick={onAddExpenseClick}
-              className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-xl transition-all active:scale-95 whitespace-nowrap"
-              style={{
-                boxShadow: "0 4px 16px rgba(139, 92, 246, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1) inset",
-              }}
-            >
-              <Plus className="w-5 h-5" strokeWidth={2.5} />
-              <span>{t("dashboard.addExpense")}</span>
-            </button>
+                {onClearFilters && (
+                  <button
+                    onClick={onClearFilters}
+                    className={`px-3 py-2 rounded-xl text-sm font-medium transition-all ${
+                      darkMode
+                        ? "bg-gray-700/50 hover:bg-gray-600/50 border border-gray-600/40 text-gray-200"
+                        : "bg-white/70 hover:bg-white border border-white/60 text-purple-700"
+                    } focus:ring-2 focus:ring-purple-500/20 focus:outline-none`}
+                  >
+                    {t("filters.clear")}
+                  </button>
+                )}
+              </div>
+
+              {/* Sección derecha: Botón Añadir Gasto - Solo en vista de tabla */}
+              {activeView === "table" && (
+                <button
+                  onClick={onAddExpenseClick}
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-xl transition-all active:scale-95 whitespace-nowrap"
+                  style={{
+                    boxShadow: "0 4px 16px rgba(139, 92, 246, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1) inset",
+                  }}
+                >
+                  <Plus className="w-5 h-5" strokeWidth={2.5} />
+                  <span>{t("dashboard.addExpense")}</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Pestañas de vistas estilo iOS para desktop */}
       <div className="hidden md:block mb-6">
@@ -783,22 +927,22 @@ const MainContent = memo(({
       )}
 
       {activeView === "chart" && (
-        <div className={`${cardClass} rounded-2xl p-6 border shadow-lg`}>
-          <h3 className={`text-xl font-bold ${textClass} mb-6`}>
+        <div className={`${cardClass} rounded-2xl p-3 md:p-6 border shadow-lg`}>
+          <h3 className={`text-lg md:text-xl font-bold ${textClass} mb-3 md:mb-6`}>
             Distribución por Categoría
           </h3>
 
           {categoryTotals.length === 0 ? (
-            <div className="text-center py-12">
+            <div className="text-center py-8 md:py-12">
               <AlertTriangle
-                className={`w-16 h-16 ${textSecondaryClass} mx-auto mb-4`}
+                className={`w-12 md:w-16 h-12 md:h-16 ${textSecondaryClass} mx-auto mb-3 md:mb-4`}
               />
-              <p className={textSecondaryClass}>
+              <p className={`text-sm md:text-base ${textSecondaryClass}`}>
                 No hay gastos en este período
               </p>
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-3 md:space-y-6">
               <div className="relative">
                 <ResponsiveContainer width="100%" height={400}>
                   <PieChart>
@@ -814,19 +958,17 @@ const MainContent = memo(({
                     <Pie
                       data={categoryTotals
                         .sort((a, b) => b.total - a.total)
-                        .map((item) => ({
+                        .map((item, index) => ({
                           name: item.category,
                           value: item.total,
                           percentage: ((item.total / totalExpenses) * 100).toFixed(1),
                           color: getCategoryColor(categories[item.category]),
+                          index,
                         }))}
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ percentage }) => {
-                        // Solo mostrar label si el porcentaje es >= 5%
-                        return parseFloat(percentage) >= 5 ? `${percentage}%` : "";
-                      }}
+                      label={false}
                       outerRadius={140}
                       innerRadius={80}
                       paddingAngle={3}
@@ -834,56 +976,36 @@ const MainContent = memo(({
                       animationBegin={0}
                       animationDuration={800}
                       animationEasing="ease-out"
+                      activeIndex={null}
+                      onClick={(data, index) => {
+                        if (activeIndex === index) {
+                          // Si ya está seleccionado, deseleccionar
+                          setActiveIndex(null);
+                          setClickedCategory(null);
+                        } else {
+                          // Seleccionar nuevo
+                          setActiveIndex(index);
+                          setClickedCategory(data);
+                        }
+                      }}
                     >
                       {categoryTotals.map((item, index) => (
                         <Cell
                           key={`cell-${index}`}
                           fill={getCategoryColor(categories[item.category])}
-                          stroke={darkMode ? "#1f2937" : "#ffffff"}
-                          strokeWidth={3}
+                          stroke={activeIndex === index 
+                            ? (darkMode ? "#ffffff" : "#000000")
+                            : (darkMode ? "#1f2937" : "#ffffff")
+                          }
+                          strokeWidth={activeIndex === index ? 5 : 3}
                           style={{
                             filter: `url(#shadow-${index})`,
                             cursor: "pointer",
+                            transition: "stroke-width 0.2s ease, stroke 0.2s ease",
                           }}
                         />
                       ))}
                     </Pie>
-                    <Tooltip
-                      contentStyle={{
-                        borderRadius: "12px",
-                        border: darkMode ? "1px solid #374151" : "1px solid #e9d5ff",
-                        backgroundColor: darkMode ? "#1f2937" : "#ffffff",
-                        boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
-                      }}
-                      itemStyle={{
-                        color: darkMode ? "#f3f4f6" : "#7c3aed",
-                      }}
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          const data = payload[0];
-                          return (
-                            <div className="p-3">
-                              <p className={`font-semibold ${textClass} mb-2`}>
-                                {data.payload.name}
-                              </p>
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className="w-4 h-4 rounded-full"
-                                  style={{ backgroundColor: data.payload.color }}
-                                />
-                                <p className={`text-sm font-bold ${textClass}`}>
-                                  €{data.value?.toFixed(2)}
-                                </p>
-                                <p className={`text-xs ${textSecondaryClass}`}>
-                                  ({data.payload.percentage}%)
-                                </p>
-                              </div>
-                            </div>
-                          );
-                        }
-                        return null;
-                      }}
-                    />
                   </PieChart>
                 </ResponsiveContainer>
                 
@@ -898,10 +1020,83 @@ const MainContent = memo(({
                     </p>
                   </div>
                 </div>
+
+                {/* Tooltip personalizado que aparece al hacer click */}
+                {clickedCategory && (
+                  <div
+                    className="absolute z-50"
+                    style={{
+                      top: "50%",
+                      left: "50%",
+                      transform: "translate(-50%, -50%)",
+                      marginTop: "-60px",
+                    }}
+                  >
+                    <div
+                      className={`p-4 rounded-xl border shadow-2xl ${
+                        darkMode
+                          ? "bg-gray-800 border-gray-700"
+                          : "bg-white border-purple-200"
+                      }`}
+                      style={{
+                        boxShadow: "0 10px 40px rgba(0,0,0,0.3)",
+                        minWidth: "180px",
+                      }}
+                    >
+                      <p
+                        className={`text-lg font-bold mb-3 ${
+                          darkMode ? "text-white" : "text-purple-900"
+                        }`}
+                      >
+                        {clickedCategory.name}
+                      </p>
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-5 h-5 rounded-full flex-shrink-0 border-2"
+                          style={{
+                            backgroundColor: clickedCategory.color,
+                            borderColor: darkMode ? "#ffffff" : "#000000",
+                          }}
+                        />
+                        <div className="flex items-baseline gap-2">
+                          <p
+                            className={`text-xl font-bold ${
+                              darkMode ? "text-white" : "text-purple-900"
+                            }`}
+                          >
+                            €{clickedCategory.value?.toFixed(2)}
+                          </p>
+                          <p
+                            className={`text-sm ${
+                              darkMode ? "text-gray-200" : "text-gray-600"
+                            }`}
+                          >
+                            ({clickedCategory.percentage}%)
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveIndex(null);
+                          setClickedCategory(null);
+                        }}
+                        className={`absolute top-2 right-2 p-1 rounded-full ${
+                          darkMode
+                            ? "hover:bg-gray-700 text-gray-200"
+                            : "hover:bg-purple-100 text-gray-600"
+                        } transition-all`}
+                        aria-label="Cerrar"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Leyenda personalizada */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {/* Leyenda personalizada - Compacta en móvil */}
+              <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">
                 {categoryTotals
                   .sort((a, b) => b.total - a.total)
                   .map((item, index) => {
@@ -910,26 +1105,26 @@ const MainContent = memo(({
                     return (
                       <div
                         key={index}
-                        className={`p-3 rounded-xl border ${
+                        className={`p-2 md:p-3 rounded-lg md:rounded-xl border ${
                           darkMode
                             ? "bg-gray-800/50 border-gray-700"
                             : "bg-purple-50/50 border-purple-100"
                         } transition-all hover:shadow-md`}
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
                           <div
-                            className="w-4 h-4 rounded-full flex-shrink-0"
+                            className="w-3 h-3 md:w-4 md:h-4 rounded-full flex-shrink-0"
                             style={{ backgroundColor: color }}
                           />
                           <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-semibold ${textClass} truncate`}>
+                            <p className={`text-xs md:text-sm font-semibold ${textClass} truncate`}>
                               {item.category}
                             </p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <p className={`text-xs font-bold ${textClass}`}>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <p className={`text-[10px] md:text-xs font-bold ${textClass}`}>
                                 €{item.total.toFixed(2)}
                               </p>
-                              <p className={`text-xs ${textSecondaryClass}`}>
+                              <p className={`text-[10px] md:text-xs ${textSecondaryClass}`}>
                                 ({percentage}%)
                               </p>
                             </div>
@@ -940,7 +1135,7 @@ const MainContent = memo(({
                   })}
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-2 md:space-y-3">
                 {Object.entries(expensesByCategory)
                   .sort(([, subsA], [, subsB]) => {
                     const totalA = Object.values(subsA)
@@ -964,47 +1159,47 @@ const MainContent = memo(({
                       <div
                         key={category}
                         className={`${
-                          darkMode ? "bg-gray-700/30" : "bg-white/50"
-                        } rounded-2xl border ${
-                          darkMode ? "border-gray-600" : "border-purple-100"
-                        } p-4 sm:p-5 transition-all`}
+                          darkMode ? "bg-gray-900/60 border-gray-800/60" : "bg-white/50"
+                        } rounded-xl md:rounded-2xl border ${
+                          darkMode ? "border-gray-800/60" : "border-purple-100"
+                        } p-2.5 md:p-4 sm:p-5 transition-all`}
                       >
                         <button
                           onClick={() => onToggleCategory(category)}
                           className="w-full flex items-center justify-between"
                         >
-                          <div className="flex items-center gap-3 sm:gap-4">
+                          <div className="flex items-center gap-2 md:gap-3 sm:gap-4">
                             <span
-                              className="w-2.5 h-2.5 rounded-full"
+                              className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full flex-shrink-0"
                               style={{ backgroundColor: categoryColor }}
                             ></span>
-                            <div className="text-left">
-                              <p className={`font-semibold ${textClass}`}>
+                            <div className="text-left min-w-0 flex-1">
+                              <p className={`text-xs md:text-sm font-semibold ${textClass} truncate`}>
                                 {category}
                               </p>
                               <p
-                                className={`text-sm ${textSecondaryClass} opacity-80`}
+                                className={`text-[10px] md:text-sm ${textSecondaryClass} opacity-80`}
                               >
                                 {percentage.toFixed(1)}% del total
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <span className={`font-semibold ${textClass}`}>
+                          <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
+                            <span className={`text-xs md:text-sm font-semibold ${textClass}`}>
                               €{categoryTotal.toFixed(2)}
                             </span>
                             {isExpanded ? (
-                              <ChevronUp className={`w-5 h-5 ${textSecondaryClass}`} />
+                              <ChevronUp className={`w-4 h-4 md:w-5 md:h-5 ${textSecondaryClass}`} />
                             ) : (
                               <ChevronDown
-                                className={`w-5 h-5 ${textSecondaryClass}`}
+                                className={`w-4 h-4 md:w-5 md:h-5 ${textSecondaryClass}`}
                               />
                             )}
                           </div>
                         </button>
 
                         {isExpanded && (
-                          <div className="mt-3 space-y-2 pl-5">
+                          <div className="mt-2 md:mt-3 space-y-1.5 md:space-y-2 pl-3 md:pl-5">
                             {Object.entries(subcategories)
                               .sort(([, expsA], [, expsB]) => {
                                 const totalA = expsA
@@ -1021,19 +1216,23 @@ const MainContent = memo(({
                                 return (
                                   <div
                                     key={subcategory}
-                                    className="bg-white/60 dark:bg-gray-800/60 rounded-xl p-3"
+                                    className={`${
+                                      darkMode ? "bg-gray-900/50 border border-gray-700/50" : "bg-white/60"
+                                    } rounded-lg md:rounded-xl p-2 md:p-3`}
                                   >
-                                    <div className="flex justify-between items-center mb-2">
-                                      <p className={`font-medium ${textClass}`}>
+                                    <div className="flex justify-between items-center mb-1.5 md:mb-2">
+                                      <p className={`text-xs md:text-sm font-medium ${textClass} truncate`}>
                                         {subcategory}
                                       </p>
                                       <span
-                                        className={`text-sm ${textSecondaryClass}`}
+                                        className={`text-[10px] md:text-sm font-semibold flex-shrink-0 ml-2 ${textSecondaryClass}`}
                                       >
                                         €{spent.toFixed(2)}
                                       </span>
                                     </div>
-                                    <div className="h-2 rounded-full bg-purple-100 dark:bg-gray-700 overflow-hidden">
+                                    <div className={`h-1.5 md:h-2 rounded-full ${
+                                      darkMode ? "bg-gray-800" : "bg-purple-100"
+                                    } overflow-hidden`}>
                                       <div
                                         className="h-full"
                                         style={{ 
@@ -1100,7 +1299,7 @@ const MainContent = memo(({
             <div className="space-y-4">
               {Object.entries(budgets).map(([category, budget]) => {
                 const totalSpent =
-                  categoryTotals.find((item) => item.category === category)?.total || 0;
+                  categoryTotalsForBudgets.find((item) => item.category === category)?.total || 0;
                 const percentage = Math.min((totalSpent / budget) * 100, 100);
                 const status =
                   totalSpent > budget

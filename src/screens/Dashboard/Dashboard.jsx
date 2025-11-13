@@ -1,5 +1,5 @@
 import { signOut } from "firebase/auth";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { auth } from "../../firebase";
 import { exportToCSV } from "../../utils/exportUtils";
 import {
@@ -7,6 +7,7 @@ import {
   addRecurringExpense,
   deleteExpense as deleteExpenseDB,
   deleteRecurringExpense,
+  getCategoryColor,
   getCategorySubcategories,
   getChangelogSeenVersion,
   getRecurringExpenses,
@@ -73,9 +74,10 @@ const Dashboard = ({ user }) => {
   const [showChangelog, setShowChangelog] = useState(false);
   const [editingRecurring, setEditingRecurring] = useState(null);
   const [recurringExpenses, setRecurringExpenses] = useState([]);
+  const [changelogSeenVersion, setChangelogSeenVersion] = useState(null);
   
   // Versión actual del changelog - incrementar cuando hay nuevos cambios
-  const CURRENT_CHANGELOG_VERSION = "1.0.0";
+  const CURRENT_CHANGELOG_VERSION = "2.0.1";
   const [newRecurring, setNewRecurring] = useState({
     name: "",
     amount: "",
@@ -88,8 +90,12 @@ const Dashboard = ({ user }) => {
     endDate: "",
   });
 
+  const [filterPeriodType, setFilterPeriodType] = useState("month"); // "month" | "year" | "all"
   const [selectedMonth, setSelectedMonth] = useState(
     new Date().toISOString().slice(0, 7)
+  );
+  const [selectedYear, setSelectedYear] = useState(
+    new Date().getFullYear().toString()
   );
   const [selectedCategory, setSelectedCategory] = useState("all");
 
@@ -152,9 +158,10 @@ const Dashboard = ({ user }) => {
           return;
         }
 
-        setCategories(userCategories);
-        setBudgets(userBudgets);
+        setCategories(userCategories || {});
+        setBudgets(userBudgets || {});
         setDarkMode(userTheme === "dark");
+        setChangelogSeenVersion(changelogSeen);
         
         // Inicializar idioma
         if (userLanguage) {
@@ -438,6 +445,7 @@ const Dashboard = ({ user }) => {
   const handleDeleteCategory = async (category) => {
     if (!user) return;
 
+    // Verificar gastos asociados
     const hasExpenses = expenses.some((exp) => exp.category === category);
     if (hasExpenses) {
       showNotification(
@@ -447,15 +455,27 @@ const Dashboard = ({ user }) => {
       return;
     }
 
+    // Verificar gastos recurrentes asociados
+    const hasRecurring = recurringExpenses.some((rec) => rec.category === category);
+    if (hasRecurring) {
+      showNotification(
+        "No puedes eliminar una categoría que tiene gastos recurrentes asociados",
+        "error"
+      );
+      return;
+    }
+
     try {
       const updatedCategories = { ...categories };
       delete updatedCategories[category];
 
-      await saveCategories(user.uid, updatedCategories);
+      // Usar modo "smart" para eliminar explícitamente
+      await saveCategories(user.uid, updatedCategories, { mergeMode: "smart" });
       setCategories(updatedCategories);
       setShowDeleteConfirm(null);
       showNotification("Categoría eliminada correctamente");
     } catch (error) {
+      console.error("Error deleting category:", error);
       showNotification("Error al eliminar la categoría", "error");
     }
   };
@@ -463,6 +483,7 @@ const Dashboard = ({ user }) => {
   const handleDeleteSubcategory = async (category, subcategory) => {
     if (!user) return;
 
+    // Verificar gastos asociados
     const hasExpenses = expenses.some(
       (exp) => exp.category === category && exp.subcategory === subcategory
     );
@@ -474,8 +495,25 @@ const Dashboard = ({ user }) => {
       return;
     }
 
+    // Verificar gastos recurrentes asociados
+    const hasRecurring = recurringExpenses.some(
+      (rec) => rec.category === category && rec.subcategory === subcategory
+    );
+    if (hasRecurring) {
+      showNotification(
+        "No puedes eliminar una subcategoría que tiene gastos recurrentes asociados",
+        "error"
+      );
+      return;
+    }
+
     try {
       const categoryData = categories[category];
+      if (!categoryData) {
+        showNotification("Error: la categoría no existe", "error");
+        return;
+      }
+
       const subcategories = getCategorySubcategories(categoryData);
       const color = categoryData?.color || "#8B5CF6";
       
@@ -487,11 +525,13 @@ const Dashboard = ({ user }) => {
         },
       };
 
-      await saveCategories(user.uid, updatedCategories);
+      // Usar modo "smart" para eliminar explícitamente
+      await saveCategories(user.uid, updatedCategories, { mergeMode: "smart" });
       setCategories(updatedCategories);
       setShowDeleteConfirm(null);
       showNotification("Subcategoría eliminada correctamente");
     } catch (error) {
+      console.error("Error deleting subcategory:", error);
       showNotification("Error al eliminar la subcategoría", "error");
     }
   };
@@ -616,12 +656,33 @@ const Dashboard = ({ user }) => {
 
   const filteredExpenses = useMemo(() => {
     return expenses.filter((expense) => {
-      const matchesMonth = expense.date.startsWith(selectedMonth);
+      // Filtro de categoría
       const matchesCategory =
         selectedCategory === "all" || expense.category === selectedCategory;
-      return matchesMonth && matchesCategory;
+
+      if (!matchesCategory) return false;
+
+      // Filtro de período
+      switch (filterPeriodType) {
+        case "all":
+          // Todos los gastos
+          return true;
+        case "year":
+          // Año completo
+          return expense.date.startsWith(selectedYear);
+        case "month":
+        default:
+          // Mes específico
+          return expense.date.startsWith(selectedMonth);
+      }
     });
-  }, [expenses, selectedMonth, selectedCategory]);
+  }, [
+    expenses,
+    filterPeriodType,
+    selectedMonth,
+    selectedYear,
+    selectedCategory,
+  ]);
 
   const totalExpenses = useMemo(() => {
     return filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
@@ -651,21 +712,250 @@ const Dashboard = ({ user }) => {
     );
   }, [expensesByCategory]);
 
+  // Totales de categorías del mes actual (para presupuestos - siempre mes actual)
+  const categoryTotalsForBudgets = useMemo(() => {
+    const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+    const totals = {};
+    expenses.forEach((expense) => {
+      // Solo contar gastos del mes actual para presupuestos
+      if (expense.date.startsWith(currentMonth)) {
+        totals[expense.category] = (totals[expense.category] || 0) + expense.amount;
+      }
+    });
+    return Object.entries(totals).map(([category, total]) => ({
+      category,
+      total,
+    }));
+  }, [expenses]);
+
   const overBudgetCategories = useMemo(() => {
     return Object.entries(budgets)
       .filter(([category, budget]) => {
         const categoryTotal =
-          categoryTotals.find((ct) => ct.category === category)?.total || 0;
+          categoryTotalsForBudgets.find((ct) => ct.category === category)?.total || 0;
         return categoryTotal > budget;
       })
       .map(([category]) => category);
-  }, [budgets, categoryTotals]);
+  }, [budgets, categoryTotalsForBudgets]);
 
   const recentExpenses = useMemo(() => {
     return [...expenses]
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice(0, 10);
   }, [expenses]);
+
+  // Ref para prevenir loops infinitos en la restauración automática
+  const isRestoringRef = useRef(false);
+  const lastRestoreHashRef = useRef("");
+
+  // Efecto para restaurar categorías y subcategorías perdidas de forma segura
+  useEffect(() => {
+    if (!user || loading || isRestoringRef.current) {
+      return;
+    }
+
+    if (!expenses || expenses.length === 0) {
+      return;
+    }
+
+    // Si no hay categorías en absoluto, restaurarlas todas desde los gastos
+    if (!categories || Object.keys(categories).length === 0) {
+      console.warn("[Restauración automática] No hay categorías, restaurando desde gastos...");
+      isRestoringRef.current = true;
+
+      const restoredCategories = {};
+      const categoryColors = {
+        Alimentacion: "#8B5CF6",
+        Transporte: "#3B82F6",
+        Vivienda: "#EC4899",
+        Ocio: "#10B981",
+        Salud: "#F59E0B",
+        Compras: "#EF4444",
+        Educacion: "#6366F1",
+      };
+
+      expenses.forEach((expense) => {
+        if (!expense?.category) return;
+
+        if (!restoredCategories[expense.category]) {
+          restoredCategories[expense.category] = {
+            subcategories: [],
+            color: categoryColors[expense.category] || "#8B5CF6",
+          };
+        }
+
+        if (expense.subcategory && !restoredCategories[expense.category].subcategories.includes(expense.subcategory)) {
+          restoredCategories[expense.category].subcategories.push(expense.subcategory);
+        }
+      });
+
+      // Ordenar subcategorías
+      Object.keys(restoredCategories).forEach((cat) => {
+        restoredCategories[cat].subcategories.sort((a, b) => a.localeCompare(b));
+      });
+
+      const persistRestored = async () => {
+        try {
+          await saveCategories(user.uid, restoredCategories, { mergeMode: "merge" });
+          setCategories(restoredCategories);
+          console.log("[Restauración automática] Categorías restauradas:", Object.keys(restoredCategories));
+        } catch (error) {
+          console.error("Error restoring categories:", error);
+        } finally {
+          isRestoringRef.current = false;
+        }
+      };
+
+      void persistRestored();
+      return;
+    }
+
+    // Restaurar categorías faltantes que tienen gastos asociados
+    const missingCategories = new Set();
+    expenses.forEach((expense) => {
+      if (expense?.category && !categories[expense.category]) {
+        missingCategories.add(expense.category);
+      }
+    });
+
+    if (missingCategories.size > 0) {
+      console.warn("[Restauración automática] Categorías faltantes detectadas:", Array.from(missingCategories));
+      isRestoringRef.current = true;
+
+      const restoredCategories = { ...categories };
+      const categoryColors = {
+        Alimentacion: "#8B5CF6",
+        Transporte: "#3B82F6",
+        Vivienda: "#EC4899",
+        Ocio: "#10B981",
+        Salud: "#F59E0B",
+        Compras: "#EF4444",
+        Educacion: "#6366F1",
+      };
+
+      missingCategories.forEach((categoryName) => {
+        const categoryExpenses = expenses.filter((e) => e?.category === categoryName);
+        const subcategories = Array.from(
+          new Set(categoryExpenses.map((e) => e?.subcategory).filter(Boolean))
+        ).sort((a, b) => a.localeCompare(b));
+
+        restoredCategories[categoryName] = {
+          subcategories: subcategories,
+          color: categoryColors[categoryName] || "#8B5CF6",
+        };
+      });
+
+      const persistRestored = async () => {
+        try {
+          await saveCategories(user.uid, restoredCategories, { mergeMode: "merge" });
+          setCategories(restoredCategories);
+          console.log("[Restauración automática] Categorías restauradas:", Array.from(missingCategories));
+        } catch (error) {
+          console.error("Error restoring missing categories:", error);
+        } finally {
+          isRestoringRef.current = false;
+        }
+      };
+
+      void persistRestored();
+      return;
+    }
+
+    // Crear un hash de las categorías y gastos para detectar cambios reales
+    const categoriesHash = JSON.stringify(
+      Object.keys(categories).sort().map((cat) => ({
+        name: cat,
+        subs: getCategorySubcategories(categories[cat]).sort(),
+      }))
+    );
+    const expensesHash = JSON.stringify(
+      expenses
+        .filter((e) => e?.category && e?.subcategory)
+        .map((e) => `${e.category}:${e.subcategory}`)
+        .sort()
+        .slice(0, 100) // Limitar a los primeros 100 para evitar hashes muy grandes
+    );
+    const currentHash = `${categoriesHash}:${expensesHash}`;
+
+    // Si no ha cambiado nada desde la última vez, no hacer nada
+    if (currentHash === lastRestoreHashRef.current) {
+      return;
+    }
+
+    const missingSubcategoriesByCategory = {};
+
+    expenses.forEach((expense) => {
+      if (!expense?.category || !expense?.subcategory) {
+        return;
+      }
+
+      const categoryData = categories[expense.category];
+      if (!categoryData) {
+        return;
+      }
+
+      const existingSubcategories = getCategorySubcategories(categoryData);
+      if (!existingSubcategories.includes(expense.subcategory)) {
+        if (!missingSubcategoriesByCategory[expense.category]) {
+          missingSubcategoriesByCategory[expense.category] = new Set(
+            existingSubcategories
+          );
+        }
+        missingSubcategoriesByCategory[expense.category].add(expense.subcategory);
+      }
+    });
+
+    const categoriesToUpdate = Object.entries(missingSubcategoriesByCategory);
+    if (categoriesToUpdate.length === 0) {
+      lastRestoreHashRef.current = currentHash;
+      return;
+    }
+
+    // Hay subcategorías faltantes, restaurarlas
+    isRestoringRef.current = true;
+
+    const restoredCategories = { ...categories };
+
+    categoriesToUpdate.forEach(([categoryName, subcategorySet]) => {
+      const categoryColor = getCategoryColor(categories[categoryName]);
+      const existingSubs = getCategorySubcategories(categories[categoryName]);
+      const allSubs = Array.from(
+        new Set([...existingSubs, ...Array.from(subcategorySet)])
+      ).sort((a, b) => a.localeCompare(b));
+
+      restoredCategories[categoryName] = {
+        subcategories: allSubs,
+        color: categoryColor,
+      };
+
+      console.log(
+        `[Restauración automática] Restaurando subcategorías en "${categoryName}":`,
+        allSubs.filter((sub) => !existingSubs.includes(sub))
+      );
+    });
+
+    const persistRestored = async () => {
+      try {
+        // Usar modo "merge" para fusionar subcategorías de forma segura
+        const savedCategories = await saveCategories(user.uid, restoredCategories, {
+          mergeMode: "merge",
+        });
+        lastRestoreHashRef.current = JSON.stringify(
+          Object.keys(savedCategories).sort().map((cat) => ({
+            name: cat,
+            subs: getCategorySubcategories(savedCategories[cat]).sort(),
+          }))
+        );
+        setCategories(savedCategories);
+      } catch (error) {
+        console.error("Error restoring missing subcategories:", error);
+      } finally {
+        isRestoringRef.current = false;
+      }
+    };
+
+    void persistRestored();
+  }, [user, loading, categories, expenses]);
 
   // Aplicar clase al body según modo oscuro/claro
   useEffect(() => {
@@ -693,7 +983,7 @@ const Dashboard = ({ user }) => {
       ? "bg-gray-800 border-gray-700"
       : "bg-white/80 backdrop-blur-sm border-white/60",
     textClass: darkMode ? "text-gray-100" : "text-purple-900",
-    textSecondaryClass: darkMode ? "text-gray-400" : "text-purple-600",
+    textSecondaryClass: darkMode ? "text-gray-200" : "text-purple-600",
     inputClass: darkMode
       ? "bg-gray-700 border-gray-600 text-gray-100 focus:ring-purple-500"
       : "bg-white border-purple-200 text-purple-900 focus:ring-purple-500",
@@ -742,25 +1032,38 @@ const Dashboard = ({ user }) => {
 
   const handleExportCSV = useCallback(() => {
     try {
-      exportToCSV(filteredExpenses, `gastos_${selectedMonth}`);
+      let filename = "gastos";
+      switch (filterPeriodType) {
+        case "all":
+          filename = "gastos_todos";
+          break;
+        case "year":
+          filename = `gastos_${selectedYear}`;
+          break;
+        case "month":
+        default:
+          filename = `gastos_${selectedMonth}`;
+          break;
+      }
+      exportToCSV(filteredExpenses, filename);
       showNotification("Gastos exportados correctamente");
     } catch (error) {
       console.error("Error exporting CSV:", error);
       showNotification("Error al exportar los gastos", "error");
     }
-  }, [filteredExpenses, selectedMonth, showNotification]);
+  }, [filteredExpenses, filterPeriodType, selectedMonth, selectedYear, showNotification]);
 
   const handleToggleFilters = useCallback(() => {
     setShowFilters((prev) => !prev);
   }, []);
 
-  const handleMonthChange = useCallback((value) => {
-    setSelectedMonth(value);
-  }, []);
-
-  const handleCategoryFilterChange = useCallback((value) => {
-    setSelectedCategory(value);
-  }, []);
+  const handleClearFilters = useCallback(() => {
+    setFilterPeriodType("month");
+    setSelectedMonth(new Date().toISOString().slice(0, 7));
+    setSelectedYear(new Date().getFullYear().toString());
+    setSelectedCategory("all");
+    showNotification("Filtros limpiados");
+  }, [showNotification]);
 
   const handleViewChange = useCallback((view) => {
     setActiveView(view);
@@ -872,10 +1175,15 @@ const Dashboard = ({ user }) => {
         filteredExpenses={filteredExpenses}
         showFilters={showFilters}
         onToggleFilters={handleToggleFilters}
+        filterPeriodType={filterPeriodType}
+        onFilterPeriodTypeChange={setFilterPeriodType}
         selectedMonth={selectedMonth}
-        onMonthChange={handleMonthChange}
+        onMonthChange={setSelectedMonth}
+        selectedYear={selectedYear}
+        onYearChange={setSelectedYear}
         selectedCategory={selectedCategory}
-        onCategoryChange={handleCategoryFilterChange}
+        onCategoryChange={setSelectedCategory}
+        onClearFilters={handleClearFilters}
         categories={categories}
         activeView={activeView}
         onChangeView={handleViewChange}
@@ -886,6 +1194,7 @@ const Dashboard = ({ user }) => {
         onEditExpense={handleEditExpense}
         onRequestDelete={handleRequestDelete}
         categoryTotals={categoryTotals}
+        categoryTotalsForBudgets={categoryTotalsForBudgets}
         budgets={budgets}
         recentExpenses={recentExpenses}
         recurringExpenses={recurringExpenses}
@@ -1036,6 +1345,8 @@ const Dashboard = ({ user }) => {
           textClass={textClass}
           textSecondaryClass={textSecondaryClass}
           onClose={handleCloseChangelog}
+          lastSeenVersion={changelogSeenVersion}
+          currentVersion={CURRENT_CHANGELOG_VERSION}
         />
       </Suspense>
 

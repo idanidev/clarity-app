@@ -344,6 +344,28 @@ const RecurringExpensesModal = ({
   onClose,
 }) => {
   const { t } = useTranslation();
+  const modalContentRef = useRef(null);
+
+  // Bloquear scroll del body cuando el modal está abierto (móvil)
+  useEffect(() => {
+    if (!visible) return;
+
+    // Guardar posición de scroll y bloquear
+    const scrollY = window.scrollY;
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = "100%";
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      // Restaurar scroll del body
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.width = "";
+      document.body.style.overflow = "";
+      window.scrollTo(0, scrollY);
+    };
+  }, [visible]);
   
   if (!visible) return null;
 
@@ -411,17 +433,31 @@ const RecurringExpensesModal = ({
       <div
         className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
         onMouseDown={onClose}
+        style={{
+          overscrollBehavior: "contain",
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            onClose();
+          }
+        }}
       >
         <div
-          className={`${cardClass} rounded-2xl p-0 max-w-2xl w-full border shadow-2xl max-h-[90vh] overflow-y-auto`}
+          ref={modalContentRef}
+          className={`${cardClass} rounded-2xl p-0 max-w-2xl w-full border shadow-2xl max-h-[90vh] flex flex-col`}
           onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            overscrollBehavior: "contain",
+          }}
         >
+          {/* Header fijo */}
           <div
-            className={`sticky top-0 z-10 px-6 py-4 flex justify-between items-center ${
+            className={`flex-shrink-0 px-6 py-4 flex justify-between items-center border-b ${
               darkMode
-                ? "bg-gray-800/95 border-b border-gray-700"
-                : "bg-white/80 border-b border-purple-100"
-            } backdrop-blur`}
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-purple-100"
+            }`}
           >
             <div>
               <h3 className={`text-2xl font-bold ${textClass}`}>
@@ -441,6 +477,14 @@ const RecurringExpensesModal = ({
             </button>
           </div>
 
+          {/* Contenedor scrolleable */}
+          <div
+            className="overflow-y-auto overscroll-contain flex-1"
+            style={{
+              WebkitOverflowScrolling: "touch",
+              scrollBehavior: "smooth",
+            }}
+          >
           <div className="px-6 pt-4">
             <div
               className={`mb-4 p-4 rounded-xl ${
@@ -873,6 +917,8 @@ const RecurringExpensesModal = ({
               )}
             </div>
           </div>
+          </div>
+          {/* Fin del contenedor scrolleable */}
         </div>
       </div>
 

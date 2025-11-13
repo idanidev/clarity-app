@@ -5,15 +5,69 @@ import {
   Smartphone,
   Sparkles,
   X,
+  BarChart3,
+  Filter,
+  MousePointerClick,
 } from "lucide-react";
 
-const ChangelogModal = ({ visible, darkMode, cardClass, textClass, textSecondaryClass, onClose }) => {
+/**
+ * Compara dos versiones semánticas (ej: "1.0.0", "1.1.0")
+ * Retorna: -1 si v1 < v2, 0 si v1 === v2, 1 si v1 > v2
+ */
+const compareVersions = (v1, v2) => {
+  if (!v1) return -1; // Si no hay versión vista, mostrar todos
+  if (!v2) return 1;
+  
+  const parts1 = v1.split('.').map(Number);
+  const parts2 = v2.split('.').map(Number);
+  
+  for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+    const part1 = parts1[i] || 0;
+    const part2 = parts2[i] || 0;
+    
+    if (part1 < part2) return -1;
+    if (part1 > part2) return 1;
+  }
+  
+  return 0;
+};
+
+const ChangelogModal = ({ visible, darkMode, cardClass, textClass, textSecondaryClass, onClose, lastSeenVersion, currentVersion }) => {
   if (!visible) {
     return null;
   }
 
-  const changes = [
+  // Todos los cambios con sus versiones
+  const allChanges = [
     {
+      version: "2.0.1",
+      icon: BarChart3,
+      title: "Vista de gráfica mejorada",
+      description:
+        "La leyenda y tabla de categorías ahora son más compactas en móvil, permitiendo ver toda la información sin desplazarte. Optimizado para aprovechar mejor el espacio en pantallas pequeñas.",
+      color: "text-purple-600",
+      bgColor: "bg-purple-100",
+    },
+    {
+      version: "2.0.1",
+      icon: Filter,
+      title: "Filtros mejorados: modo anual y modo 'Todos'",
+      description:
+        "Ahora puedes filtrar tus gastos directamente desde la vista de gráfica con tres opciones: modo mensual (mes específico), modo anual (año completo) y modo 'Todos' (todos los gastos desde el principio). Además, puedes limpiar los filtros con un solo clic. Los filtros están disponibles tanto en móvil como en escritorio.",
+      color: "text-blue-600",
+      bgColor: "bg-blue-100",
+    },
+    {
+      version: "2.0.1",
+      icon: MousePointerClick,
+      title: "Interacción mejorada del gráfico",
+      description:
+        "Haz clic en cualquier sección del gráfico para ver los detalles de la categoría. El tooltip ya no aparece al pasar el mouse, solo cuando seleccionas una categoría haciendo clic. El borde se resalta para indicar la selección.",
+      color: "text-green-600",
+      bgColor: "bg-green-100",
+    },
+    {
+      version: "1.0.0",
       icon: Smartphone,
       title: "Navegación móvil optimizada",
       description:
@@ -22,6 +76,7 @@ const ChangelogModal = ({ visible, darkMode, cardClass, textClass, textSecondary
       bgColor: "bg-purple-100",
     },
     {
+      version: "1.0.0",
       icon: LayoutDashboard,
       title: "Acciones de escritorio más limpias",
       description:
@@ -30,6 +85,7 @@ const ChangelogModal = ({ visible, darkMode, cardClass, textClass, textSecondary
       bgColor: "bg-blue-100",
     },
     {
+      version: "1.0.0",
       icon: Palette,
       title: "Colores personalizados para categorías",
       description:
@@ -38,6 +94,7 @@ const ChangelogModal = ({ visible, darkMode, cardClass, textClass, textSecondary
       bgColor: "bg-purple-100",
     },
     {
+      version: "1.0.0",
       icon: Sparkles,
       title: "Edición de categorías",
       description:
@@ -46,6 +103,7 @@ const ChangelogModal = ({ visible, darkMode, cardClass, textClass, textSecondary
       bgColor: "bg-blue-100",
     },
     {
+      version: "1.0.0",
       icon: CheckCircle,
       title: "Menú de consejos",
       description:
@@ -54,6 +112,32 @@ const ChangelogModal = ({ visible, darkMode, cardClass, textClass, textSecondary
       bgColor: "bg-green-100",
     },
   ];
+
+  // Filtrar cambios: mostrar solo los desde la última versión vista hasta la actual
+  const visibleChanges = allChanges.filter((change) => {
+    // Si no hay versión vista, mostrar todos
+    if (!lastSeenVersion) return true;
+    
+    // Mostrar cambios cuya versión es mayor que la última vista
+    // y menor o igual a la versión actual
+    const changeVersion = change.version;
+    const isNewerThanLastSeen = compareVersions(lastSeenVersion, changeVersion) < 0;
+    const isNotNewerThanCurrent = compareVersions(changeVersion, currentVersion) <= 0;
+    
+    return isNewerThanLastSeen && isNotNewerThanCurrent;
+  });
+
+  // Agrupar cambios por versión
+  const changesByVersion = visibleChanges.reduce((acc, change) => {
+    if (!acc[change.version]) {
+      acc[change.version] = [];
+    }
+    acc[change.version].push(change);
+    return acc;
+  }, {});
+
+  // Ordenar versiones de más reciente a más antigua
+  const sortedVersions = Object.keys(changesByVersion).sort((a, b) => compareVersions(a, b) * -1);
 
   return (
     <div
@@ -77,7 +161,12 @@ const ChangelogModal = ({ visible, darkMode, cardClass, textClass, textSecondary
               ¡Nuevas Funcionalidades!
             </h3>
             <p className={`text-sm ${textSecondaryClass} mt-1`}>
-              Descubre las últimas mejoras en Clarity
+              {sortedVersions.length > 0 
+                ? lastSeenVersion
+                  ? `Novedades desde v${lastSeenVersion} hasta v${currentVersion}`
+                  : `Todas las mejoras hasta v${currentVersion}`
+                : "Descubre las últimas mejoras en Clarity"
+              }
             </p>
           </div>
           <button
@@ -91,35 +180,78 @@ const ChangelogModal = ({ visible, darkMode, cardClass, textClass, textSecondary
         </div>
 
         <div className="px-6 py-6">
-          <div className="space-y-4 mb-6">
-          {changes.map((change, index) => {
-            const Icon = change.icon;
-            return (
-              <div
-                key={index}
-                className={`p-4 rounded-xl border ${
-                  darkMode ? "bg-gray-700/50 border-gray-600" : "bg-white/50 border-purple-100"
-                } transition-all`}
-              >
-                <div className="flex items-start gap-4">
-                  <div className={`w-10 h-10 rounded-xl ${change.bgColor} flex items-center justify-center flex-shrink-0 ${
-                    darkMode ? "opacity-80" : ""
-                  }`}>
-                    <Icon className={`w-5 h-5 ${change.color}`} />
+          {sortedVersions.length === 0 ? (
+            <div className="text-center py-8">
+              <p className={`text-lg font-semibold ${textClass} mb-2`}>
+                No hay nuevas funcionalidades
+              </p>
+              <p className={textSecondaryClass}>
+                Ya estás al día con todas las mejoras
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6 mb-6">
+              {sortedVersions.map((version) => {
+                const versionChanges = changesByVersion[version];
+                const isLatestVersion = version === currentVersion;
+                
+                return (
+                  <div key={version} className="space-y-4">
+                    {/* Encabezado de versión */}
+                    <div className={`flex items-center gap-3 pb-2 border-b ${
+                      darkMode ? "border-gray-700" : "border-purple-200"
+                    }`}>
+                      <span className={`text-sm font-bold ${
+                        isLatestVersion ? "text-purple-600" : textSecondaryClass
+                      }`}>
+                        v{version}
+                      </span>
+                      {isLatestVersion && (
+                        <span className={`text-xs px-2 py-1 rounded-full ${
+                          darkMode 
+                            ? "bg-purple-900/50 text-purple-300" 
+                            : "bg-purple-100 text-purple-700"
+                        }`}>
+                          Última versión
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* Cambios de esta versión */}
+                    <div className="space-y-4 pl-2">
+                      {versionChanges.map((change, index) => {
+                        const Icon = change.icon;
+                        return (
+                          <div
+                            key={`${version}-${index}`}
+                            className={`p-4 rounded-xl border ${
+                              darkMode ? "bg-gray-700/50 border-gray-600" : "bg-white/50 border-purple-100"
+                            } transition-all`}
+                          >
+                            <div className="flex items-start gap-4">
+                              <div className={`w-10 h-10 rounded-xl ${change.bgColor} flex items-center justify-center flex-shrink-0 ${
+                                darkMode ? "opacity-80" : ""
+                              }`}>
+                                <Icon className={`w-5 h-5 ${change.color}`} />
+                              </div>
+                              <div className="flex-1">
+                                <h4 className={`text-lg font-semibold ${textClass} mb-2`}>
+                                  {change.title}
+                                </h4>
+                                <p className={`text-sm ${textSecondaryClass}`}>
+                                  {change.description}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <h4 className={`text-lg font-semibold ${textClass} mb-2`}>
-                      {change.title}
-                    </h4>
-                    <p className={`text-sm ${textSecondaryClass}`}>
-                      {change.description}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-          </div>
+                );
+              })}
+            </div>
+          )}
 
           <div className={`p-4 rounded-xl ${
             darkMode ? "bg-green-900/30 border-green-800" : "bg-green-50 border-green-200"

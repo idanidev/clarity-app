@@ -20,23 +20,6 @@ vi.mock('../firebase', () => ({
   db: {},
 }))
 
-// Mock de Firebase Functions
-vi.mock('../services/firestoreService', () => ({
-  addExpense: vi.fn(),
-  updateExpense: vi.fn(),
-  deleteExpense: vi.fn(),
-  getExpenses: vi.fn(),
-  subscribeToExpenses: vi.fn(),
-  addRecurringExpense: vi.fn(),
-  updateRecurringExpense: vi.fn(),
-  deleteRecurringExpense: vi.fn(),
-  getRecurringExpenses: vi.fn(),
-  subscribeToRecurringExpenses: vi.fn(),
-  saveCategories: vi.fn(),
-  getUserCategories: vi.fn(),
-  saveBudgets: vi.fn(),
-  getUserBudgets: vi.fn(),
-  getUserLanguage: vi.fn(() => Promise.resolve('es')),
-  saveUserLanguage: vi.fn(),
-}))
+// NOTA: Los mocks de firestoreService se hacen en cada test individual
+// para permitir pruebas más específicas y realistas
 
