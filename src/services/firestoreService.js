@@ -221,13 +221,27 @@ export const getCategorySubcategories = (categoryData) => {
 };
 
 export const getCategoryColor = (categoryData, defaultColor = "#8B5CF6") => {
-  if (Array.isArray(categoryData)) {
-    // Old format: return default color
+  // Si es undefined o null, devolver color por defecto
+  if (!categoryData) {
     return defaultColor;
   }
-  if (categoryData && categoryData.color) {
+  
+  // Si es un array (formato antiguo), devolver color por defecto
+  if (Array.isArray(categoryData)) {
+    return defaultColor;
+  }
+  
+  // Si es un objeto y tiene la propiedad color, devolverla
+  if (typeof categoryData === "object" && categoryData.color) {
     return categoryData.color;
   }
+  
+  // Si es un string (color directo), devolverlo
+  if (typeof categoryData === "string") {
+    return categoryData;
+  }
+  
+  // Por defecto, devolver color por defecto
   return defaultColor;
 };
 
@@ -257,9 +271,18 @@ export const migrateCategoriesToNewFormat = (categories) => {
       ? normalizeSubcategories(categoryData)
       : normalizeSubcategories(categoryData?.subcategories);
 
-    const color =
-      (categoryData && typeof categoryData === "object" && categoryData.color) ||
-      defaultColors[colorIndex % defaultColors.length];
+    // PRESERVAR el color existente si existe, solo usar default si NO hay color
+    let color;
+    if (categoryData && typeof categoryData === "object" && categoryData.color) {
+      // Si ya tiene color, preservarlo
+      color = categoryData.color;
+    } else if (Array.isArray(categoryData)) {
+      // Formato antiguo (array), usar color por defecto
+      color = defaultColors[colorIndex % defaultColors.length];
+    } else {
+      // No tiene color, usar color por defecto
+      color = defaultColors[colorIndex % defaultColors.length];
+    }
 
     migrated[categoryName] = {
       subcategories: Array.from(new Set(normalizedSubcategories)).sort((a, b) =>
@@ -462,8 +485,19 @@ export const getUserCategories = async (userId) => {
 
     if (userDoc.exists()) {
       const categories = userDoc.data().categories || null;
-      // Migrate to new format if needed
-      return categories ? migrateCategoriesToNewFormat(categories) : null;
+      if (!categories) return null;
+      
+      // Si las categorías ya están en el formato nuevo (tienen color), devolverlas tal cual
+      // Solo migrar si están en formato antiguo (arrays)
+      const needsMigration = Object.values(categories).some(cat => Array.isArray(cat));
+      
+      if (needsMigration) {
+        // Solo migrar si es necesario (formato antiguo)
+        return migrateCategoriesToNewFormat(categories);
+      } else {
+        // Ya están en formato nuevo, devolverlas sin modificar
+        return categories;
+      }
     }
     return null;
   } catch (error) {
@@ -699,6 +733,185 @@ export const initializeUser = async (userId, userData) => {
     });
   } catch (error) {
     console.error("Error initializing user:", error);
+    throw error;
+  }
+};
+
+// ==================== INCOME ====================
+
+export const saveIncome = async (userId, income) => {
+  try {
+    const userDocRef = doc(db, "users", userId);
+    await updateDoc(userDocRef, {
+      income: parseFloat(income) || 0,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error saving income:", error);
+    throw error;
+  }
+};
+
+export const getUserIncome = async (userId) => {
+  try {
+    const userDocRef = doc(db, "users", userId);
+    const userDoc = await getDoc(userDocRef);
+
+    if (userDoc.exists()) {
+      return userDoc.data().income || 0;
+    }
+    return 0;
+  } catch (error) {
+    console.error("Error getting income:", error);
+    throw error;
+  }
+};
+
+// ==================== GOALS ====================
+
+export const saveGoals = async (userId, goals) => {
+  try {
+    const userDocRef = doc(db, "users", userId);
+    await updateDoc(userDocRef, {
+      goals: {
+        ...goals,
+        updatedAt: new Date().toISOString(),
+      },
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error saving goals:", error);
+    throw error;
+  }
+};
+
+export const getUserGoals = async (userId) => {
+  try {
+    const userDocRef = doc(db, "users", userId);
+    const userDoc = await getDoc(userDocRef);
+
+    if (userDoc.exists()) {
+      const goals = userDoc.data().goals || null;
+      
+      // Migrar estructura antigua a nueva si es necesario
+      if (goals && goals.totalSavingsGoal !== undefined) {
+        return {
+          // Mantener compatibilidad con estructura anterior
+          monthlySavingsGoal: goals.totalSavingsGoal || goals.monthlySavingsGoal || 0,
+          totalSavingsGoal: goals.totalSavingsGoal || 0, // Mantener por compatibilidad
+          categoryGoals: goals.categoryGoals || {},
+          longTermGoals: goals.longTermGoals || [],
+          achievements: goals.achievements || {
+            totalCompleted: 0,
+            streakMonths: 0,
+            badges: [],
+          },
+          monthlyHistory: goals.monthlyHistory || {},
+          createdAt: goals.createdAt || new Date().toISOString(),
+          updatedAt: goals.updatedAt || new Date().toISOString(),
+        };
+      }
+      
+      return goals || {
+        monthlySavingsGoal: 0,
+        totalSavingsGoal: 0, // Compatibilidad
+        categoryGoals: {},
+        longTermGoals: [],
+        achievements: {
+          totalCompleted: 0,
+          streakMonths: 0,
+          badges: [],
+        },
+        monthlyHistory: {},
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+    return {
+      monthlySavingsGoal: 0,
+      totalSavingsGoal: 0, // Compatibilidad
+      categoryGoals: {},
+      longTermGoals: [],
+      achievements: {
+        totalCompleted: 0,
+        streakMonths: 0,
+        badges: [],
+      },
+      monthlyHistory: {},
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error("Error getting goals:", error);
+    throw error;
+  }
+};
+
+// ==================== NOTIFICATIONS ====================
+
+export const saveNotificationSettings = async (userId, settings) => {
+  try {
+    const userDocRef = doc(db, "users", userId);
+    await updateDoc(userDocRef, {
+      notificationSettings: {
+        ...settings,
+        updatedAt: new Date().toISOString(),
+      },
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error saving notification settings:", error);
+    throw error;
+  }
+};
+
+export const getUserNotificationSettings = async (userId) => {
+  try {
+    const userDocRef = doc(db, "users", userId);
+    const userDoc = await getDoc(userDocRef);
+
+    if (userDoc.exists()) {
+      const settings = userDoc.data().notificationSettings || null;
+      return settings || {
+        budgetAlerts: {
+          enabled: true,
+          at80: true,
+          at90: true,
+          at100: true,
+        },
+        recurringReminders: {
+          enabled: true,
+        },
+        customReminders: {
+          enabled: true,
+          message: "No olvides registrar tus gastos",
+        },
+        pushNotifications: {
+          enabled: false,
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+    return {
+      budgetAlerts: {
+        enabled: true,
+        at80: true,
+        at90: true,
+        at100: true,
+      },
+      recurringReminders: {
+        enabled: true,
+      },
+      customReminders: {
+        enabled: true,
+        message: "No olvides registrar tus gastos",
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error("Error getting notification settings:", error);
     throw error;
   }
 };

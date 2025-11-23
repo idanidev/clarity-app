@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useMemo, useState, useEffect } from "react";
 import {
   AlertTriangle,
   BarChart3,
@@ -12,10 +12,24 @@ import {
   Target,
   Trash2,
   X,
+  TrendingUp,
+  TrendingDown,
+  Sparkles,
+  Calendar,
+  Heart,
+  Dumbbell,
+  Gamepad2,
+  Repeat,
+  UtensilsCrossed,
+  Car,
+  ShoppingBag,
+  Home,
+  Wallet,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { getCategoryColor } from "../../../services/firestoreService";
 import { useTranslation } from "../../../contexts/LanguageContext";
+import ExpenseCard from "./ExpenseCard";
 
 const MainContent = memo(({
   cardClass,
@@ -49,10 +63,39 @@ const MainContent = memo(({
   budgets,
   recentExpenses,
   recurringExpenses = [],
+  goals,
+  income,
+  onOpenGoals,
 }) => {
   const { t } = useTranslation();
+  const [isMobile, setIsMobile] = useState(false);
   const [activeIndex, setActiveIndex] = useState(null);
   const [clickedCategory, setClickedCategory] = useState(null);
+
+  // Detectar si es móvil
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Iconos por categoría
+  const categoryIcons = {
+    Salud: Heart,
+    Gimnasio: Dumbbell,
+    Ocio: Gamepad2,
+    Suscripciones: Repeat,
+    Comida: UtensilsCrossed,
+    Transporte: Car,
+    Compras: ShoppingBag,
+    Hogar: Home,
+    "Coche/Moto": Car,
+    Alimentacion: UtensilsCrossed,
+    Educacion: Repeat,
+  };
   
   // Calcular promedio diario según el tipo de filtro
   const averageDaily = useMemo(() => {
@@ -125,123 +168,226 @@ const MainContent = memo(({
 
 
 
+  // Calcular información de objetivos para la tarjeta de resumen
+  const goalsSummary = useMemo(() => {
+    if (!goals?.totalSavingsGoal || !income || income === 0) {
+      return null;
+    }
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth() + 1;
+    const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+    const daysPassed = today.getDate();
+    const currentMonthExpenses = categoryTotalsForBudgets.reduce((sum, item) => sum + item.total, 0);
+    const monthlySavings = income - currentMonthExpenses;
+    const expectedSavingsByNow = (goals.totalSavingsGoal * daysPassed) / daysInMonth;
+    const progress = expectedSavingsByNow > 0 
+      ? Math.min((monthlySavings / expectedSavingsByNow) * 100, 200) 
+      : 0;
+    return {
+      savings: monthlySavings,
+      goal: goals.totalSavingsGoal,
+      progress,
+      isAhead: monthlySavings >= expectedSavingsByNow,
+    };
+  }, [goals, income, categoryTotalsForBudgets]);
+
   return (
-    <div className="max-w-7xl mx-auto px-2 md:px-4 py-6 pb-32 md:pb-6">
-      {/* Estadísticas con estilo Liquid Glass mejorado - Compactas en móvil */}
-      <div className="relative mb-4 md:mb-6">
-        <div className="grid grid-cols-3 gap-2 md:gap-4">
-          <div
-            className={`rounded-xl md:rounded-2xl p-2.5 md:p-5 border backdrop-blur-xl transition-all md:hover:scale-[1.02] ${
-              darkMode
-                ? "bg-gray-800/50 border-gray-700/40"
-                : "bg-white/60 border-white/40"
-            }`}
-            style={{
-              boxShadow: darkMode
-                ? "0 4px 20px 0 rgba(0, 0, 0, 0.25), 0 0 0 0.5px rgba(255, 255, 255, 0.05) inset"
-                : "0 4px 20px 0 rgba(31, 38, 135, 0.1), 0 0 0 0.5px rgba(255, 255, 255, 0.6) inset",
-              backdropFilter: "blur(16px) saturate(180%)",
-              WebkitBackdropFilter: "blur(16px) saturate(180%)",
-            }}
-          >
-            <div className="flex flex-col items-center text-center">
-              <div
-                className={`p-1.5 md:p-2.5 rounded-lg md:rounded-xl mb-1.5 md:mb-3 ${
-                  darkMode ? "bg-purple-600/20" : "bg-purple-100/50"
-                }`}
-              >
-                <Target className={`w-3.5 h-3.5 md:w-5 md:h-5 ${textSecondaryClass}`} />
+    <div className="max-w-7xl mx-auto px-2 md:px-4 py-2 md:py-6 pb-20 md:pb-6">
+      {/* Estadísticas con estilo Liquid Glass mejorado - Solo en vista principal, más compactas en móvil */}
+      {(activeView === "table" || activeView === "chart" || activeView === "recent") && (
+        <div className="relative mb-3 md:mb-6">
+          <div className="grid grid-cols-4 gap-1.5 md:gap-4">
+            {/* TOTAL - Más pequeño en móvil */}
+            <div
+              className={`rounded-lg md:rounded-2xl p-1.5 md:p-5 border backdrop-blur-xl transition-all md:hover:scale-[1.02] ${
+                darkMode
+                  ? "bg-gray-800/50 border-gray-700/40"
+                  : "bg-white/60 border-white/40"
+              }`}
+              style={{
+                boxShadow: darkMode
+                  ? "0 4px 20px 0 rgba(0, 0, 0, 0.25), 0 0 0 0.5px rgba(255, 255, 255, 0.05) inset"
+                  : "0 4px 20px 0 rgba(31, 38, 135, 0.1), 0 0 0 0.5px rgba(255, 255, 255, 0.6) inset",
+                backdropFilter: "blur(16px) saturate(180%)",
+                WebkitBackdropFilter: "blur(16px) saturate(180%)",
+              }}
+            >
+              <div className="flex flex-col items-center text-center">
+                <div
+                  className={`p-1 md:p-2.5 rounded md:rounded-xl mb-1 md:mb-3 ${
+                    darkMode ? "bg-purple-600/20" : "bg-purple-100/50"
+                  }`}
+                >
+                  <Target className={`w-3 h-3 md:w-5 md:h-5 ${textSecondaryClass}`} />
+                </div>
+                <span className={`text-[9px] md:text-xs font-semibold mb-0.5 md:mb-1.5 uppercase tracking-wide ${textSecondaryClass}`}>
+                  {t("common.total")}
+                </span>
+                <p className={`text-xs md:text-2xl lg:text-3xl font-bold ${textClass} leading-tight`}>
+                  €{totalExpenses.toFixed(2)}
+                </p>
               </div>
-              <span className={`text-[10px] md:text-xs font-semibold mb-0.5 md:mb-1.5 uppercase tracking-wide ${textSecondaryClass}`}>
-                {t("common.total")}
-              </span>
-              <p className={`text-sm md:text-2xl lg:text-3xl font-bold ${textClass} leading-tight`}>
-                €{totalExpenses.toFixed(2)}
-              </p>
             </div>
-          </div>
 
-          <div
-            className={`rounded-xl md:rounded-2xl p-2.5 md:p-5 border backdrop-blur-xl transition-all md:hover:scale-[1.02] ${
-              darkMode
-                ? "bg-gray-800/50 border-gray-700/40"
-                : "bg-white/60 border-white/40"
-            }`}
-            style={{
-              boxShadow: darkMode
-                ? "0 4px 20px 0 rgba(0, 0, 0, 0.25), 0 0 0 0.5px rgba(255, 255, 255, 0.05) inset"
-                : "0 4px 20px 0 rgba(31, 38, 135, 0.1), 0 0 0 0.5px rgba(255, 255, 255, 0.6) inset",
-              backdropFilter: "blur(16px) saturate(180%)",
-              WebkitBackdropFilter: "blur(16px) saturate(180%)",
-            }}
-          >
-            <div className="flex flex-col items-center text-center">
-              <div
-                className={`p-1.5 md:p-2.5 rounded-lg md:rounded-xl mb-1.5 md:mb-3 ${
-                  darkMode ? "bg-blue-600/20" : "bg-blue-100/50"
-                }`}
-              >
-                <BarChart3 className={`w-3.5 h-3.5 md:w-5 md:h-5 ${textSecondaryClass}`} />
+            {/* GASTOS - Más pequeño en móvil */}
+            <div
+              className={`rounded-lg md:rounded-2xl p-1.5 md:p-5 border backdrop-blur-xl transition-all md:hover:scale-[1.02] ${
+                darkMode
+                  ? "bg-gray-800/50 border-gray-700/40"
+                  : "bg-white/60 border-white/40"
+              }`}
+              style={{
+                boxShadow: darkMode
+                  ? "0 4px 20px 0 rgba(0, 0, 0, 0.25), 0 0 0 0.5px rgba(255, 255, 255, 0.05) inset"
+                  : "0 4px 20px 0 rgba(31, 38, 135, 0.1), 0 0 0 0.5px rgba(255, 255, 255, 0.6) inset",
+                backdropFilter: "blur(16px) saturate(180%)",
+                WebkitBackdropFilter: "blur(16px) saturate(180%)",
+              }}
+            >
+              <div className="flex flex-col items-center text-center">
+                <div
+                  className={`p-1 md:p-2.5 rounded md:rounded-xl mb-1 md:mb-3 ${
+                    darkMode ? "bg-blue-600/20" : "bg-blue-100/50"
+                  }`}
+                >
+                  <BarChart3 className={`w-3 h-3 md:w-5 md:h-5 ${textSecondaryClass}`} />
+                </div>
+                <span className={`text-[9px] md:text-xs font-semibold mb-0.5 md:mb-1.5 uppercase tracking-wide ${textSecondaryClass}`}>
+                  {t("common.expenses")}
+                </span>
+                <p className={`text-xs md:text-2xl lg:text-3xl font-bold ${textClass} leading-tight`}>
+                  {filteredExpenses.length}
+                </p>
               </div>
-              <span className={`text-[10px] md:text-xs font-semibold mb-0.5 md:mb-1.5 uppercase tracking-wide ${textSecondaryClass}`}>
-                {t("common.expenses")}
-              </span>
-              <p className={`text-sm md:text-2xl lg:text-3xl font-bold ${textClass} leading-tight`}>
-                {filteredExpenses.length}
-              </p>
             </div>
-          </div>
 
-          <div
-            className={`rounded-xl md:rounded-2xl p-2.5 md:p-5 border backdrop-blur-xl transition-all md:hover:scale-[1.02] ${
-              darkMode
-                ? "bg-gray-800/50 border-gray-700/40"
-                : "bg-white/60 border-white/40"
-            }`}
-            style={{
-              boxShadow: darkMode
-                ? "0 4px 20px 0 rgba(0, 0, 0, 0.25), 0 0 0 0.5px rgba(255, 255, 255, 0.05) inset"
-                : "0 4px 20px 0 rgba(31, 38, 135, 0.1), 0 0 0 0.5px rgba(255, 255, 255, 0.6) inset",
-              backdropFilter: "blur(16px) saturate(180%)",
-              WebkitBackdropFilter: "blur(16px) saturate(180%)",
-            }}
-          >
-            <div className="flex flex-col items-center text-center">
+            {/* PROMEDIO - Más pequeño en móvil */}
+            <div
+              className={`rounded-lg md:rounded-2xl p-1.5 md:p-5 border backdrop-blur-xl transition-all md:hover:scale-[1.02] ${
+                darkMode
+                  ? "bg-gray-800/50 border-gray-700/40"
+                  : "bg-white/60 border-white/40"
+              }`}
+              style={{
+                boxShadow: darkMode
+                  ? "0 4px 20px 0 rgba(0, 0, 0, 0.25), 0 0 0 0.5px rgba(255, 255, 255, 0.05) inset"
+                  : "0 4px 20px 0 rgba(31, 38, 135, 0.1), 0 0 0 0.5px rgba(255, 255, 255, 0.6) inset",
+                backdropFilter: "blur(16px) saturate(180%)",
+                WebkitBackdropFilter: "blur(16px) saturate(180%)",
+              }}
+            >
+              <div className="flex flex-col items-center text-center">
+                <div
+                  className={`p-1 md:p-2.5 rounded md:rounded-xl mb-1 md:mb-3 ${
+                    darkMode ? "bg-pink-600/20" : "bg-pink-100/50"
+                  }`}
+                >
+                  <Clock className={`w-3 h-3 md:w-5 md:h-5 ${textSecondaryClass}`} />
+                </div>
+                <span className={`text-[9px] md:text-xs font-semibold mb-0.5 md:mb-1.5 uppercase tracking-wide ${textSecondaryClass}`}>
+                  {t("common.average")}
+                </span>
+                <p className={`text-xs md:text-2xl lg:text-3xl font-bold ${textClass} leading-tight`}>
+                  €{averageDaily.toFixed(2)}
+                </p>
+              </div>
+            </div>
+
+            {/* OBJETIVOS - Nueva tarjeta */}
+            {goalsSummary && (
               <div
-                className={`p-1.5 md:p-2.5 rounded-lg md:rounded-xl mb-1.5 md:mb-3 ${
-                  darkMode ? "bg-pink-600/20" : "bg-pink-100/50"
+                className={`rounded-lg md:rounded-2xl p-1.5 md:p-5 border backdrop-blur-xl transition-all md:hover:scale-[1.02] ${
+                  darkMode
+                    ? "bg-gray-800/50 border-gray-700/40"
+                    : "bg-white/60 border-white/40"
+                }`}
+                style={{
+                  boxShadow: darkMode
+                    ? "0 4px 20px 0 rgba(0, 0, 0, 0.25), 0 0 0 0.5px rgba(255, 255, 255, 0.05) inset"
+                    : "0 4px 20px 0 rgba(31, 38, 135, 0.1), 0 0 0 0.5px rgba(255, 255, 255, 0.6) inset",
+                  backdropFilter: "blur(16px) saturate(180%)",
+                  WebkitBackdropFilter: "blur(16px) saturate(180%)",
+                }}
+              >
+                <div className="flex flex-col items-center text-center">
+                  <div
+                    className={`p-1 md:p-2.5 rounded md:rounded-xl mb-1 md:mb-3 ${
+                      darkMode ? "bg-green-600/20" : "bg-green-100/50"
+                    }`}
+                  >
+                    <Sparkles className={`w-3 h-3 md:w-5 md:h-5 ${
+                      goalsSummary.isAhead 
+                        ? darkMode ? "text-green-400" : "text-green-500"
+                        : darkMode ? "text-gray-400" : "text-gray-500"
+                    }`} />
+                  </div>
+                  <span className={`text-[9px] md:text-xs font-semibold mb-0.5 md:mb-1.5 uppercase tracking-wide ${textSecondaryClass}`}>
+                    Objetivos
+                  </span>
+                  <p className={`text-xs md:text-2xl lg:text-3xl font-bold ${
+                    goalsSummary.isAhead
+                      ? darkMode ? "text-green-400" : "text-green-500"
+                      : goalsSummary.progress >= 80
+                      ? darkMode ? "text-yellow-400" : "text-yellow-500"
+                      : darkMode ? "text-purple-400" : "text-purple-600"
+                  } leading-tight`}>
+                    €{goalsSummary.savings.toFixed(2)}
+                  </p>
+                  <p className={`text-[8px] md:text-xs ${textSecondaryClass} mt-0.5`}>
+                    {goalsSummary.progress.toFixed(0)}%
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {/* Si no hay objetivos, mostrar espacio vacío o tarjeta deshabilitada */}
+            {!goalsSummary && (
+              <div
+                className={`rounded-lg md:rounded-2xl p-1.5 md:p-5 border backdrop-blur-xl opacity-50 ${
+                  darkMode
+                    ? "bg-gray-800/30 border-gray-700/20"
+                    : "bg-white/30 border-white/20"
                 }`}
               >
-                <Clock className={`w-3.5 h-3.5 md:w-5 md:h-5 ${textSecondaryClass}`} />
+                <div className="flex flex-col items-center text-center">
+                  <div
+                    className={`p-1 md:p-2.5 rounded md:rounded-xl mb-1 md:mb-3 ${
+                      darkMode ? "bg-gray-700/20" : "bg-gray-100/50"
+                    }`}
+                  >
+                    <Target className={`w-3 h-3 md:w-5 md:h-5 ${textSecondaryClass}`} />
+                  </div>
+                  <span className={`text-[9px] md:text-xs font-semibold mb-0.5 md:mb-1.5 uppercase tracking-wide ${textSecondaryClass}`}>
+                    Objetivos
+                  </span>
+                  <p className={`text-xs md:text-2xl lg:text-3xl font-bold ${textSecondaryClass} leading-tight`}>
+                    --
+                  </p>
+                </div>
               </div>
-              <span className={`text-[10px] md:text-xs font-semibold mb-0.5 md:mb-1.5 uppercase tracking-wide ${textSecondaryClass}`}>
-                {t("common.average")}
-              </span>
-              <p className={`text-sm md:text-2xl lg:text-3xl font-bold ${textClass} leading-tight`}>
-                €{averageDaily.toFixed(2)}
-              </p>
-            </div>
+            )}
           </div>
+          
+          {/* Botón de filtrar en móvil - arriba a la derecha - Solo en table y chart */}
+          {(activeView === "table" || activeView === "chart") && (
+            <button
+              onClick={onToggleFilters}
+              className={`md:hidden absolute -top-2 -right-2 p-3 rounded-full shadow-xl backdrop-blur-xl border transition-all active:scale-95 z-10 ${
+                showFilters
+                  ? darkMode
+                    ? "bg-purple-600/90 border-purple-500/50 text-white"
+                    : "bg-purple-600/90 border-purple-400/50 text-white"
+                  : darkMode
+                  ? "bg-gray-800/80 backdrop-blur-xl border-gray-700/50 text-gray-300"
+                  : "bg-white/80 backdrop-blur-xl border-white/60 text-purple-600"
+              }`}
+            >
+              <Filter className="w-5 h-5" />
+            </button>
+          )}
         </div>
-        
-        {/* Botón de filtrar en móvil - arriba a la derecha - Solo en table y chart */}
-        {(activeView === "table" || activeView === "chart") && (
-          <button
-            onClick={onToggleFilters}
-            className={`md:hidden absolute -top-2 -right-2 p-3 rounded-full shadow-xl backdrop-blur-xl border transition-all active:scale-95 z-10 ${
-              showFilters
-                ? darkMode
-                  ? "bg-purple-600/90 border-purple-500/50 text-white"
-                  : "bg-purple-600/90 border-purple-400/50 text-white"
-                : darkMode
-                ? "bg-gray-800/80 backdrop-blur-xl border-gray-700/50 text-gray-300"
-                : "bg-white/80 backdrop-blur-xl border-white/60 text-purple-600"
-            }`}
-          >
-            <Filter className="w-5 h-5" />
-          </button>
-        )}
-      </div>
+      )}
 
       {/* Panel de filtros para móvil - Solo en table y chart */}
       {showFilters && (activeView === "table" || activeView === "chart") && (
@@ -580,9 +726,9 @@ const MainContent = memo(({
           </button>
 
           <button
-            onClick={() => onChangeView("budgets")}
+            onClick={() => onChangeView("goals")}
             className={`relative flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 ${
-              activeView === "budgets"
+              activeView === "goals"
                 ? darkMode
                   ? "bg-purple-600/90 text-white shadow-lg"
                   : "bg-white text-purple-600 shadow-md"
@@ -591,7 +737,7 @@ const MainContent = memo(({
                 : "text-purple-600 hover:text-purple-700 hover:bg-white/50"
             }`}
             style={
-              activeView === "budgets"
+              activeView === "goals"
                 ? {
                     boxShadow: darkMode
                       ? "0 2px 8px rgba(139, 92, 246, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1) inset"
@@ -601,15 +747,15 @@ const MainContent = memo(({
             }
           >
             <Target className="w-4 h-4" />
-            <span>{t("views.budgets")}</span>
+            <span>{t("views.goals")}</span>
           </button>
         </div>
       </div>
 
       {/* Barra inferior flotante estilo Liquid Glass para móvil */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pb-6 pt-3 pointer-events-none safe-area-inset-bottom">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pb-0 pt-2 pointer-events-none">
         <div
-          className={`max-w-md mx-auto rounded-3xl shadow-2xl border backdrop-blur-2xl pointer-events-auto ${
+          className={`max-w-md mx-auto rounded-t-3xl shadow-2xl border-t border-l border-r backdrop-blur-2xl pointer-events-auto ${
             darkMode
               ? "bg-gray-900/75 border-gray-700/40"
               : "bg-white/75 border-white/30"
@@ -691,11 +837,11 @@ const MainContent = memo(({
 
             <button
               onClick={() => {
-                onChangeView("budgets");
+                onChangeView("goals");
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
               className={`flex flex-col items-center justify-center gap-1.5 px-2 py-3 rounded-2xl font-medium transition-all relative ${
-                activeView === "budgets"
+                activeView === "goals"
                   ? darkMode
                     ? "bg-purple-600/90 text-white shadow-lg"
                     : "bg-purple-600/90 text-white shadow-lg"
@@ -705,8 +851,8 @@ const MainContent = memo(({
               }`}
             >
               <Target className="w-5 h-5" />
-              <span className="text-xs font-semibold">{t("views.budgets")}</span>
-              {activeView === "budgets" && (
+              <span className="text-xs font-semibold">{t("views.goals")}</span>
+              {activeView === "goals" && (
                 <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-white"></div>
               )}
             </button>
@@ -717,7 +863,7 @@ const MainContent = memo(({
       {/* Botón FAB flotante para añadir gasto en móvil */}
       <button
         onClick={onAddExpenseClick}
-        className="md:hidden fixed bottom-24 right-4 z-50 w-14 h-14 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-2xl flex items-center justify-center transition-all active:scale-95 hover:scale-105"
+        className="md:hidden fixed bottom-20 right-4 z-50 w-14 h-14 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-2xl flex items-center justify-center transition-all active:scale-95 hover:scale-105"
         style={{
           boxShadow: "0 8px 24px rgba(139, 92, 246, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.2) inset, 0 2px 8px rgba(0, 0, 0, 0.15)",
           backdropFilter: "blur(10px)",
@@ -728,190 +874,89 @@ const MainContent = memo(({
       </button>
 
       {activeView === "table" && (
-        <div className={`${cardClass} rounded-2xl border shadow-lg overflow-hidden`}>
+        <div className="max-w-7xl mx-auto">
           {Object.keys(expensesByCategory).length === 0 ? (
-            <div className="p-12 text-center">
-              <AlertTriangle
-                className={`w-16 h-16 ${textSecondaryClass} mx-auto mb-4`}
-              />
-              <p className={`text-xl font-semibold ${textClass} mb-2`}>
+            <div className="text-center py-16">
+              <Wallet className={`w-16 h-16 mx-auto ${textSecondaryClass} mb-4`} />
+              <h3 className={`text-xl font-medium mb-2 ${textClass}`}>
                 No hay gastos
-              </p>
-              <p className={textSecondaryClass}>
+              </h3>
+              <p className={`${textSecondaryClass} mb-6`}>
                 Añade tu primer gasto para comenzar
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-purple-100">
+            <div className="space-y-1.5 sm:space-y-6">
               {Object.entries(expensesByCategory).map(
                 ([category, subcategories]) => {
                   const categoryTotal = Object.values(subcategories)
                     .flat()
                     .reduce((sum, exp) => sum + exp.amount, 0);
                   const isExpanded = expandedCategories[category];
+                  const expenseCount = Object.values(subcategories).flat().length;
+                  const CategoryIcon = categoryIcons[category] || Wallet;
 
                   return (
                     <div key={category}>
                       <button
                         onClick={() => onToggleCategory(category)}
-                        className={`w-full ${
+                        className={`w-full rounded-lg ${
                           darkMode
                             ? "bg-gray-700/50 hover:bg-gray-700"
                             : "bg-purple-100/80 hover:bg-purple-100"
-                        } px-6 py-4 flex justify-between items-center transition-all`}
+                        } px-2 py-1.5 sm:px-4 sm:py-3 flex items-center justify-between gap-1.5 transition-all`}
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
                           {isExpanded ? (
-                            <ChevronUp className={`w-5 h-5 ${textSecondaryClass}`} />
+                            <ChevronUp className={`w-3.5 h-3.5 flex-shrink-0 ${textSecondaryClass}`} />
                           ) : (
                             <ChevronDown
-                              className={`w-5 h-5 ${textSecondaryClass}`}
+                              className={`w-3.5 h-3.5 flex-shrink-0 ${textSecondaryClass}`}
                             />
                           )}
-                          <span
-                            className="w-3 h-3 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: getCategoryColor(categories[category]) }}
-                            title={`Color: ${getCategoryColor(categories[category])}`}
-                          />
-                          <div>
-                            <p className={`font-semibold ${textClass}`}>{category}</p>
-                            <p className={`text-sm ${textSecondaryClass}`}>
-                              €{categoryTotal.toFixed(2)}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`px-3 py-1 rounded-full text-sm font-medium ${
-                              darkMode
-                                ? "bg-gray-800 text-gray-300"
-                                : "bg-white text-purple-600"
-                            }`}
-                          >
+                          {(() => {
+                            const categoryData = categories[category];
+                            const color = getCategoryColor(categoryData);
+                            return (
+                              <span
+                                className="w-2 h-2 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: color }}
+                                title={`Color: ${color}`}
+                              />
+                            );
+                          })()}
+                          <p className={`text-xs sm:text-sm font-semibold truncate ${textClass}`}>{category}</p>
+                          <span className={`text-xs ${textSecondaryClass} whitespace-nowrap`}>
+                            €{categoryTotal.toFixed(2)}
+                          </span>
+                          <span className={`text-xs ${textSecondaryClass} whitespace-nowrap`}>
                             {Object.values(subcategories).flat().length} {t("expenses.expenseCount")}
                           </span>
                         </div>
                       </button>
 
+                      {/* Gastos expandidos - ultra compactos */}
                       {isExpanded && (
-                        <div
-                          className={`px-4 py-4 space-y-4 ${
-                            darkMode ? "bg-gray-800" : "bg-white"
-                          }`}
-                        >
+                        <div className="mt-1 space-y-1 transition-all duration-300">
                           {Object.entries(subcategories).map(
                             ([subcategory, exps]) => (
-                              <div key={subcategory} className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                  <h4 className={`font-semibold ${textClass}`}>
-                                    {subcategory}
-                                  </h4>
-                                  <span
-                                    className={`text-sm ${textSecondaryClass}`}
-                                  >
-                                    €
-                                    {exps
-                                      .reduce((sum, exp) => sum + exp.amount, 0)
-                                      .toFixed(2)}
-                                  </span>
-                                </div>
-                                <div className="divide-y divide-purple-100">
-                                  {exps.map((expense) => {
-                                    const isRecurring = !!expense.isRecurring;
-                                    const frequencyKey = isRecurring
-                                      ? recurringFrequencyMap[expense.recurringId] || expense.frequency || "monthly"
-                                      : null;
-                                    const frequencyLabel = frequencyKey
-                                      ? frequencyLabels[frequencyKey] || frequencyLabels.monthly
-                                      : null;
-                                    const rowClasses = [
-                                      "px-4 py-3 transition-all flex justify-between items-center rounded-xl border",
-                                      darkMode ? "hover:bg-gray-700/30" : "hover:bg-purple-50/40",
-                                      isRecurring
-                                        ? darkMode
-                                          ? "bg-blue-900/30 border-blue-800/50 shadow-sm"
-                                          : "bg-blue-50/70 border-blue-200/70 shadow-sm"
-                                        : "border-transparent",
-                                    ].join(" ");
-
-                                    return (
-                                      <div key={expense.id} className={rowClasses}>
-                                        <div className="flex-1">
-                                          <div className="flex flex-wrap items-center gap-2 mb-1">
-                                            <p className={`text-sm font-semibold ${textClass}`}>
-                                              {expense.name || "Gasto sin nombre"}
-                                            </p>
-                                            {isRecurring && (
-                                              <span
-                                                className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${
-                                                  darkMode
-                                                    ? "bg-blue-900/60 text-blue-300"
-                                                    : "bg-blue-100 text-blue-700"
-                                                }`}
-                                                title={frequencyLabel || undefined}
-                                              >
-                                                <Clock className="w-3 h-3" />
-                                                {frequencyLabel
-                                                  ? `${t("recurring.badge")} • ${frequencyLabel}`
-                                                  : t("recurring.badge")}
-                                              </span>
-                                            )}
-                                          </div>
-                                          <div className="flex flex-wrap items-center gap-2 mb-1">
-                                            <span className={`text-sm ${textSecondaryClass}`}>
-                                              {new Date(expense.date).toLocaleDateString("es-ES")}
-                                            </span>
-                                            <span
-                                              className={`text-xs ${
-                                                darkMode
-                                                  ? "bg-gray-700"
-                                                  : "bg-white/60"
-                                              } px-2 py-1 rounded-full ${textSecondaryClass}`}
-                                            >
-                                              {expense.paymentMethod}
-                                            </span>
-                                          </div>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                          <span className={`font-bold ${textClass}`}>
-                                            €{expense.amount.toFixed(2)}
-                                          </span>
-                                          <button
-                                            onClick={() => onEditExpense(expense)}
-                                            className={`p-2 rounded-lg ${
-                                              darkMode
-                                                ? "hover:bg-purple-900/50"
-                                                : "hover:bg-purple-100"
-                                            } transition-all`}
-                                          >
-                                            <Pencil
-                                              className={`w-4 h-4 ${
-                                                darkMode
-                                                  ? "text-purple-400"
-                                                  : "text-purple-600"
-                                              }`}
-                                            />
-                                          </button>
-                                          <button
-                                            onClick={() =>
-                                              onRequestDelete({
-                                                type: "expense",
-                                                id: expense.id,
-                                              })
-                                            }
-                                            className={`p-2 rounded-lg ${
-                                              darkMode
-                                                ? "hover:bg-red-900/50"
-                                                : "hover:bg-red-100"
-                                            } transition-all`}
-                                          >
-                                            <Trash2 className="w-4 h-4 text-red-600" />
-                                          </button>
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
+                              <div key={subcategory} className="space-y-1">
+                                {exps.map((expense) => (
+                                  <ExpenseCard
+                                    key={expense.id}
+                                    expense={{
+                                      ...expense,
+                                      category: category,
+                                    }}
+                                    onEdit={onEditExpense}
+                                    onDelete={(exp) => onRequestDelete({
+                                      type: "expense",
+                                      id: exp.id,
+                                    })}
+                                    darkMode={darkMode}
+                                    isMobile={isMobile}
+                                  />
+                                ))}
                               </div>
                             )
                           )}
@@ -958,13 +1003,17 @@ const MainContent = memo(({
                     <Pie
                       data={categoryTotals
                         .sort((a, b) => b.total - a.total)
-                        .map((item, index) => ({
-                          name: item.category,
-                          value: item.total,
-                          percentage: ((item.total / totalExpenses) * 100).toFixed(1),
-                          color: getCategoryColor(categories[item.category]),
-                          index,
-                        }))}
+                        .map((item, index) => {
+                          const categoryData = categories[item.category];
+                          const color = getCategoryColor(categoryData);
+                          return {
+                            name: item.category,
+                            value: item.total,
+                            percentage: ((item.total / totalExpenses) * 100).toFixed(1),
+                            color: color,
+                            index,
+                          };
+                        })}
                       cx="50%"
                       cy="50%"
                       labelLine={false}
@@ -976,35 +1025,34 @@ const MainContent = memo(({
                       animationBegin={0}
                       animationDuration={800}
                       animationEasing="ease-out"
-                      activeIndex={null}
+                      activeIndex={activeIndex}
                       onClick={(data, index) => {
                         if (activeIndex === index) {
-                          // Si ya está seleccionado, deseleccionar
                           setActiveIndex(null);
                           setClickedCategory(null);
                         } else {
-                          // Seleccionar nuevo
                           setActiveIndex(index);
                           setClickedCategory(data);
                         }
                       }}
                     >
-                      {categoryTotals.map((item, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={getCategoryColor(categories[item.category])}
-                          stroke={activeIndex === index 
-                            ? (darkMode ? "#ffffff" : "#000000")
-                            : (darkMode ? "#1f2937" : "#ffffff")
-                          }
-                          strokeWidth={activeIndex === index ? 5 : 3}
-                          style={{
-                            filter: `url(#shadow-${index})`,
-                            cursor: "pointer",
-                            transition: "stroke-width 0.2s ease, stroke 0.2s ease",
-                          }}
-                        />
-                      ))}
+                      {categoryTotals.map((item, index) => {
+                        const categoryData = categories[item.category];
+                        const color = getCategoryColor(categoryData);
+                        return (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={color}
+                            stroke={activeIndex === index ? (darkMode ? "#ffffff" : "#000000") : (darkMode ? "#1f2937" : "#ffffff")}
+                            strokeWidth={activeIndex === index ? 5 : 3}
+                            filter={activeIndex === index ? `url(#shadow-${index})` : undefined}
+                            style={{
+                              cursor: "pointer",
+                              transition: "all 0.3s ease",
+                            }}
+                          />
+                        );
+                      })}
                     </Pie>
                   </PieChart>
                 </ResponsiveContainer>
@@ -1015,7 +1063,7 @@ const MainContent = memo(({
                     <p className={`text-xs ${textSecondaryClass} mb-1`}>
                       Total
                     </p>
-                    <p className={`text-3xl font-bold ${textClass}`}>
+                    <p className={`text-3xl font-bold ${textClass} leading-tight`}>
                       €{totalExpenses.toFixed(2)}
                     </p>
                   </div>
@@ -1100,7 +1148,8 @@ const MainContent = memo(({
                 {categoryTotals
                   .sort((a, b) => b.total - a.total)
                   .map((item, index) => {
-                    const color = getCategoryColor(categories[item.category]);
+                    const categoryData = categories[item.category];
+                    const color = getCategoryColor(categoryData);
                     const percentage = ((item.total / totalExpenses) * 100).toFixed(1);
                     return (
                       <div
@@ -1153,7 +1202,8 @@ const MainContent = memo(({
                     const percentage = (categoryTotal / totalExpenses) * 100;
                     const isExpanded = expandedCategories[category];
 
-                    const categoryColor = getCategoryColor(categories[category]);
+                    const categoryData = categories[category];
+                    const categoryColor = getCategoryColor(categoryData);
 
                     return (
                       <div
@@ -1364,6 +1414,492 @@ const MainContent = memo(({
                   </div>
                 );
               })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeView === "goals" && (
+        <div className={`${cardClass} rounded-2xl p-4 sm:p-6 border shadow-lg`}>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
+            <div>
+              <h3 className={`text-lg sm:text-xl font-bold ${textClass}`}>
+                {t("goals.title")}
+              </h3>
+              <p className={`text-sm ${textSecondaryClass}`}>
+                {t("goals.progress")}
+              </p>
+            </div>
+            <button
+              onClick={onOpenGoals}
+              className="px-4 py-2 rounded-lg bg-purple-600 text-white font-medium hover:bg-purple-700 transition-all text-sm"
+            >
+              {t("goals.addCategoryGoal")}
+            </button>
+          </div>
+
+          {/* Objetivo de ahorro total */}
+          {goals?.totalSavingsGoal > 0 && income > 0 && (
+            <div className={`p-4 sm:p-5 rounded-2xl border mb-6 ${
+              darkMode ? "border-gray-700 bg-gray-800" : "border-purple-100 bg-white"
+            } shadow-sm`}>
+              <div className="flex items-center gap-3 mb-4">
+                <Target className={`w-6 h-6 ${darkMode ? "text-purple-400" : "text-purple-600"}`} />
+                <div className="flex-1">
+                  <p className={`font-semibold ${textClass}`}>
+                    {t("goals.totalSavingsGoal")}
+                  </p>
+                  <p className={`text-sm ${textSecondaryClass}`}>
+                    €{goals.totalSavingsGoal.toFixed(2)} / mes
+                  </p>
+                </div>
+              </div>
+              {(() => {
+                const today = new Date();
+                const currentYear = today.getFullYear();
+                const currentMonth = today.getMonth() + 1;
+                const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+                const daysPassed = today.getDate();
+                const daysRemaining = daysInMonth - daysPassed;
+                
+                // Calcular gastos del mes actual
+                const currentMonthExpenses = categoryTotalsForBudgets.reduce((sum, item) => sum + item.total, 0);
+                
+                // Ahorro del mes actual = Ingresos - Gastos del mes
+                const monthlySavings = income - currentMonthExpenses;
+                
+                // Calcular el objetivo esperado hasta hoy (proporcional a los días transcurridos)
+                const expectedSavingsByNow = (goals.totalSavingsGoal * daysPassed) / daysInMonth;
+                
+                // Calcular progreso basado en lo esperado hasta hoy
+                // Si el ahorro actual es mayor al esperado, está adelantado
+                const progress = expectedSavingsByNow > 0 
+                  ? Math.min((monthlySavings / expectedSavingsByNow) * 100, 200) 
+                  : 0;
+                
+                // Proyección: si continúa al mismo ritmo de ahorro diario
+                const dailySavingsRate = daysPassed > 0 ? monthlySavings / daysPassed : 0;
+                const projectedMonthlySavings = dailySavingsRate * daysInMonth;
+                const projectedProgress = goals.totalSavingsGoal > 0 
+                  ? (projectedMonthlySavings / goals.totalSavingsGoal) * 100 
+                  : 0;
+                
+                // Calcular cuánto necesita ahorrar por día para alcanzar el objetivo
+                const remainingSavingsNeeded = Math.max(0, goals.totalSavingsGoal - monthlySavings);
+                const dailySavingsNeeded = daysRemaining > 0 ? remainingSavingsNeeded / daysRemaining : 0;
+                
+                // Estadísticas adicionales (dailySavingsRate ya fue calculado arriba)
+                const averageDailyGoal = goals.totalSavingsGoal / daysInMonth;
+                const performanceVsAverage = dailySavingsRate / averageDailyGoal;
+                
+                // Comparación con historial
+                const monthlyHistory = goals?.monthlyHistory || {};
+                const historyEntries = Object.entries(monthlyHistory)
+                  .filter(([key]) => key !== `${currentYear}-${String(currentMonth).padStart(2, "0")}`)
+                  .map(([key, value]) => ({ month: key, ...value }))
+                  .sort((a, b) => b.month.localeCompare(a.month))
+                  .slice(0, 3);
+                
+                const avgHistoricalSavings = historyEntries.length > 0
+                  ? historyEntries.reduce((sum, h) => sum + h.savings, 0) / historyEntries.length
+                  : 0;
+                const bestMonth = historyEntries.length > 0
+                  ? Math.max(...historyEntries.map(h => h.savings))
+                  : 0;
+                
+                const isOnTrack = projectedMonthlySavings >= goals.totalSavingsGoal;
+                const isAhead = monthlySavings >= expectedSavingsByNow;
+                const hasNegativeSavings = monthlySavings < 0;
+                const isBetterThanAverage = avgHistoricalSavings > 0 && monthlySavings > avgHistoricalSavings;
+                
+                return (
+                  <>
+                    {/* Resumen principal mejorado */}
+                    <div className={`mb-4 p-4 rounded-xl ${
+                      darkMode 
+                        ? "bg-gradient-to-r from-purple-900/30 to-blue-900/30 border border-purple-800/30" 
+                        : "bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-100"
+                    }`}>
+                      <div className="grid grid-cols-2 gap-4 mb-3">
+                        {/* Ahorro actual destacado */}
+                        <div>
+                          <p className={`text-xs font-medium mb-1 ${textSecondaryClass}`}>
+                            Ahorro del mes actual
+                          </p>
+                          <p className={`text-2xl font-bold ${
+                            hasNegativeSavings 
+                              ? "text-red-400" 
+                              : monthlySavings >= goals.totalSavingsGoal 
+                              ? darkMode ? "text-green-400" : "text-green-500" 
+                              : darkMode ? "text-purple-400" : "text-purple-600"
+                          }`}>
+                            €{monthlySavings.toFixed(2)}
+                          </p>
+                        </div>
+                        
+                        {/* Ritmo diario */}
+                        <div>
+                          <p className={`text-xs font-medium mb-1 ${textSecondaryClass}`}>
+                            Ritmo diario
+                          </p>
+                          <div className="flex items-center gap-1">
+                            {performanceVsAverage >= 1 ? (
+                              <TrendingUp className={`w-4 h-4 ${darkMode ? "text-green-400" : "text-green-500"}`} />
+                            ) : (
+                              <TrendingDown className={`w-4 h-4 ${darkMode ? "text-orange-400" : "text-orange-500"}`} />
+                            )}
+                            <p className={`text-lg font-bold ${
+                              performanceVsAverage >= 1
+                                ? darkMode ? "text-green-400" : "text-green-500"
+                                : darkMode ? "text-orange-400" : "text-orange-500"
+                            }`}>
+                              €{dailySavingsRate.toFixed(2)}/día
+                            </p>
+                          </div>
+                          <p className={`text-xs ${textSecondaryClass}`}>
+                            {performanceVsAverage >= 1 ? `+${((performanceVsAverage - 1) * 100).toFixed(0)}% sobre promedio` : `${((1 - performanceVsAverage) * 100).toFixed(0)}% por debajo`}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex justify-between items-center text-xs pt-2 border-t border-purple-200/30 dark:border-purple-700/30">
+                        <span className={textSecondaryClass}>
+                          Objetivo: €{goals.totalSavingsGoal.toFixed(2)}/mes
+                        </span>
+                        <span className={`font-semibold flex items-center gap-1 ${
+                          isAhead 
+                            ? darkMode ? "text-green-400" : "text-green-500" 
+                            : progress >= 80 
+                            ? darkMode ? "text-yellow-400" : "text-yellow-500" 
+                            : darkMode ? "text-orange-400" : "text-orange-500"
+                        }`}>
+                          {isAhead ? <Sparkles className="w-3 h-3" /> : null}
+                          {isAhead ? "✓ Adelantado" : progress >= 80 ? "En camino" : "Por debajo"}
+                        </span>
+                      </div>
+                      
+                      {/* Comparación histórica */}
+                      {isBetterThanAverage && avgHistoricalSavings > 0 && (
+                        <div className={`mt-2 pt-2 border-t border-purple-200/30 dark:border-purple-700/30`}>
+                          <p className={`text-xs flex items-center gap-1 ${
+                            darkMode ? "text-green-400" : "text-green-600"
+                          }`}>
+                            <TrendingUp className="w-3 h-3" />
+                            Mejor que tu promedio histórico (+€{(monthlySavings - avgHistoricalSavings).toFixed(2)})
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Barra de progreso */}
+                    <div className="mb-3">
+                      <div className="flex justify-between items-center mb-2 text-xs">
+                        <span className={textSecondaryClass}>
+                          Progreso vs objetivo esperado hasta hoy
+                        </span>
+                        <span className={`font-semibold ${textClass}`}>
+                          {progress.toFixed(0)}%
+                        </span>
+                      </div>
+                      <div className={`h-3 rounded-full ${
+                        darkMode ? "bg-gray-800" : "bg-purple-100"
+                      } overflow-hidden relative`}>
+                        {/* Barra de progreso actual */}
+                        <div
+                          className={`h-full transition-all ${
+                            isAhead 
+                              ? darkMode ? "bg-green-400" : "bg-green-500" 
+                              : progress >= 80 
+                              ? darkMode ? "bg-yellow-400" : "bg-yellow-500" 
+                              : darkMode ? "bg-gradient-to-r from-purple-500 to-blue-500" : "bg-gradient-to-r from-purple-600 to-blue-600"
+                          }`}
+                          style={{ width: `${Math.min(Math.max(progress, 0), 100)}%` }}
+                        ></div>
+                        {/* Marcador del objetivo esperado hasta hoy (100%) */}
+                        <div
+                          className={`absolute top-0 bottom-0 w-0.5 ${darkMode ? "bg-gray-500" : "bg-gray-400"} opacity-60`}
+                          style={{ left: "100%" }}
+                          title={`Objetivo esperado hasta hoy: €${expectedSavingsByNow.toFixed(2)}`}
+                        ></div>
+                      </div>
+                      <div className="flex justify-between items-center mt-1 text-xs">
+                        <span className={textSecondaryClass}>
+                          Objetivo esperado hasta hoy: €{expectedSavingsByNow.toFixed(2)}
+                        </span>
+                        <span className={textSecondaryClass}>
+                          Día {daysPassed} de {daysInMonth}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Proyección y recomendaciones */}
+                    <div className={`p-3 rounded-lg border ${
+                      darkMode 
+                        ? "bg-gray-900/70 border-gray-700/50" 
+                        : "bg-purple-50/50 border-purple-100/50"
+                    }`}>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className={`text-sm font-medium ${textClass}`}>
+                          Proyección al final del mes:
+                        </span>
+                        <span className={`text-sm font-bold ${
+                          isOnTrack 
+                            ? darkMode ? "text-green-400" : "text-green-500" 
+                            : darkMode ? "text-orange-400" : "text-orange-500"
+                        }`}>
+                          €{projectedMonthlySavings.toFixed(2)} ({projectedProgress.toFixed(0)}%)
+                        </span>
+                      </div>
+                      
+                      {hasNegativeSavings ? (
+                        <div className={`p-2 rounded-lg ${
+                          darkMode ? "bg-red-900/20 border-red-800/50" : "bg-red-50 border-red-200"
+                        } border`}>
+                          <p className={`text-xs font-medium flex items-center gap-1 ${
+                            darkMode ? "text-red-400" : "text-red-600"
+                          }`}>
+                            <AlertTriangle className="w-3 h-3" />
+                            Estás gastando más de lo que ingresas. Necesitas reducir gastos o aumentar ingresos.
+                          </p>
+                        </div>
+                      ) : isOnTrack ? (
+                        <div className={`p-2 rounded-lg ${
+                          darkMode ? "bg-green-900/20 border-green-800/50" : "bg-green-50 border-green-200"
+                        } border`}>
+                          <p className={`text-xs font-medium flex items-center gap-1 ${
+                            darkMode ? "text-green-400" : "text-green-600"
+                          }`}>
+                            <Sparkles className="w-3 h-3" />
+                            ¡Excelente! Si mantienes este ritmo, alcanzarás tu objetivo de €{goals.totalSavingsGoal.toFixed(2)}
+                          </p>
+                          {bestMonth > 0 && monthlySavings > bestMonth && (
+                            <p className={`text-xs mt-1 flex items-center gap-1 ${
+                              darkMode ? "text-green-300" : "text-green-700"
+                            }`}>
+                              🏆 ¡Estás teniendo tu mejor mes!
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className={`p-2 rounded-lg border space-y-2 ${
+                          darkMode ? "bg-orange-900/20 border-orange-800/50" : "bg-orange-50 border-orange-200"
+                        }`}>
+                          <p className={`text-xs flex items-center gap-1 ${
+                            darkMode ? "text-orange-400" : "text-orange-600"
+                          }`}>
+                            <Calendar className="w-3 h-3" />
+                            Proyección: €{projectedMonthlySavings.toFixed(2)} de €{goals.totalSavingsGoal.toFixed(2)} objetivo
+                          </p>
+                          <div className={`p-2 rounded ${
+                            darkMode ? "bg-gray-800/50" : "bg-white/50"
+                          }`}>
+                            <p className={`text-xs font-medium mb-1 ${
+                              darkMode ? "text-orange-300" : "text-orange-700"
+                            }`}>
+                              💡 Plan de acción:
+                            </p>
+                            <p className={`text-xs ${
+                              darkMode ? "text-orange-300" : "text-orange-600"
+                            }`}>
+                              Ahorra €{dailySavingsNeeded.toFixed(2)}/día durante los próximos {daysRemaining} días para alcanzar tu objetivo
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          )}
+
+          {/* Metas por categoría */}
+          {goals?.categoryGoals && Object.keys(goals.categoryGoals).length > 0 ? (
+            <div className="space-y-4">
+              {Object.entries(goals.categoryGoals).map(([category, goalAmount]) => {
+                const today = new Date();
+                const currentYear = today.getFullYear();
+                const currentMonth = today.getMonth() + 1;
+                const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+                const daysPassed = today.getDate();
+                const daysRemaining = daysInMonth - daysPassed;
+                
+                const categoryTotal = categoryTotalsForBudgets.find((ct) => ct.category === category)?.total || 0;
+                
+                // Calcular el límite esperado hasta hoy (proporcional a los días transcurridos)
+                const expectedSpendingByNow = (goalAmount * daysPassed) / daysInMonth;
+                
+                // Calcular progreso basado en lo esperado hasta hoy
+                const progress = expectedSpendingByNow > 0 
+                  ? Math.min((categoryTotal / expectedSpendingByNow) * 100, 200) 
+                  : 0;
+                
+                // Proyección: si continúa al mismo ritmo, ¿cuánto gastará al final del mes?
+                const dailySpendingRate = daysPassed > 0 ? categoryTotal / daysPassed : 0;
+                const projectedMonthlySpending = dailySpendingRate * daysInMonth;
+                
+                const isExceeded = categoryTotal > goalAmount;
+                const isOnTrack = projectedMonthlySpending <= goalAmount;
+                const isAhead = categoryTotal <= expectedSpendingByNow;
+                
+                const status = isExceeded 
+                  ? "exceeded" 
+                  : progress >= 100 
+                  ? "warning" 
+                  : isAhead 
+                  ? "ok" 
+                  : "warning";
+                
+                const categoryColor = getCategoryColor(categories[category]);
+
+                return (
+                  <div
+                    key={category}
+                    className={`p-4 sm:p-5 rounded-2xl border ${
+                      darkMode ? "border-gray-700 bg-gray-800" : "border-purple-100 bg-white"
+                    } shadow-sm`}
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      <span
+                        className="w-4 h-4 rounded-full"
+                        style={{ backgroundColor: categoryColor }}
+                      ></span>
+                      <div className="flex-1">
+                        <p className={`font-semibold ${textClass}`}>{category}</p>
+                        <p className={`text-sm ${textSecondaryClass}`}>
+                          Meta: €{goalAmount.toFixed(2)} / mes
+                        </p>
+                      </div>
+                      <span className={`text-sm font-semibold ${
+                        status === "exceeded"
+                          ? darkMode ? "text-red-400" : "text-red-500"
+                          : status === "warning"
+                          ? darkMode ? "text-yellow-400" : "text-yellow-500"
+                          : darkMode ? "text-green-400" : "text-green-500"
+                      }`}>
+                        {isAhead ? "✓" : progress >= 100 ? "⚠️" : "✓"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center mb-2">
+                      <div className="flex-1">
+                        <div className="flex items-baseline gap-2 mb-1">
+                          <span className={`text-lg font-bold ${
+                            status === "exceeded"
+                              ? darkMode ? "text-red-400" : "text-red-500"
+                              : status === "warning"
+                              ? darkMode ? "text-yellow-400" : "text-yellow-500"
+                              : darkMode ? "text-green-400" : "text-green-500"
+                          }`}>
+                            €{categoryTotal.toFixed(2)}
+                          </span>
+                          <span className={`text-xs ${textSecondaryClass}`}>
+                            de €{goalAmount.toFixed(2)}
+                          </span>
+                        </div>
+                        <p className={`text-xs ${textSecondaryClass}`}>
+                          Ritmo diario: €{(categoryTotal / daysPassed || 0).toFixed(2)}/día
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className={`text-xs font-semibold ${
+                          status === "exceeded"
+                            ? darkMode ? "text-red-400" : "text-red-500"
+                            : status === "warning"
+                            ? darkMode ? "text-yellow-400" : "text-yellow-500"
+                            : darkMode ? "text-green-400" : "text-green-500"
+                        }`}>
+                          {progress.toFixed(0)}%
+                        </span>
+                        <p className={`text-xs ${textSecondaryClass} mt-1`}>
+                          Día {daysPassed}/{daysInMonth}
+                        </p>
+                      </div>
+                    </div>
+                    <div className={`h-2.5 rounded-full ${
+                      darkMode ? "bg-gray-800" : "bg-purple-100"
+                    } overflow-hidden relative`}>
+                      <div
+                        className={`h-full transition-all ${
+                          status === "exceeded"
+                            ? darkMode ? "bg-red-400" : "bg-red-500"
+                            : status === "warning"
+                            ? darkMode ? "bg-yellow-400" : "bg-yellow-500"
+                            : darkMode ? "bg-green-400" : "bg-green-500"
+                        }`}
+                        style={{ width: `${Math.min(progress, 100)}%` }}
+                      ></div>
+                      {/* Marcador del límite esperado hasta hoy */}
+                      <div
+                        className={`absolute top-0 bottom-0 w-0.5 ${darkMode ? "bg-gray-500" : "bg-gray-400"} opacity-60`}
+                        style={{ left: "100%" }}
+                        title={`Límite esperado hasta hoy: €${expectedSpendingByNow.toFixed(2)}`}
+                      ></div>
+                    </div>
+                    
+                    {/* Información adicional */}
+                    <div className="mt-2.5">
+                      <div className="flex justify-between items-center text-xs mb-1.5">
+                        <span className={textSecondaryClass}>
+                          Límite esperado hasta hoy: €{expectedSpendingByNow.toFixed(2)}
+                        </span>
+                      </div>
+                      
+                      {/* Proyección */}
+                      {!isExceeded && (
+                        <div className={`p-2 rounded-lg border ${
+                          darkMode 
+                            ? "bg-gray-900/70 border-gray-700/50" 
+                            : "bg-purple-50/50 border-purple-100/50"
+                        }`}>
+                          <div className="flex justify-between items-center">
+                            <span className={`text-xs font-medium ${textClass}`}>
+                              Proyección al final del mes:
+                            </span>
+                            <span className={`text-xs font-semibold ${
+                              isOnTrack 
+                                ? darkMode ? "text-green-400" : "text-green-500" 
+                                : darkMode ? "text-orange-400" : "text-orange-500"
+                            }`}>
+                              €{projectedMonthlySpending.toFixed(2)}
+                            </span>
+                          </div>
+                          {!isOnTrack && (
+                            <p className={`text-xs mt-1 ${
+                              darkMode ? "text-orange-400" : "text-orange-500"
+                            }`}>
+                              ⚠️ Si mantienes este ritmo, superarás tu meta. Reduce €{((projectedMonthlySpending - goalAmount) / daysRemaining).toFixed(2)}/día
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {isExceeded && (
+                      <p className={`mt-2 text-sm font-medium ${
+                        darkMode ? "text-red-400" : "text-red-500"
+                      }`}>
+                        Meta superada por €{(categoryTotal - goalAmount).toFixed(2)}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <Target className={`w-16 h-16 ${textSecondaryClass} mx-auto mb-4`} />
+              <p className={`text-xl font-semibold ${textClass} mb-2`}>
+                {t("goals.noGoals")}
+              </p>
+              <p className={textSecondaryClass}>
+                Establece objetivos de ahorro y metas por categoría para comenzar
+              </p>
+              <button
+                onClick={onOpenGoals}
+                className="mt-4 px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all"
+              >
+                {t("goals.addCategoryGoal")}
+              </button>
             </div>
           )}
         </div>

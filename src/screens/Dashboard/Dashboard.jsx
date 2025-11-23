@@ -1,6 +1,6 @@
 import { signOut } from "firebase/auth";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { auth } from "../../firebase";
+import { auth, messaging } from "../../firebase";
 import { exportToCSV } from "../../utils/exportUtils";
 import {
   addExpense as addExpenseDB,
@@ -13,12 +13,18 @@ import {
   getRecurringExpenses,
   getUserBudgets,
   getUserCategories,
+  getUserGoals,
+  getUserIncome,
   getUserLanguage,
+  getUserNotificationSettings,
   getUserTheme,
   initializeUser,
   markChangelogAsSeen,
   saveBudgets,
   saveCategories,
+  saveGoals,
+  saveIncome,
+  saveNotificationSettings,
   saveTheme,
   subscribeToExpenses,
   subscribeToRecurringExpenses,
@@ -26,6 +32,34 @@ import {
   updateRecurringExpense,
 } from "../../services/firestoreService";
 import { useLanguage } from "../../contexts/LanguageContext";
+import {
+  trackAddExpense,
+  trackDeleteExpense,
+  trackEditExpense,
+  trackExportCSV,
+  trackFilter,
+  trackOpenModal,
+  trackSaveGoal,
+  trackViewChange,
+  trackBudgetAlert,
+} from "../../services/analyticsService";
+import {
+  requestNotificationPermission,
+  setupForegroundMessageListener,
+  areNotificationsEnabled,
+  getNotificationPermission,
+  setVAPIDKey,
+} from "../../services/pushNotificationService";
+import {
+  calculateBadges,
+  calculateStreak,
+  compareWithPreviousMonth,
+  updateMonthlyHistory,
+  detectNewlyCompletedGoals,
+} from "../../services/goalsService";
+import CelebrationModal from "../../components/CelebrationModal";
+import AchievementsSection from "../../components/AchievementsSection";
+import LongTermGoalsSection from "../../components/LongTermGoalsSection";
 // Lazy loading para componentes pesados
 const AddExpenseModal = lazy(() => import("./components/AddExpenseModal"));
 const BudgetsModal = lazy(() => import("./components/BudgetsModal"));
@@ -33,6 +67,7 @@ const CategoriesModal = lazy(() => import("./components/CategoriesModal"));
 const ChangelogModal = lazy(() => import("./components/ChangelogModal"));
 const DeleteConfirmationDialog = lazy(() => import("./components/DeleteConfirmationDialog"));
 const EditExpenseModal = lazy(() => import("./components/EditExpenseModal"));
+const GoalsModal = lazy(() => import("./components/GoalsModal"));
 const RecurringExpensesModal = lazy(() => import("./components/RecurringExpensesModal"));
 const SettingsModal = lazy(() => import("./components/SettingsModal"));
 const TipsModal = lazy(() => import("./components/TipsModal"));
@@ -99,6 +134,27 @@ const Dashboard = ({ user }) => {
   );
   const [selectedCategory, setSelectedCategory] = useState("all");
 
+  // Handlers para filtros
+  const handleFilterPeriodTypeChange = useCallback((value) => {
+    setFilterPeriodType(value);
+    trackFilter("period", value);
+  }, []);
+
+  const handleMonthChange = useCallback((value) => {
+    setSelectedMonth(value);
+    trackFilter("month", value);
+  }, []);
+
+  const handleYearChange = useCallback((value) => {
+    setSelectedYear(value);
+    trackFilter("year", value);
+  }, []);
+
+  const handleCategoryChange = useCallback((value) => {
+    setSelectedCategory(value);
+    trackFilter("category", value);
+  }, []);
+
   const [newExpense, setNewExpense] = useState({
     name: "",
     amount: "",
@@ -123,6 +179,22 @@ const Dashboard = ({ user }) => {
 
   const [expandedCategories, setExpandedCategories] = useState({});
 
+  // Nuevos estados para ingresos, objetivos y notificaciones
+  const [income, setIncome] = useState(0);
+  const [goals, setGoals] = useState({
+    totalSavingsGoal: 0,
+    categoryGoals: {},
+  });
+  const [notificationSettings, setNotificationSettings] = useState({
+    budgetAlerts: { enabled: true, at80: true, at90: true, at100: true },
+    recurringReminders: { enabled: true },
+    customReminders: { enabled: true, message: "No olvides registrar tus gastos" },
+  });
+  const [showGoals, setShowGoals] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [completedGoal, setCompletedGoal] = useState(null);
+  const [previousGoals, setPreviousGoals] = useState(null);
+
   useEffect(() => {
     if (!user) {
       setExpenses([]);
@@ -146,12 +218,15 @@ const Dashboard = ({ user }) => {
           email: user.email,
         });
 
-        const [userCategories, userBudgets, userTheme, userLanguage, changelogSeen] = await Promise.all([
+        const [userCategories, userBudgets, userTheme, userLanguage, changelogSeen, userIncome, userGoals, userNotificationSettings] = await Promise.all([
           getUserCategories(user.uid),
           getUserBudgets(user.uid),
           getUserTheme(user.uid),
           getUserLanguage(user.uid),
           getChangelogSeenVersion(user.uid),
+          getUserIncome(user.uid),
+          getUserGoals(user.uid),
+          getUserNotificationSettings(user.uid),
         ]);
 
         if (!isMounted) {
@@ -162,6 +237,14 @@ const Dashboard = ({ user }) => {
         setBudgets(userBudgets || {});
         setDarkMode(userTheme === "dark");
         setChangelogSeenVersion(changelogSeen);
+        setIncome(userIncome || 0);
+        setGoals(userGoals || { totalSavingsGoal: 0, categoryGoals: {} });
+        setNotificationSettings(userNotificationSettings || {
+          budgetAlerts: { enabled: true, at80: true, at90: true, at100: true },
+          recurringReminders: { enabled: true },
+          customReminders: { enabled: true, message: "No olvides registrar tus gastos" },
+          pushNotifications: { enabled: false },
+        });
         
         // Inicializar idioma
         if (userLanguage) {
@@ -329,10 +412,13 @@ const Dashboard = ({ user }) => {
     if (!user) return;
 
     try {
+      const expenseAmount = parseFloat(newExpense.amount);
       await addExpenseDB(user.uid, {
         ...newExpense,
-        amount: parseFloat(newExpense.amount),
+        amount: expenseAmount,
       });
+
+      trackAddExpense(newExpense.category, expenseAmount);
 
       setNewExpense({
         name: "",
@@ -366,6 +452,7 @@ const Dashboard = ({ user }) => {
         paymentMethod: editingExpense.paymentMethod,
       });
 
+      trackEditExpense(editingExpense.category);
       setEditingExpense(null);
       showNotification("Gasto actualizado correctamente");
     } catch (error) {
@@ -378,6 +465,7 @@ const Dashboard = ({ user }) => {
 
     try {
       await deleteExpenseDB(user.uid, id);
+      trackDeleteExpense();
       setShowDeleteConfirm(null);
       showNotification("Gasto eliminado correctamente");
     } catch (error) {
@@ -747,6 +835,9 @@ const Dashboard = ({ user }) => {
   // Ref para prevenir loops infinitos en la restauración automática
   const isRestoringRef = useRef(false);
   const lastRestoreHashRef = useRef("");
+  
+  // Ref para prevenir alertas duplicadas
+  const budgetAlertsShownRef = useRef(new Set());
 
   // Efecto para restaurar categorías y subcategorías perdidas de forma segura
   useEffect(() => {
@@ -974,6 +1065,262 @@ const Dashboard = ({ user }) => {
     };
   }, [darkMode]);
 
+  // Efecto para alertas de presupuesto (80%, 90%, 100%) - Solo cuando cambian los datos
+  useEffect(() => {
+    if (!user || !notificationSettings?.budgetAlerts?.enabled || !budgets || Object.keys(budgets).length === 0) {
+      return;
+    }
+
+    // Solo verificar si los gastos han cambiado (no cada vez que se monta el componente)
+    const checkBudgetAlerts = () => {
+      const today = new Date().toDateString();
+      const lastCheckDate = budgetAlertsShownRef.current.lastCheckDate;
+      
+      // Limpiar alertas mostradas al cambiar de día
+      if (lastCheckDate !== today) {
+        budgetAlertsShownRef.current.clear();
+        budgetAlertsShownRef.current.lastCheckDate = today;
+      }
+
+      Object.entries(budgets).forEach(([category, budget]) => {
+        const categoryTotal = categoryTotalsForBudgets.find((ct) => ct.category === category)?.total || 0;
+        const percentage = (categoryTotal / budget) * 100;
+        const alertKey = `${category}-${Math.floor(percentage / 10) * 10}`; // Agrupar por decenas
+
+        // Solo mostrar alerta si no se ha mostrado antes hoy Y si realmente cruzó el umbral
+        if (budgetAlertsShownRef.current.has(alertKey)) {
+          return;
+        }
+
+        const alerts = notificationSettings.budgetAlerts;
+        
+        // Solo mostrar si realmente alcanzó el umbral (no si ya estaba por encima)
+        if (percentage >= 100 && alerts.at100) {
+          budgetAlertsShownRef.current.add(alertKey);
+          showNotification(
+            `⚠️ Presupuesto de ${category} superado al ${percentage.toFixed(0)}%`,
+            "error"
+          );
+          trackBudgetAlert(category, percentage);
+        } else if (percentage >= 90 && alerts.at90 && percentage < 100) {
+          budgetAlertsShownRef.current.add(alertKey);
+          showNotification(
+            `⚠️ Presupuesto de ${category} al ${percentage.toFixed(0)}%`,
+            "error"
+          );
+          trackBudgetAlert(category, percentage);
+        } else if (percentage >= 80 && alerts.at80 && percentage < 90) {
+          budgetAlertsShownRef.current.add(alertKey);
+          showNotification(
+            `⚠️ Presupuesto de ${category} al ${percentage.toFixed(0)}%`,
+            "error"
+          );
+          trackBudgetAlert(category, percentage);
+        }
+      });
+    };
+
+    // Solo ejecutar si hay cambios reales en los gastos (usar un debounce)
+    const timeoutId = setTimeout(() => {
+      checkBudgetAlerts();
+    }, 1000); // Esperar 1 segundo después de cambios
+
+    return () => clearTimeout(timeoutId);
+  }, [budgets, categoryTotalsForBudgets, notificationSettings, user, showNotification]);
+
+  // Efecto para recordatorios de gastos recurrentes - Solo una vez al día
+  useEffect(() => {
+    if (!user || !notificationSettings?.recurringReminders?.enabled || !recurringExpenses || recurringExpenses.length === 0) {
+      return;
+    }
+
+    const checkRecurringReminders = () => {
+      const today = new Date();
+      const dayOfMonth = today.getDate();
+      const todayKey = today.toDateString();
+      
+      // Verificar si ya se mostró hoy
+      const lastCheck = localStorage.getItem(`recurringCheck_${user.uid}_${todayKey}`);
+      if (lastCheck) {
+        return; // Ya se mostró hoy
+      }
+
+      const remindersToShow = recurringExpenses
+        .filter((recurring) => recurring.active && recurring.dayOfMonth === dayOfMonth);
+
+      if (remindersToShow.length > 0) {
+        // Mostrar solo una notificación con todos los recordatorios
+        const remindersText = remindersToShow
+          .map((r) => `${r.name} (€${r.amount.toFixed(2)})`)
+          .join(", ");
+        
+        showNotification(
+          `💡 Recordatorios de hoy: ${remindersText}`,
+          "success"
+        );
+        
+        // Marcar como mostrado
+        localStorage.setItem(`recurringCheck_${user.uid}_${todayKey}`, "true");
+      }
+    };
+
+    // Solo verificar una vez cuando se carga la app, no en cada render
+    checkRecurringReminders();
+  }, [recurringExpenses?.length, notificationSettings?.recurringReminders?.enabled, user?.uid]); // Dependencias más específicas
+
+  // Efecto para recordatorios personalizados - Solo una vez al día
+  useEffect(() => {
+    if (!user || !notificationSettings?.customReminders?.enabled || !notificationSettings?.customReminders?.message) {
+      return;
+    }
+
+    const todayKey = new Date().toDateString();
+    const lastReminder = localStorage.getItem(`customReminder_${user.uid}_${todayKey}`);
+    
+    // Solo mostrar si no se ha mostrado hoy Y si la app lleva al menos 30 segundos abierta
+    if (!lastReminder) {
+      // Esperar 30 segundos después de cargar la app (solo la primera vez del día)
+      const timer = setTimeout(() => {
+        showNotification(notificationSettings.customReminders.message, "success");
+        localStorage.setItem(`customReminder_${user.uid}_${todayKey}`, "true");
+      }, 30000); // 30 segundos
+
+      return () => clearTimeout(timer);
+    }
+  }, [notificationSettings?.customReminders?.enabled, notificationSettings?.customReminders?.message, user?.uid]); // Dependencias más específicas
+
+  // Inicializar notificaciones push cuando el usuario inicia sesión
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    // Verificar que messaging esté disponible
+    if (!messaging) {
+      console.warn("Firebase Messaging no está disponible en este navegador");
+      return;
+    }
+
+    // Clave VAPID obtenida de Firebase Console
+    // Firebase Console > Project Settings > Cloud Messaging > Web Push certificates
+    const VAPID_KEY_FROM_FIREBASE = "BG-spFoiC7ziY8GRhsx9t5sEX_6yXgs6b87Ax6w6sOJeBk22WTQz2-GWvTgxcXannfTpa8rLqyQsTumeRw2khd8";
+    
+    if (VAPID_KEY_FROM_FIREBASE) {
+      setVAPIDKey(VAPID_KEY_FROM_FIREBASE);
+      
+      // Verificar permisos y solicitar si es necesario
+      const permission = getNotificationPermission();
+      
+      if (permission === "granted") {
+        // Solicitar token FCM
+        requestNotificationPermission(user.uid).catch((error) => {
+          console.error("Error obteniendo token FCM:", error);
+        });
+      }
+      
+      // Configurar listener para mensajes en primer plano
+      const unsubscribe = setupForegroundMessageListener((payload) => {
+        console.log("Notificación recibida en primer plano:", payload);
+        showNotification(
+          payload.notification?.body || payload.data?.message || "Tienes una nueva notificación",
+          "success"
+        );
+      });
+      
+      return () => {
+        if (unsubscribe) {
+          unsubscribe();
+        }
+      };
+    } else {
+      console.warn("VAPID key no configurada. Las notificaciones push no funcionarán hasta que la configures.");
+    }
+  }, [user]);
+
+  // Handler para solicitar permisos desde SettingsModal
+  const handleRequestPushPermission = useCallback(async () => {
+    if (!user || !messaging) {
+      showNotification("El servicio de notificaciones no está disponible", "error");
+      return;
+    }
+
+    try {
+      const token = await requestNotificationPermission(user.uid);
+      if (token) {
+        showNotification("Notificaciones push activadas correctamente", "success");
+      }
+    } catch (error) {
+      console.error("Error solicitando permisos push:", error);
+      showNotification("Error al activar notificaciones push", "error");
+    }
+  }, [user, messaging, showNotification]);
+
+  // Efecto para actualizar historial mensual y badges automáticamente
+  useEffect(() => {
+    if (!user || !goals || income === 0) {
+      return;
+    }
+
+    const currentMonthExpenses = categoryTotalsForBudgets.reduce((sum, item) => sum + item.total, 0);
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth() + 1;
+    const currentMonthKey = `${currentYear}-${String(currentMonth).padStart(2, "0")}`;
+    
+    // Obtener entrada actual del historial
+    const currentHistoryEntry = goals.monthlyHistory?.[currentMonthKey];
+    const monthlySavings = income - currentMonthExpenses;
+    const monthlyGoal = goals.monthlySavingsGoal || goals.totalSavingsGoal || 0;
+    const completed = monthlyGoal > 0 && monthlySavings >= monthlyGoal;
+    
+    // Solo actualizar si el valor cambió o no existe
+    const shouldUpdate = !currentHistoryEntry || 
+      currentHistoryEntry.savings !== monthlySavings || 
+      currentHistoryEntry.completed !== completed;
+    
+    if (shouldUpdate) {
+      // Actualizar historial mensual
+      const updatedHistory = updateMonthlyHistory(goals, income, currentMonthExpenses);
+      
+      // Calcular badges y rachas
+      const badges = calculateBadges(goals, updatedHistory, income, currentMonthExpenses);
+      const streakMonths = calculateStreak(updatedHistory);
+      
+      const updatedGoals = {
+        ...goals,
+        monthlyHistory: updatedHistory,
+        achievements: {
+          totalCompleted: Object.values(updatedHistory).filter((h) => h.completed).length,
+          streakMonths: streakMonths,
+          badges: badges.map((badge) => ({
+            id: badge.id,
+            name: badge.name,
+            icon: badge.name.split(" ")[0],
+            unlockedAt: new Date().toISOString(),
+          })),
+        },
+      };
+      
+      // Detectar objetivos recién completados solo si el estado cambió de no completado a completado
+      if (currentHistoryEntry && !currentHistoryEntry.completed && completed) {
+        const newlyCompleted = detectNewlyCompletedGoals(previousGoals || goals, updatedGoals);
+        if (newlyCompleted.length > 0) {
+          setCompletedGoal(newlyCompleted[0]);
+          setShowCelebration(true);
+          setPreviousGoals(goals);
+        }
+      }
+      
+      // Actualizar sin mostrar notificación (actualización automática)
+      saveGoals(user.uid, updatedGoals).catch((error) => {
+        console.error("Error auto-updating goals:", error);
+      });
+      
+      setGoals(updatedGoals);
+    }
+  }, [expenses.length, income, categoryTotalsForBudgets.length, user?.uid]); // Solo cuando cambian los gastos o ingresos
+
+
   // Memoizar clases CSS para evitar recálculos
   const { bgClass, cardClass, textClass, textSecondaryClass, inputClass } = useMemo(() => ({
     bgClass: darkMode
@@ -992,26 +1339,37 @@ const Dashboard = ({ user }) => {
   const handleOpenAddExpense = useCallback(() => {
     setShowAddExpense(true);
     setShowManagement(false);
+    trackOpenModal("add_expense");
   }, []);
 
   const handleOpenCategories = useCallback(() => {
     setShowCategories(true);
     setShowManagement(false);
+    trackOpenModal("categories");
   }, []);
 
   const handleOpenBudgets = useCallback(() => {
     setShowBudgets(true);
     setShowManagement(false);
+    trackOpenModal("budgets");
+  }, []);
+
+  const handleOpenGoals = useCallback(() => {
+    setShowGoals(true);
+    setShowManagement(false);
+    trackOpenModal("goals");
   }, []);
 
   const handleOpenRecurring = useCallback(() => {
     setShowRecurring(true);
     setShowManagement(false);
+    trackOpenModal("recurring");
   }, []);
 
   const handleOpenSettings = useCallback(() => {
     setShowSettings(true);
     setShowManagement(false);
+    trackOpenModal("settings");
   }, []);
 
   const handleOpenTips = useCallback(() => {
@@ -1030,6 +1388,89 @@ const Dashboard = ({ user }) => {
     }
   }, [user]);
 
+  const handleSaveIncome = useCallback(async (newIncome) => {
+    if (!user) return;
+    try {
+      await saveIncome(user.uid, newIncome);
+      setIncome(newIncome);
+      showNotification("Ingresos actualizados correctamente");
+    } catch (error) {
+      console.error("Error saving income:", error);
+      showNotification("Error al guardar los ingresos", "error");
+    }
+  }, [user, showNotification]);
+
+  const handleSaveNotificationSettings = useCallback(async (settings) => {
+    if (!user) return;
+    try {
+      await saveNotificationSettings(user.uid, settings);
+      setNotificationSettings(settings);
+      showNotification("Configuración de notificaciones actualizada");
+    } catch (error) {
+      console.error("Error saving notification settings:", error);
+      showNotification("Error al guardar la configuración", "error");
+    }
+  }, [user, showNotification]);
+
+  const handleSaveGoals = useCallback(async (newGoals) => {
+    if (!user) return;
+    try {
+      // Actualizar historial mensual
+      const currentMonthExpenses = categoryTotalsForBudgets.reduce((sum, item) => sum + item.total, 0);
+      const updatedHistory = updateMonthlyHistory(goals, income, currentMonthExpenses);
+      
+      // Calcular badges y rachas
+      const badges = calculateBadges(newGoals, updatedHistory, income, currentMonthExpenses);
+      const streakMonths = calculateStreak(updatedHistory);
+      
+      // Actualizar objetivos con historial y badges
+      const goalsToSave = {
+        ...newGoals,
+        monthlyHistory: updatedHistory,
+        achievements: {
+          totalCompleted: Object.values(updatedHistory).filter((h) => h.completed).length,
+          streakMonths: streakMonths,
+          badges: badges.map((badge) => ({
+            id: badge.id,
+            name: badge.name,
+            icon: badge.name.split(" ")[0],
+            unlockedAt: new Date().toISOString(),
+          })),
+        },
+      };
+      
+      // Detectar objetivos recién completados
+      const newlyCompleted = detectNewlyCompletedGoals(previousGoals || goals, goalsToSave);
+      if (newlyCompleted.length > 0) {
+        setCompletedGoal(newlyCompleted[0]);
+        setShowCelebration(true);
+      }
+      
+      // Guardar objetivos anteriores para comparar
+      setPreviousGoals(goals);
+      
+      await saveGoals(user.uid, goalsToSave);
+      setGoals(goalsToSave);
+      
+      // Trackear qué tipo de objetivos se guardaron
+      if (newGoals.monthlySavingsGoal > 0 || newGoals.totalSavingsGoal > 0) {
+        trackSaveGoal("total_savings");
+      }
+      if (newGoals.categoryGoals && Object.keys(newGoals.categoryGoals).length > 0) {
+        trackSaveGoal("category_goal");
+      }
+      if (newGoals.longTermGoals && newGoals.longTermGoals.length > 0) {
+        trackSaveGoal("long_term_goal");
+      }
+      
+      showNotification("Objetivos actualizados correctamente");
+      setShowGoals(false);
+    } catch (error) {
+      console.error("Error saving goals:", error);
+      showNotification("Error al guardar los objetivos", "error");
+    }
+  }, [user, showNotification, goals, income, categoryTotalsForBudgets, previousGoals]);
+
   const handleExportCSV = useCallback(() => {
     try {
       let filename = "gastos";
@@ -1046,12 +1487,13 @@ const Dashboard = ({ user }) => {
           break;
       }
       exportToCSV(filteredExpenses, filename);
+      trackExportCSV(filterPeriodType);
       showNotification("Gastos exportados correctamente");
     } catch (error) {
       console.error("Error exporting CSV:", error);
       showNotification("Error al exportar los gastos", "error");
     }
-  }, [filteredExpenses, filterPeriodType, selectedMonth, selectedYear, showNotification]);
+  }, [filteredExpenses, filterPeriodType, selectedMonth, selectedYear, showNotification, user]);
 
   const handleToggleFilters = useCallback(() => {
     setShowFilters((prev) => !prev);
@@ -1067,6 +1509,11 @@ const Dashboard = ({ user }) => {
 
   const handleViewChange = useCallback((view) => {
     setActiveView(view);
+    trackViewChange(view);
+    // Si cambiamos a una vista que no debe tener filtros, ocultarlos
+    if (view === "recent" || view === "budgets" || view === "goals") {
+      setShowFilters(false);
+    }
   }, []);
 
   const handleNotificationClose = useCallback(() => {
@@ -1108,8 +1555,47 @@ const Dashboard = ({ user }) => {
       handleDeleteBudget(context.category);
     } else if (context.type === "recurring") {
       handleDeleteRecurring(context.id);
+    } else if (context.type === "categoryGoal") {
+      const updatedGoals = { ...goals };
+      delete updatedGoals.categoryGoals[context.category];
+      handleSaveGoals(updatedGoals);
+    } else if (context.type === "longTermGoal") {
+      const updatedGoals = { ...goals };
+      updatedGoals.longTermGoals = (updatedGoals.longTermGoals || []).filter((g) => g.id !== context.goalId);
+      handleSaveGoals(updatedGoals);
     }
   };
+
+  const handleUpdateLongTermGoalAmount = useCallback(async (goalId, newAmount) => {
+    if (!user) return;
+    try {
+      const updatedGoals = {
+        ...goals,
+        longTermGoals: (goals.longTermGoals || []).map((goal) =>
+          goal.id === goalId ? { ...goal, currentAmount: newAmount } : goal
+        ),
+      };
+      
+      // Detectar si se completó el objetivo
+      const updatedGoal = updatedGoals.longTermGoals.find((g) => g.id === goalId);
+      if (updatedGoal && updatedGoal.currentAmount >= updatedGoal.targetAmount && updatedGoal.status === "active") {
+        updatedGoal.status = "completed";
+        setCompletedGoal({
+          type: "longTerm",
+          name: updatedGoal.name,
+          amount: updatedGoal.currentAmount,
+          goal: updatedGoal.targetAmount,
+        });
+        setShowCelebration(true);
+      }
+      
+      await saveGoals(user.uid, updatedGoals);
+      setGoals(updatedGoals);
+    } catch (error) {
+      console.error("Error updating long-term goal:", error);
+      showNotification("Error al actualizar el objetivo", "error");
+    }
+  }, [user, goals, showNotification]);
 
   if (loading) {
     return (
@@ -1143,7 +1629,7 @@ const Dashboard = ({ user }) => {
         overBudgetCount={overBudgetCategories.length}
         onToggleManagement={() => setShowManagement((prev) => !prev)}
         onSelectCategories={handleOpenCategories}
-        onSelectBudgets={handleOpenBudgets}
+        onSelectGoals={handleOpenGoals}
         onSelectRecurring={handleOpenRecurring}
         onOpenSettings={handleOpenSettings}
         onOpenTips={handleOpenTips}
@@ -1176,13 +1662,13 @@ const Dashboard = ({ user }) => {
         showFilters={showFilters}
         onToggleFilters={handleToggleFilters}
         filterPeriodType={filterPeriodType}
-        onFilterPeriodTypeChange={setFilterPeriodType}
+        onFilterPeriodTypeChange={handleFilterPeriodTypeChange}
         selectedMonth={selectedMonth}
-        onMonthChange={setSelectedMonth}
+        onMonthChange={handleMonthChange}
         selectedYear={selectedYear}
-        onYearChange={setSelectedYear}
+        onYearChange={handleYearChange}
         selectedCategory={selectedCategory}
-        onCategoryChange={setSelectedCategory}
+        onCategoryChange={handleCategoryChange}
         onClearFilters={handleClearFilters}
         categories={categories}
         activeView={activeView}
@@ -1198,6 +1684,9 @@ const Dashboard = ({ user }) => {
         budgets={budgets}
         recentExpenses={recentExpenses}
         recurringExpenses={recurringExpenses}
+        goals={goals}
+        income={income}
+        onOpenGoals={handleOpenGoals}
       />
 
       <Suspense fallback={showAddExpense ? <ModalLoader /> : null}>
@@ -1290,6 +1779,34 @@ const Dashboard = ({ user }) => {
         />
       </Suspense>
 
+      <Suspense fallback={showGoals ? <ModalLoader /> : null}>
+        <GoalsModal
+          visible={showGoals}
+          darkMode={darkMode}
+          cardClass={cardClass}
+          textClass={textClass}
+          textSecondaryClass={textSecondaryClass}
+          inputClass={inputClass}
+          categories={categories}
+          goals={goals}
+          income={income}
+          categoryTotals={categoryTotalsForBudgets}
+          onSaveGoals={handleSaveGoals}
+          onRequestDelete={(context) => setShowDeleteConfirm(context)}
+          onClose={() => setShowGoals(false)}
+        />
+      </Suspense>
+
+      <CelebrationModal
+        visible={showCelebration}
+        goal={completedGoal}
+        onClose={() => {
+          setShowCelebration(false);
+          setCompletedGoal(null);
+        }}
+        darkMode={darkMode}
+      />
+
       <Suspense fallback={showRecurring ? <ModalLoader /> : null}>
         <RecurringExpensesModal
           visible={showRecurring}
@@ -1323,6 +1840,16 @@ const Dashboard = ({ user }) => {
           textSecondaryClass={textSecondaryClass}
           toggleDarkMode={toggleDarkMode}
           onClose={() => setShowSettings(false)}
+          income={income}
+          onSaveIncome={handleSaveIncome}
+          notificationSettings={notificationSettings}
+          onSaveNotificationSettings={handleSaveNotificationSettings}
+          onRequestPushPermission={handleRequestPushPermission}
+          showNotification={showNotification}
+          onOpenBudgets={() => {
+            setShowSettings(false);
+            setShowBudgets(true);
+          }}
         />
       </Suspense>
 

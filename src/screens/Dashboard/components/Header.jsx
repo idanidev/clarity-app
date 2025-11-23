@@ -7,6 +7,7 @@ import {
   LogOut,
   Menu as MenuIcon,
   Settings as SettingsIcon,
+  Target,
 } from "lucide-react";
 import { useTranslation } from "../../../contexts/LanguageContext";
 
@@ -15,7 +16,6 @@ const Header = memo(({
   textClass,
   textSecondaryClass,
   userEmail,
-  showBudgets,
   showCategories,
   showSettings,
   showRecurring,
@@ -23,7 +23,7 @@ const Header = memo(({
   overBudgetCount,
   onToggleManagement,
   onSelectCategories,
-  onSelectBudgets,
+  onSelectGoals,
   onSelectRecurring,
   onOpenSettings,
   onOpenTips,
@@ -56,7 +56,7 @@ const Header = memo(({
               <button
                 onClick={onToggleManagement}
                 className={`px-4 py-2 rounded-xl font-medium transition-all flex items-center gap-2 ${
-                  showBudgets || showCategories || showRecurring
+                  showCategories || showRecurring
                     ? "bg-purple-600 text-white"
                     : desktopButtonBase
                 }`}
@@ -82,14 +82,6 @@ const Header = memo(({
                     {t("dashboard.categories")}
                   </button>
                   <button
-                    onClick={onSelectBudgets}
-                    className={`w-full px-4 py-2 text-left hover:bg-purple-50 ${
-                      darkMode ? "hover:bg-gray-700" : ""
-                    } transition-all ${textClass} font-medium`}
-                  >
-                    {t("dashboard.budgets")}
-                  </button>
-                  <button
                     onClick={onSelectRecurring}
                     className={`w-full px-4 py-2 text-left hover:bg-purple-50 ${
                       darkMode ? "hover:bg-gray-700" : ""
@@ -100,6 +92,14 @@ const Header = memo(({
                 </div>
               )}
             </div>
+
+            <button
+              onClick={onSelectGoals}
+              className={`px-4 py-2 rounded-xl font-medium transition-all flex items-center gap-2 ${desktopButtonBase}`}
+            >
+              <Target className="w-4 h-4" />
+              {t("views.goals")}
+            </button>
 
             <button
               onClick={onOpenTips}
@@ -142,9 +142,22 @@ const Header = memo(({
           </div>
 
           <div className="md:hidden flex items-center gap-3">
-              {overBudgetCount > 0 && (
+            <button
+              onClick={onSelectGoals}
+              className={`p-2 rounded-xl ${
+                darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-white/60 hover:bg-white/80"
+              } border ${darkMode ? "border-gray-600" : "border-white/60"} transition-all`}
+              title={t("views.goals")}
+            >
+              <Target
+                className={`w-6 h-6 ${
+                  darkMode ? "text-purple-400" : "text-purple-600"
+                }`}
+              />
+            </button>
+            {overBudgetCount > 0 && (
               <button
-                onClick={onSelectBudgets}
+                onClick={onSelectGoals}
                 className="relative p-2 rounded-xl bg-red-100 hover:bg-red-200 border border-red-200 transition-all"
                 title={t("budgets.overBudget")}
               >
