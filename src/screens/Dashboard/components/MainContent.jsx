@@ -994,13 +994,13 @@ const MainContent = memo(({
                             title={`Color: ${categoryColor}`}
                           />
                           <div className="flex-1 min-w-0 flex items-center gap-2">
-                            <p className={`text-[11px] sm:text-xs font-bold truncate ${textClass}`}>{category}</p>
-                            <span className={`text-[10px] ${textSecondaryClass} whitespace-nowrap`}>
+                            <p className={`text-xs sm:text-sm font-bold truncate ${textClass}`}>{category}</p>
+                            <span className={`text-xs ${textSecondaryClass} whitespace-nowrap`}>
                               {filteredCount} {filteredCount === 1 ? "gasto" : "gastos"}
                             </span>
                           </div>
                           <div className="flex flex-col items-end flex-shrink-0">
-                            <span className={`text-xs sm:text-sm font-bold ${textClass}`}>
+                            <span className={`text-sm sm:text-base font-bold ${textClass}`}>
                               €{filteredTotal.toFixed(2)}
                             </span>
                             {searchQuery.trim() && categoryTotal !== filteredTotal && (

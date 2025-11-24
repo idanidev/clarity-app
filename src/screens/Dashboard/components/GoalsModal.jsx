@@ -579,8 +579,9 @@ const GoalsModal = ({
               {longTermGoals.length > 0 && (
                 <div className="space-y-4">
                   {longTermGoals
-                    .filter((goal) => goal.status === "active")
+                    .filter((goal) => goal && goal.status === "active")
                     .map((goal) => {
+                      if (!goal || !goal.name) return null;
                       const progress = getLongTermGoalProgress(goal);
                       const isComplete = goal.currentAmount >= goal.targetAmount;
 
@@ -603,10 +604,10 @@ const GoalsModal = ({
                         >
                           <div className="flex items-start justify-between mb-4">
                             <div className="flex items-center gap-3 flex-1">
-                              <span className="text-3xl flex-shrink-0">{goal.icon}</span>
+                              <span className="text-3xl flex-shrink-0">{goal.icon || "🎯"}</span>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
-                                  <h4 className={`font-semibold text-lg ${textClass}`}>{goal.name}</h4>
+                                  <h4 className={`font-semibold text-lg ${textClass}`}>{goal.name || "Objetivo sin nombre"}</h4>
                                   {isComplete && (
                                     <span className="text-xs px-2 py-0.5 rounded-full bg-green-500 text-white font-medium">
                                       ✓ Completado
