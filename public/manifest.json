@@ -4,7 +4,7 @@
   "description": "Gestiona tus gastos personales con claridad",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#faf5ff",
+  "background_color": "#1a1a2e",
   "theme_color": "#8B5CF6",
   "orientation": "portrait",
   "icons": [

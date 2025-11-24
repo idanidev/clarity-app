@@ -48,6 +48,9 @@ const MobileMenu = memo(({
       ></div>
       <div
         className={`absolute right-0 top-0 h-full w-80 ${panelClasses} shadow-2xl p-6 overflow-y-auto`}
+        style={{
+          paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))',
+        }}
       >
         <div className="flex justify-between items-center mb-8">
           <h3 className={`text-2xl font-bold ${textClass}`}>{t("dashboard.menu")}</h3>

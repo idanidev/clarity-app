@@ -755,7 +755,7 @@ const MainContent = memo(({
       </div>
 
       {/* Barra inferior flotante estilo Liquid Glass para móvil */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pb-0 pt-2 pointer-events-none">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pt-2 pointer-events-none" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
         <div
           className={`max-w-md mx-auto rounded-t-3xl shadow-2xl border-t border-l border-r backdrop-blur-2xl pointer-events-auto ${
             darkMode
@@ -770,7 +770,7 @@ const MainContent = memo(({
             WebkitBackdropFilter: "blur(40px) saturate(180%)",
           }}
         >
-          <div className="grid grid-cols-4 gap-1 p-2">
+          <div className="grid grid-cols-4 gap-1 p-2" style={{ paddingBottom: 'max(0.5rem, calc(0.5rem + env(safe-area-inset-bottom)))' }}>
             <button
               onClick={() => {
                 onChangeView("table");
@@ -865,8 +865,9 @@ const MainContent = memo(({
       {/* Botón FAB flotante para añadir gasto en móvil */}
       <button
         onClick={onAddExpenseClick}
-        className="md:hidden fixed bottom-20 right-4 z-50 w-14 h-14 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-2xl flex items-center justify-center transition-all active:scale-95 hover:scale-105"
+        className="md:hidden fixed right-4 z-50 w-14 h-14 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-2xl flex items-center justify-center transition-all active:scale-95 hover:scale-105"
         style={{
+          bottom: 'max(5rem, calc(5rem + env(safe-area-inset-bottom)))',
           boxShadow: "0 8px 24px rgba(139, 92, 246, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.2) inset, 0 2px 8px rgba(0, 0, 0, 0.15)",
           backdropFilter: "blur(10px)",
           WebkitBackdropFilter: "blur(10px)",
