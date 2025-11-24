@@ -215,8 +215,20 @@ export const isLongTermGoalComplete = (goal) => {
  * Calcula cuánto falta para completar un objetivo a largo plazo
  */
 export const getLongTermGoalProgress = (goal) => {
-  const progress = goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount) * 100 : 0;
-  const remaining = Math.max(0, goal.targetAmount - goal.currentAmount);
+  if (!goal) {
+    return {
+      progress: 0,
+      remaining: 0,
+      daysRemaining: null,
+      monthlyContribution: 0,
+      isOnTrack: false,
+    };
+  }
+  
+  const targetAmount = goal.targetAmount || 0;
+  const currentAmount = goal.currentAmount || 0;
+  const progress = targetAmount > 0 ? (currentAmount / targetAmount) * 100 : 0;
+  const remaining = Math.max(0, targetAmount - currentAmount);
   const daysRemaining = goal.targetDate 
     ? Math.max(0, Math.ceil((new Date(goal.targetDate) - new Date()) / (1000 * 60 * 60 * 24)))
     : null;
@@ -229,7 +241,7 @@ export const getLongTermGoalProgress = (goal) => {
     remaining,
     daysRemaining,
     monthlyContribution,
-    isOnTrack: daysRemaining && daysRemaining > 0 ? (remaining / daysRemaining) * 30 <= goal.monthlyContribution : false,
+    isOnTrack: daysRemaining && daysRemaining > 0 ? (remaining / daysRemaining) * 30 <= (goal.monthlyContribution || 0) : false,
   };
 };
 

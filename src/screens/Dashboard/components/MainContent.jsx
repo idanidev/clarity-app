@@ -755,41 +755,41 @@ const MainContent = memo(({
       </div>
 
       {/* Barra inferior flotante estilo Liquid Glass para móvil */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pt-2 pointer-events-none" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 px-2 pt-1 pointer-events-none" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
         <div
-          className={`max-w-md mx-auto rounded-t-3xl shadow-2xl border-t border-l border-r backdrop-blur-2xl pointer-events-auto ${
+          className={`max-w-md mx-auto rounded-t-2xl shadow-xl border-t border-l border-r backdrop-blur-xl pointer-events-auto ${
             darkMode
-              ? "bg-gray-900/75 border-gray-700/40"
-              : "bg-white/75 border-white/30"
+              ? "bg-gray-900/80 border-gray-700/40"
+              : "bg-white/80 border-white/30"
           }`}
           style={{
             boxShadow: darkMode
-              ? "0 8px 32px 0 rgba(0, 0, 0, 0.37), 0 0 0 0.5px rgba(255, 255, 255, 0.05) inset"
-              : "0 8px 32px 0 rgba(31, 38, 135, 0.15), 0 0 0 0.5px rgba(255, 255, 255, 0.7) inset",
-            backdropFilter: "blur(40px) saturate(180%)",
-            WebkitBackdropFilter: "blur(40px) saturate(180%)",
+              ? "0 4px 16px 0 rgba(0, 0, 0, 0.3), 0 0 0 0.5px rgba(255, 255, 255, 0.05) inset"
+              : "0 4px 16px 0 rgba(31, 38, 135, 0.12), 0 0 0 0.5px rgba(255, 255, 255, 0.7) inset",
+            backdropFilter: "blur(20px) saturate(180%)",
+            WebkitBackdropFilter: "blur(20px) saturate(180%)",
           }}
         >
-          <div className="grid grid-cols-4 gap-1 p-2" style={{ paddingBottom: 'max(0.5rem, calc(0.5rem + env(safe-area-inset-bottom)))' }}>
+          <div className="grid grid-cols-4 gap-0.5 p-1" style={{ paddingBottom: 'max(0.5rem, calc(0.5rem + env(safe-area-inset-bottom)))' }}>
             <button
               onClick={() => {
                 onChangeView("table");
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
-              className={`flex flex-col items-center justify-center gap-1.5 px-2 py-3 rounded-2xl font-medium transition-all relative ${
+              className={`flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 rounded-xl font-medium transition-all relative ${
                 activeView === "table"
                   ? darkMode
-                    ? "bg-purple-600/90 text-white shadow-lg"
-                    : "bg-purple-600/90 text-white shadow-lg"
+                    ? "bg-purple-600/90 text-white"
+                    : "bg-purple-600/90 text-white"
                   : darkMode
                   ? "text-gray-300 hover:bg-gray-800/50"
                   : "text-purple-600 hover:bg-white/50"
               }`}
             >
-              <TableIcon className="w-5 h-5" />
-              <span className="text-xs font-semibold">{t("views.table")}</span>
+              <TableIcon className="w-4 h-4" />
+              <span className="text-[10px] font-medium">{t("views.table")}</span>
               {activeView === "table" && (
-                <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-white"></div>
+                <div className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-white"></div>
               )}
             </button>
 
@@ -798,20 +798,20 @@ const MainContent = memo(({
                 onChangeView("chart");
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
-              className={`flex flex-col items-center justify-center gap-1.5 px-2 py-3 rounded-2xl font-medium transition-all relative ${
+              className={`flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 rounded-xl font-medium transition-all relative ${
                 activeView === "chart"
                   ? darkMode
-                    ? "bg-purple-600/90 text-white shadow-lg"
-                    : "bg-purple-600/90 text-white shadow-lg"
+                    ? "bg-purple-600/90 text-white"
+                    : "bg-purple-600/90 text-white"
                   : darkMode
                   ? "text-gray-300 hover:bg-gray-800/50"
                   : "text-purple-600 hover:bg-white/50"
               }`}
             >
-              <BarChart3 className="w-5 h-5" />
-              <span className="text-xs font-semibold">{t("views.chart")}</span>
+              <BarChart3 className="w-4 h-4" />
+              <span className="text-[10px] font-medium">{t("views.chart")}</span>
               {activeView === "chart" && (
-                <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-white"></div>
+                <div className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-white"></div>
               )}
             </button>
 
@@ -820,20 +820,20 @@ const MainContent = memo(({
                 onChangeView("recent");
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
-              className={`flex flex-col items-center justify-center gap-1.5 px-2 py-3 rounded-2xl font-medium transition-all relative ${
+              className={`flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 rounded-xl font-medium transition-all relative ${
                 activeView === "recent"
                   ? darkMode
-                    ? "bg-purple-600/90 text-white shadow-lg"
-                    : "bg-purple-600/90 text-white shadow-lg"
+                    ? "bg-purple-600/90 text-white"
+                    : "bg-purple-600/90 text-white"
                   : darkMode
                   ? "text-gray-300 hover:bg-gray-800/50"
                   : "text-purple-600 hover:bg-white/50"
               }`}
             >
-              <Clock className="w-5 h-5" />
-              <span className="text-xs font-semibold">{t("views.recent")}</span>
+              <Clock className="w-4 h-4" />
+              <span className="text-[10px] font-medium">{t("views.recent")}</span>
               {activeView === "recent" && (
-                <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-white"></div>
+                <div className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-white"></div>
               )}
             </button>
 
@@ -842,20 +842,20 @@ const MainContent = memo(({
                 onChangeView("goals");
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
-              className={`flex flex-col items-center justify-center gap-1.5 px-2 py-3 rounded-2xl font-medium transition-all relative ${
+              className={`flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 rounded-xl font-medium transition-all relative ${
                 activeView === "goals"
                   ? darkMode
-                    ? "bg-purple-600/90 text-white shadow-lg"
-                    : "bg-purple-600/90 text-white shadow-lg"
+                    ? "bg-purple-600/90 text-white"
+                    : "bg-purple-600/90 text-white"
                   : darkMode
                   ? "text-gray-300 hover:bg-gray-800/50"
                   : "text-purple-600 hover:bg-white/50"
               }`}
             >
-              <Target className="w-5 h-5" />
-              <span className="text-xs font-semibold">{t("views.goals")}</span>
+              <Target className="w-4 h-4" />
+              <span className="text-[10px] font-medium">{t("views.goals")}</span>
               {activeView === "goals" && (
-                <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-white"></div>
+                <div className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-white"></div>
               )}
             </button>
           </div>

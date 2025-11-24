@@ -58,7 +58,7 @@ const CelebrationModal = ({ visible, goal, onClose, darkMode }) => {
 
           <div className={`${cardBg} rounded-2xl p-6 mb-6`}>
             <p className={`text-xl font-semibold mb-2 ${textClass}`}>
-              {goal.name || "Objetivo Mensual"}
+              {goal?.name || "Objetivo Mensual"}
             </p>
             <div className="flex items-center justify-center gap-4">
               <div>
@@ -66,7 +66,7 @@ const CelebrationModal = ({ visible, goal, onClose, darkMode }) => {
                   Meta
                 </p>
                 <p className={`text-2xl font-bold ${textClass}`}>
-                  €{goal.goal?.toFixed(2) || goal.targetAmount?.toFixed(2) || "0.00"}
+                  €{goal?.goal?.toFixed(2) || goal?.targetAmount?.toFixed(2) || "0.00"}
                 </p>
               </div>
               <Sparkles className="w-6 h-6 text-purple-500" />
@@ -75,7 +75,7 @@ const CelebrationModal = ({ visible, goal, onClose, darkMode }) => {
                   Alcanzado
                 </p>
                 <p className={`text-2xl font-bold text-green-500`}>
-                  €{goal.amount?.toFixed(2) || goal.currentAmount?.toFixed(2) || "0.00"}
+                  €{goal?.amount?.toFixed(2) || goal?.currentAmount?.toFixed(2) || "0.00"}
                 </p>
               </div>
             </div>
@@ -98,5 +98,6 @@ const CelebrationModal = ({ visible, goal, onClose, darkMode }) => {
 };
 
 export default CelebrationModal;
+
 
 

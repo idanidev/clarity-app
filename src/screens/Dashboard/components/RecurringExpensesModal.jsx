@@ -67,7 +67,9 @@ function EditRecurringDialog({
     endDate: r.endDate ? r.endDate : null,
   });
 
-  if (!open || !editingRecurring) return null;
+  if (!open || !editingRecurring) {
+    return null;
+  }
 
   const content = (
     <div

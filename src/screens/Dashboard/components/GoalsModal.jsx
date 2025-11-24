@@ -41,7 +41,9 @@ const GoalsModal = ({
   useEffect(() => {
     setMonthlySavingsGoal(goals?.monthlySavingsGoal || goals?.totalSavingsGoal || 0);
     setCategoryGoals(goals?.categoryGoals || {});
-    setLongTermGoals(goals?.longTermGoals || []);
+    // Filtrar objetivos null/undefined
+    const validGoals = (goals?.longTermGoals || []).filter((g) => g !== null && g !== undefined);
+    setLongTermGoals(validGoals);
   }, [goals]);
 
   if (!visible) {
@@ -111,11 +113,13 @@ const GoalsModal = ({
 
   const handleUpdateLongTermGoalCurrentAmount = (goalId, newAmount) => {
     setLongTermGoals(
-      longTermGoals.map((goal) =>
-        goal.id === goalId
-          ? { ...goal, currentAmount: parseFloat(newAmount) || 0 }
-          : goal
-      )
+      longTermGoals
+        .filter((goal) => goal !== null && goal !== undefined)
+        .map((goal) =>
+          goal && goal.id === goalId
+            ? { ...goal, currentAmount: parseFloat(newAmount) || 0 }
+            : goal
+        )
     );
   };
 
@@ -741,7 +745,7 @@ const GoalsModal = ({
                 </div>
               )}
 
-              {longTermGoals.filter((g) => g.status === "active").length === 0 && !showLongTermForm && (
+              {longTermGoals.filter((g) => g && g.status === "active").length === 0 && !showLongTermForm && (
                 <div className={`text-center py-8 ${textSecondaryClass}`}>
                   <Target className="w-12 h-12 mx-auto mb-2 opacity-50" />
                   <p>No tienes objetivos a largo plazo aún</p>

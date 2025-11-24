@@ -72,3 +72,4 @@ Si usas Firebase, necesitarás añadir el dominio de preview a las autorizacione
 2. Añade el dominio de Vercel preview (ej: `*.vercel.app` o el dominio específico)
 
 
+

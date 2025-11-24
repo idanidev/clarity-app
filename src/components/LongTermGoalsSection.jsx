@@ -12,13 +12,14 @@ const LongTermGoalsSection = ({ goals, darkMode, onUpdateAmount }) => {
   const cardClass = darkMode ? "bg-gray-800" : "bg-white";
   const borderClass = darkMode ? "border-gray-700" : "border-purple-200";
 
-  const activeGoals = goals.longTermGoals.filter((g) => g.status === "active");
+  const activeGoals = goals.longTermGoals.filter((g) => g && g.status === "active");
 
   return (
     <div className="space-y-4 mb-6">
       {activeGoals.map((goal) => {
+        if (!goal || !goal.name) return null;
         const progress = getLongTermGoalProgress(goal);
-        const isComplete = goal.currentAmount >= goal.targetAmount;
+        const isComplete = (goal.currentAmount || 0) >= (goal.targetAmount || 0);
 
         return (
           <div
@@ -29,7 +30,7 @@ const LongTermGoalsSection = ({ goals, darkMode, onUpdateAmount }) => {
               <div className="flex items-center gap-3">
                 <span className="text-3xl">{goal.icon || "🎯"}</span>
                 <div>
-                  <h4 className={`font-semibold ${textClass}`}>{goal.name}</h4>
+                  <h4 className={`font-semibold ${textClass}`}>{goal.name || "Objetivo sin nombre"}</h4>
                   {progress.daysRemaining !== null && (
                     <p className={`text-xs flex items-center gap-1 ${textSecondaryClass}`}>
                       <Calendar className="w-3 h-3" />

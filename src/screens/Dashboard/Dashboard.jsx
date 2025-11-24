@@ -57,7 +57,7 @@ import {
   updateMonthlyHistory,
   detectNewlyCompletedGoals,
 } from "../../services/goalsService";
-import CelebrationModal from "../../components/CelebrationModal";
+// import CelebrationModal from "../../components/CelebrationModal"; // Comentado temporalmente
 import AchievementsSection from "../../components/AchievementsSection";
 import LongTermGoalsSection from "../../components/LongTermGoalsSection";
 // Lazy loading para componentes pesados
@@ -194,8 +194,8 @@ const Dashboard = ({ user }) => {
     pushNotifications: { enabled: false },
   });
   const [showGoals, setShowGoals] = useState(false);
-  const [showCelebration, setShowCelebration] = useState(false);
-  const [completedGoal, setCompletedGoal] = useState(null);
+  // const [showCelebration, setShowCelebration] = useState(false); // Comentado temporalmente
+  // const [completedGoal, setCompletedGoal] = useState(null); // Comentado temporalmente
   const [previousGoals, setPreviousGoals] = useState(null);
 
   useEffect(() => {
@@ -1442,8 +1442,8 @@ const Dashboard = ({ user }) => {
       if (currentHistoryEntry && !currentHistoryEntry.completed && completed) {
         const newlyCompleted = detectNewlyCompletedGoals(previousGoals || goals, updatedGoals);
         if (newlyCompleted.length > 0) {
-          setCompletedGoal(newlyCompleted[0]);
-          setShowCelebration(true);
+          // setCompletedGoal(newlyCompleted[0]); // Comentado temporalmente
+          // setShowCelebration(true); // Comentado temporalmente
           setPreviousGoals(goals);
         }
       }
@@ -1579,8 +1579,8 @@ const Dashboard = ({ user }) => {
       // Detectar objetivos recién completados
       const newlyCompleted = detectNewlyCompletedGoals(previousGoals || goals, goalsToSave);
       if (newlyCompleted.length > 0) {
-        setCompletedGoal(newlyCompleted[0]);
-        setShowCelebration(true);
+        // setCompletedGoal(newlyCompleted[0]); // Comentado temporalmente
+        // setShowCelebration(true); // Comentado temporalmente
       }
       
       // Guardar objetivos anteriores para comparar
@@ -1717,13 +1717,13 @@ const Dashboard = ({ user }) => {
       const updatedGoal = updatedGoals.longTermGoals.find((g) => g.id === goalId);
       if (updatedGoal && updatedGoal.currentAmount >= updatedGoal.targetAmount && updatedGoal.status === "active") {
         updatedGoal.status = "completed";
-        setCompletedGoal({
-          type: "longTerm",
-          name: updatedGoal.name,
-          amount: updatedGoal.currentAmount,
-          goal: updatedGoal.targetAmount,
-        });
-        setShowCelebration(true);
+        // setCompletedGoal({ // Comentado temporalmente
+        //   type: "longTerm",
+        //   name: updatedGoal.name,
+        //   amount: updatedGoal.currentAmount,
+        //   goal: updatedGoal.targetAmount,
+        // });
+        // setShowCelebration(true); // Comentado temporalmente
       }
       
       await saveGoals(user.uid, updatedGoals);
@@ -1984,6 +1984,7 @@ const Dashboard = ({ user }) => {
         />
       </Suspense>
 
+      {/* CelebrationModal comentado temporalmente
       <CelebrationModal
         visible={showCelebration}
         goal={completedGoal}
@@ -1993,6 +1994,7 @@ const Dashboard = ({ user }) => {
         }}
         darkMode={darkMode}
       />
+      */}
 
       <Suspense fallback={showRecurring ? <ModalLoader /> : null}>
         <RecurringExpensesModal

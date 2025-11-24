@@ -116,6 +116,22 @@ input[type="month"] {
   appearance: none;
 }
 
+/* Prevenir zoom automático en móviles cuando se enfoca un input */
+input,
+textarea,
+select {
+  font-size: 16px !important;
+}
+
+/* Para pantallas grandes, permitir tamaños más pequeños */
+@media (min-width: 640px) {
+  input,
+  textarea,
+  select {
+    font-size: inherit !important;
+  }
+}
+
 /* Utilidad para ocultar scrollbar */
 .scrollbar-hide {
   -ms-overflow-style: none;
