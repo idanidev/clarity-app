@@ -107,3 +107,4 @@ Si la clave no funciona:
 - Verifica que no haya espacios extras al copiar/pegar
 - La clave debe empezar con letras/números, no con símbolos especiales
 
+

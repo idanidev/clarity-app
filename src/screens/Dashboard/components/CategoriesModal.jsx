@@ -22,6 +22,10 @@ const CategoriesModal = ({
   onStartEditCategory,
   onCancelEditCategory,
   onSaveEditCategory,
+  editingSubcategory,
+  onStartEditSubcategory,
+  onCancelEditSubcategory,
+  onSaveEditSubcategory,
   onRequestDelete,
   onClose,
 }) => {
@@ -118,6 +122,7 @@ const CategoriesModal = ({
             </label>
             <select
               value={selectedCategoryForSub}
+              onClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
               onTouchStart={(e) => e.stopPropagation()}
               onChange={(e) => onSelectCategoryForSub(e.target.value)}
@@ -165,7 +170,7 @@ const CategoriesModal = ({
                 >
                   <div className="flex justify-between items-start mb-3">
                     {isEditing ? (
-                      <div className="flex-1 flex gap-2 items-center">
+                      <div className="flex-1 flex gap-1.5 sm:gap-2 items-center flex-wrap">
                         <input
                           type="text"
                           value={editingCategory.newName}
@@ -175,7 +180,7 @@ const CategoriesModal = ({
                               newName: e.target.value,
                             })
                           }
-                          className={`flex-1 px-3 py-2 rounded-lg border ${inputClass} focus:ring-2 focus:border-transparent`}
+                          className={`flex-1 min-w-[120px] px-2 sm:px-3 py-2 rounded-lg border ${inputClass} focus:ring-2 focus:border-transparent text-sm sm:text-base`}
                           placeholder="Nombre de categoría"
                         />
                         <input
@@ -187,30 +192,30 @@ const CategoriesModal = ({
                               newColor: e.target.value,
                             })
                           }
-                          className="w-10 h-10 rounded-lg border-2 border-gray-300 cursor-pointer"
+                          className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg border-2 border-gray-300 cursor-pointer flex-shrink-0"
                           title="Selecciona un color"
                         />
                         <button
                           onClick={() => onSaveEditCategory()}
-                          className={`p-2 rounded-lg ${
+                          className={`p-1.5 sm:p-2 rounded-lg flex-shrink-0 ${
                             darkMode
                               ? "bg-green-700 hover:bg-green-600"
                               : "bg-green-500 hover:bg-green-600"
                           } text-white transition-all`}
                           title="Guardar"
                         >
-                          <Save className="w-4 h-4" />
+                          <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </button>
                         <button
                           onClick={() => onCancelEditCategory()}
-                          className={`p-2 rounded-lg ${
+                          className={`p-1.5 sm:p-2 rounded-lg flex-shrink-0 ${
                             darkMode
                               ? "bg-gray-600 hover:bg-gray-500"
                               : "bg-gray-400 hover:bg-gray-500"
                           } text-white transition-all`}
                           title="Cancelar"
                         >
-                          <X className="w-4 h-4" />
+                          <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </button>
                       </div>
                     ) : (
@@ -258,32 +263,95 @@ const CategoriesModal = ({
                   </div>
                   <div className="space-y-2">
                     {subcategories.length > 0 ? (
-                      subcategories.map((sub) => (
-                        <div
-                          key={sub}
-                          className={`flex justify-between items-center p-2 rounded-lg ${
-                            darkMode ? "bg-gray-600" : "bg-white"
-                          }`}
-                        >
-                          <span className={`text-sm ${textClass}`}>{sub}</span>
-                          <button
-                            onClick={() =>
-                              onRequestDelete({
-                                type: "subcategory",
-                                category: categoryName,
-                                subcategory: sub,
-                              })
-                            }
-                            className={`p-1 rounded ${
-                              darkMode
-                                ? "hover:bg-red-900/50"
-                                : "hover:bg-red-100"
-                            } transition-all`}
+                      subcategories.map((sub) => {
+                        const isEditing = editingSubcategory?.category === categoryName && editingSubcategory?.oldName === sub;
+                        return (
+                          <div
+                            key={sub}
+                            className={`flex justify-between items-center p-2 rounded-lg ${
+                              darkMode ? "bg-gray-600" : "bg-white"
+                            }`}
                           >
-                            <Trash2 className="w-3 h-3 text-red-600" />
-                          </button>
-                        </div>
-                      ))
+                            {isEditing ? (
+                              <div className="flex-1 flex gap-2 items-center">
+                                <input
+                                  type="text"
+                                  value={editingSubcategory.newName}
+                                  onChange={(e) =>
+                                    onStartEditSubcategory({
+                                      ...editingSubcategory,
+                                      newName: e.target.value,
+                                    })
+                                  }
+                                  className={`flex-1 px-2 py-1.5 rounded-lg border ${inputClass} focus:ring-2 focus:border-transparent text-sm`}
+                                  placeholder="Nombre de subcategoría"
+                                />
+                                <button
+                                  onClick={() => onSaveEditSubcategory()}
+                                  className={`p-1.5 rounded-lg ${
+                                    darkMode
+                                      ? "bg-green-700 hover:bg-green-600"
+                                      : "bg-green-500 hover:bg-green-600"
+                                  } text-white transition-all`}
+                                  title="Guardar"
+                                >
+                                  <Save className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => onCancelEditSubcategory()}
+                                  className={`p-1.5 rounded-lg ${
+                                    darkMode
+                                      ? "bg-gray-600 hover:bg-gray-500"
+                                      : "bg-gray-400 hover:bg-gray-500"
+                                  } text-white transition-all`}
+                                  title="Cancelar"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <span className={`text-sm ${textClass}`}>{sub}</span>
+                                <div className="flex gap-1">
+                                  <button
+                                    onClick={() =>
+                                      onStartEditSubcategory({
+                                        category: categoryName,
+                                        oldName: sub,
+                                        newName: sub,
+                                      })
+                                    }
+                                    className={`p-1 rounded ${
+                                      darkMode
+                                        ? "hover:bg-blue-900/50"
+                                        : "hover:bg-blue-100"
+                                    } transition-all`}
+                                    title="Editar subcategoría"
+                                  >
+                                    <Edit2 className="w-3 h-3 text-blue-600" />
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      onRequestDelete({
+                                        type: "subcategory",
+                                        category: categoryName,
+                                        subcategory: sub,
+                                      })
+                                    }
+                                    className={`p-1 rounded ${
+                                      darkMode
+                                        ? "hover:bg-red-900/50"
+                                        : "hover:bg-red-100"
+                                    } transition-all`}
+                                  >
+                                    <Trash2 className="w-3 h-3 text-red-600" />
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })
                     ) : (
                       <p className={`text-sm ${textClass} opacity-50 italic`}>
                         No hay subcategorías

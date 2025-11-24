@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bell, DollarSign, Globe, Moon, Sun, X, TestTube } from "lucide-react";
+import { Bell, DollarSign, Globe, Moon, Sun, X, TestTube, Calendar } from "lucide-react";
 import { useLanguage, useTranslation } from "../../../contexts/LanguageContext";
 import { showTestNotification, areNotificationsEnabled } from "../../../services/pushNotificationService";
 
@@ -26,6 +26,8 @@ const SettingsModal = ({
     budgetAlerts: { enabled: true, at80: true, at90: true, at100: true },
     recurringReminders: { enabled: true },
     customReminders: { enabled: true, message: "No olvides registrar tus gastos" },
+    weeklyReminder: { enabled: true, dayOfWeek: 0, message: "¡No olvides registrar tus gastos de esta semana en Clarity!" },
+    pushNotifications: { enabled: false },
   });
   const [activeTab, setActiveTab] = useState("general"); // "general" | "notifications"
 
@@ -130,15 +132,21 @@ const SettingsModal = ({
                 <div className="flex gap-2 mt-3">
                   <input
                     type="number"
+                    min="0"
+                    step="0.01"
                     value={localIncome}
-                    onChange={(e) => setLocalIncome(parseFloat(e.target.value) || 0)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === "" || parseFloat(value) >= 0) {
+                        setLocalIncome(parseFloat(value) || 0);
+                      }
+                    }}
                     className={`flex-1 px-4 py-2 rounded-lg border ${
                       darkMode
                         ? "bg-gray-800 border-gray-600 text-gray-100"
                         : "bg-white border-purple-200 text-purple-900"
                     } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
                     placeholder="0.00"
-                    step="0.01"
                   />
                   <button
                     onClick={handleSaveIncome}
@@ -506,6 +514,116 @@ const SettingsModal = ({
                       } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
                       placeholder={t("settings.customReminderPlaceholder")}
                     />
+                  </div>
+                )}
+              </div>
+
+              {/* Recordatorio Semanal */}
+              <div
+                className={`p-4 rounded-xl ${
+                  darkMode ? "bg-gray-700" : "bg-purple-50"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <Calendar
+                      className={`w-5 h-5 ${
+                        darkMode ? "text-purple-400" : "text-purple-600"
+                      }`}
+                    />
+                    <div>
+                      <p className={`font-medium ${textClass}`}>
+                        {t("settings.weeklyReminder")}
+                      </p>
+                      <p className={`text-sm ${textSecondaryClass}`}>
+                        {t("settings.weeklyReminderDescription")}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setLocalNotificationSettings({
+                        ...localNotificationSettings,
+                        weeklyReminder: {
+                          ...localNotificationSettings.weeklyReminder,
+                          enabled: !localNotificationSettings.weeklyReminder?.enabled,
+                        },
+                      });
+                    }}
+                    className={`relative w-14 h-7 rounded-full transition-colors ${
+                      localNotificationSettings.weeklyReminder?.enabled
+                        ? "bg-purple-600"
+                        : "bg-gray-300"
+                    }`}
+                  >
+                    <div
+                      className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full transition-transform ${
+                        localNotificationSettings.weeklyReminder?.enabled
+                          ? "translate-x-7"
+                          : ""
+                      }`}
+                    ></div>
+                  </button>
+                </div>
+                {localNotificationSettings.weeklyReminder?.enabled && (
+                  <div className="mt-4 pl-8 space-y-3">
+                    <div>
+                      <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                        {t("settings.weeklyReminderDay")}
+                      </label>
+                      <select
+                        value={localNotificationSettings.weeklyReminder?.dayOfWeek ?? 0}
+                        onChange={(e) => {
+                          setLocalNotificationSettings({
+                            ...localNotificationSettings,
+                            weeklyReminder: {
+                              ...localNotificationSettings.weeklyReminder,
+                              dayOfWeek: parseInt(e.target.value),
+                            },
+                          });
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
+                        className={`w-full px-4 py-2 rounded-lg border ${
+                          darkMode
+                            ? "bg-gray-800 border-gray-600 text-gray-100"
+                            : "bg-white border-purple-200 text-purple-900"
+                        } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
+                      >
+                        <option value="0">Domingo</option>
+                        <option value="1">Lunes</option>
+                        <option value="2">Martes</option>
+                        <option value="3">Miércoles</option>
+                        <option value="4">Jueves</option>
+                        <option value="5">Viernes</option>
+                        <option value="6">Sábado</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                        {t("settings.weeklyReminderMessage")}
+                      </label>
+                      <input
+                        type="text"
+                        value={localNotificationSettings.weeklyReminder?.message || ""}
+                        onChange={(e) => {
+                          setLocalNotificationSettings({
+                            ...localNotificationSettings,
+                            weeklyReminder: {
+                              ...localNotificationSettings.weeklyReminder,
+                              message: e.target.value,
+                            },
+                          });
+                        }}
+                        className={`w-full px-4 py-2 rounded-lg border ${
+                          darkMode
+                            ? "bg-gray-800 border-gray-600 text-gray-100"
+                            : "bg-white border-purple-200 text-purple-900"
+                        } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
+                        placeholder="¡No olvides registrar tus gastos de esta semana en Clarity!"
+                      />
+                    </div>
                   </div>
                 )}
               </div>

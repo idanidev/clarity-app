@@ -282,3 +282,4 @@ export const detectNewlyCompletedGoals = (oldGoals, newGoals) => {
   return completed;
 };
 
+

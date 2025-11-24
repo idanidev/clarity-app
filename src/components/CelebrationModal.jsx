@@ -99,3 +99,4 @@ const CelebrationModal = ({ visible, goal, onClose, darkMode }) => {
 
 export default CelebrationModal;
 
+

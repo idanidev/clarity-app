@@ -213,28 +213,72 @@ const GoalsModal = ({
                   <input
                     type="number"
                     step="0.01"
+                    min="0"
                     value={monthlySavingsGoal}
-                    onChange={(e) => setMonthlySavingsGoal(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === "" || parseFloat(value) >= 0) {
+                        setMonthlySavingsGoal(value);
+                      }
+                    }}
                     className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
                     placeholder="0.00"
                   />
                   {monthlySavingsGoal > 0 && income > 0 && (
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className={`text-sm ${textClass}`}>
-                          {t("goals.currentSavings")}: €{currentSavings.toFixed(2)}
-                        </span>
-                        <span className={`text-sm font-semibold ${textClass}`}>
-                          {savingsProgress.toFixed(1)}%
-                        </span>
+                    <div className="space-y-3 mt-4">
+                      <div className="flex justify-between items-baseline">
+                        <div>
+                          <p className={`text-xs ${textSecondaryClass} mb-1`}>Ahorro actual</p>
+                          <p className={`text-2xl font-semibold ${
+                            currentSavings >= monthlySavingsGoal 
+                              ? "text-green-600" 
+                              : currentSavings >= monthlySavingsGoal * 0.8
+                              ? "text-yellow-600"
+                              : darkMode ? "text-purple-400" : "text-purple-600"
+                          }`}>
+                            €{currentSavings.toFixed(2)}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className={`text-xs ${textSecondaryClass} mb-1`}>Objetivo</p>
+                          <p className={`text-lg font-semibold ${textClass}`}>
+                            €{monthlySavingsGoal.toFixed(2)}
+                          </p>
+                        </div>
                       </div>
-                      <div className={`h-3 rounded-full ${
-                        darkMode ? "bg-gray-800" : "bg-purple-100"
-                      } overflow-hidden`}>
-                        <div
-                          className="h-full bg-gradient-to-r from-purple-600 to-blue-600 transition-all"
-                          style={{ width: `${Math.min(savingsProgress, 100)}%` }}
-                        ></div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className={textSecondaryClass}>
+                            {currentSavings >= monthlySavingsGoal 
+                              ? "🎉 ¡Objetivo alcanzado!" 
+                              : currentSavings >= monthlySavingsGoal * 0.8
+                              ? "💪 ¡Casi lo logras!"
+                              : `Faltan €${Math.max(0, (monthlySavingsGoal - currentSavings).toFixed(2))}`}
+                          </span>
+                          <span className={`font-semibold ${
+                            savingsProgress >= 100 
+                              ? "text-green-600" 
+                              : savingsProgress >= 80
+                              ? "text-yellow-600"
+                              : darkMode ? "text-purple-400" : "text-purple-600"
+                          }`}>
+                            {Math.min(savingsProgress, 100).toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className={`h-4 rounded-full ${
+                          darkMode ? "bg-gray-800" : "bg-purple-100"
+                        } overflow-hidden shadow-inner`}>
+                          <div
+                            className={`h-full transition-all duration-500 ${
+                              savingsProgress >= 100
+                                ? "bg-gradient-to-r from-green-500 to-green-600"
+                                : savingsProgress >= 80
+                                ? "bg-gradient-to-r from-yellow-500 to-yellow-600"
+                                : "bg-gradient-to-r from-purple-600 to-blue-600"
+                            }`}
+                            style={{ width: `${Math.min(savingsProgress, 100)}%` }}
+                          ></div>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -278,8 +322,14 @@ const GoalsModal = ({
                 <input
                   type="number"
                   step="0.01"
+                  min="0"
                   value={newGoalAmount}
-                  onChange={(e) => setNewGoalAmount(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "" || parseFloat(value) >= 0) {
+                      setNewGoalAmount(value);
+                    }
+                  }}
                   className={`px-4 py-2 rounded-lg border ${inputClass} focus:ring-2 focus:border-transparent`}
                   placeholder={t("goals.maxAmount")}
                 />
@@ -299,60 +349,109 @@ const GoalsModal = ({
                   const categoryTotal = categoryTotals.find((ct) => ct.category === category)?.total || 0;
                   const progress = goalAmount > 0 ? (categoryTotal / goalAmount) * 100 : 0;
                   const status = progress >= 100 ? "exceeded" : progress >= 80 ? "warning" : "ok";
+                  const remaining = Math.max(0, goalAmount - categoryTotal);
 
                   return (
                     <div
                       key={category}
-                      className={`p-3 rounded-lg border ${
-                        darkMode ? "bg-gray-800 border-gray-600" : "bg-white border-purple-200"
+                      className={`p-4 rounded-xl border-2 transition-all ${
+                        status === "exceeded"
+                          ? darkMode 
+                            ? "bg-red-900/20 border-red-500/50" 
+                            : "bg-red-50 border-red-300"
+                          : status === "warning"
+                          ? darkMode
+                            ? "bg-yellow-900/20 border-yellow-500/50"
+                            : "bg-yellow-50 border-yellow-300"
+                          : darkMode 
+                            ? "bg-gray-800 border-gray-600" 
+                            : "bg-white border-purple-200"
                       }`}
                     >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="w-3 h-3 rounded-full"
-                            style={{
-                              backgroundColor: categories[category]?.color || "#8B5CF6",
-                            }}
-                          ></span>
-                          <span className={`font-medium ${textClass}`}>{category}</span>
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span
+                              className="w-3 h-3 rounded-full flex-shrink-0"
+                              style={{
+                                backgroundColor: categories[category]?.color || "#8B5CF6",
+                              }}
+                            ></span>
+                            <span className={`font-medium text-base ${textClass}`}>{category}</span>
+                            {status === "exceeded" && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-red-500 text-white font-medium">
+                                Excedido
+                              </span>
+                            )}
+                            {status === "warning" && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500 text-white font-medium">
+                                Cerca del límite
+                              </span>
+                            )}
+                            {status === "ok" && progress > 0 && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-green-500 text-white font-medium">
+                                En buen camino
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-baseline gap-2">
+                            <span className={`text-lg font-semibold ${
+                              status === "exceeded"
+                                ? "text-red-600"
+                                : status === "warning"
+                                ? "text-yellow-600"
+                                : darkMode ? "text-purple-400" : "text-purple-600"
+                            }`}>
+                              €{categoryTotal.toFixed(2)}
+                            </span>
+                            <span className={`text-sm ${textSecondaryClass}`}>
+                              / €{goalAmount.toFixed(2)}
+                            </span>
+                          </div>
+                          {status !== "exceeded" && remaining > 0 && (
+                            <p className={`text-xs mt-1 ${textSecondaryClass}`}>
+                              Te quedan €{remaining.toFixed(2)} disponibles
+                            </p>
+                          )}
+                          {status === "exceeded" && (
+                            <p className={`text-xs mt-1 text-red-600 font-medium`}>
+                              Has excedido el presupuesto en €{(categoryTotal - goalAmount).toFixed(2)}
+                            </p>
+                          )}
                         </div>
                         <button
                           onClick={() => handleDeleteCategoryGoal(category)}
-                          className={`p-1 rounded ${
-                            darkMode ? "hover:bg-gray-700" : "hover:bg-purple-100"
-                          } transition-all`}
+                          className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-all flex-shrink-0"
+                          title="Eliminar objetivo"
                         >
-                          <Trash2 className={`w-4 h-4 ${textSecondaryClass}`} />
+                          <Trash2 className="w-4 h-4 text-red-600" />
                         </button>
                       </div>
-                      <div className="flex justify-between items-center mb-2">
-                        <span className={`text-sm ${textSecondaryClass}`}>
-                          €{categoryTotal.toFixed(2)} / €{goalAmount.toFixed(2)}
-                        </span>
-                        <span className={`text-sm font-semibold ${
-                          status === "exceeded"
-                            ? "text-red-500"
-                            : status === "warning"
-                            ? "text-yellow-500"
-                            : "text-green-500"
-                        }`}>
-                          {progress.toFixed(1)}%
-                        </span>
-                      </div>
-                      <div className={`h-2 rounded-full ${
+                      <div className={`h-3 rounded-full ${
                         darkMode ? "bg-gray-700" : "bg-purple-100"
-                      } overflow-hidden`}>
+                      } overflow-hidden shadow-inner`}>
                         <div
-                          className={`h-full transition-all ${
+                          className={`h-full transition-all duration-500 ${
                             status === "exceeded"
-                              ? "bg-red-500"
+                              ? "bg-gradient-to-r from-red-500 to-red-600"
                               : status === "warning"
-                              ? "bg-yellow-500"
-                              : "bg-green-500"
+                              ? "bg-gradient-to-r from-yellow-500 to-yellow-600"
+                              : "bg-gradient-to-r from-green-500 to-green-600"
                           }`}
                           style={{ width: `${Math.min(progress, 100)}%` }}
                         ></div>
+                      </div>
+                      <div className="flex justify-between items-center mt-2 text-xs">
+                        <span className={textSecondaryClass}>
+                          {progress >= 100 
+                            ? "Objetivo alcanzado" 
+                            : `${Math.min(progress, 100).toFixed(1)}% del objetivo`}
+                        </span>
+                        {progress < 100 && (
+                          <span className={textSecondaryClass}>
+                            {((100 - progress) / 100 * goalAmount).toFixed(2)}% restante
+                          </span>
+                        )}
                       </div>
                     </div>
                   );
@@ -408,8 +507,14 @@ const GoalsModal = ({
                         <input
                           type="number"
                           step="0.01"
+                          min="0"
                           value={newLongTermGoal.targetAmount}
-                          onChange={(e) => setNewLongTermGoal({ ...newLongTermGoal, targetAmount: e.target.value })}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === "" || parseFloat(value) >= 0) {
+                              setNewLongTermGoal({ ...newLongTermGoal, targetAmount: value });
+                            }
+                          }}
                           className={`w-full px-4 py-2 rounded-lg border ${inputClass} focus:ring-2 focus:border-transparent`}
                           placeholder="5000"
                           required
@@ -436,8 +541,14 @@ const GoalsModal = ({
                       <input
                         type="number"
                         step="0.01"
+                        min="0"
                         value={newLongTermGoal.currentAmount}
-                        onChange={(e) => setNewLongTermGoal({ ...newLongTermGoal, currentAmount: e.target.value })}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === "" || parseFloat(value) >= 0) {
+                            setNewLongTermGoal({ ...newLongTermGoal, currentAmount: value });
+                          }
+                        }}
                         className={`w-full px-4 py-2 rounded-lg border ${inputClass} focus:ring-2 focus:border-transparent`}
                         placeholder="0"
                       />
@@ -476,17 +587,39 @@ const GoalsModal = ({
                       return (
                         <div
                           key={goal.id}
-                          className={`p-4 rounded-xl border ${
-                            darkMode ? "bg-gray-800 border-gray-600" : "bg-white border-purple-200"
+                          className={`p-5 rounded-xl border-2 transition-all ${
+                            isComplete
+                              ? darkMode
+                                ? "bg-green-900/20 border-green-500/50"
+                                : "bg-green-50 border-green-300"
+                              : progress.progress >= 80
+                              ? darkMode
+                                ? "bg-yellow-900/20 border-yellow-500/50"
+                                : "bg-yellow-50 border-yellow-300"
+                              : darkMode
+                              ? "bg-gray-800 border-gray-600"
+                              : "bg-white border-purple-200"
                           }`}
                         >
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex items-center gap-3">
-                              <span className="text-3xl">{goal.icon}</span>
-                              <div>
-                                <h4 className={`font-semibold ${textClass}`}>{goal.name}</h4>
-                                <p className={`text-xs ${textSecondaryClass}`}>
-                                  <Calendar className="w-3 h-3 inline mr-1" />
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-center gap-3 flex-1">
+                              <span className="text-3xl flex-shrink-0">{goal.icon}</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h4 className={`font-semibold text-lg ${textClass}`}>{goal.name}</h4>
+                                  {isComplete && (
+                                    <span className="text-xs px-2 py-0.5 rounded-full bg-green-500 text-white font-medium">
+                                      ✓ Completado
+                                    </span>
+                                  )}
+                                  {!isComplete && progress.progress >= 80 && (
+                                    <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500 text-white font-medium">
+                                      Casi listo
+                                    </span>
+                                  )}
+                                </div>
+                                <p className={`text-xs ${textSecondaryClass} flex items-center gap-1`}>
+                                  <Calendar className="w-3 h-3" />
                                   {progress.daysRemaining !== null
                                     ? `${progress.daysRemaining} días restantes`
                                     : "Sin fecha límite"}
@@ -495,56 +628,99 @@ const GoalsModal = ({
                             </div>
                             <button
                               onClick={() => handleDeleteLongTermGoal(goal.id)}
-                              className={`p-1 rounded ${
-                                darkMode ? "hover:bg-gray-700" : "hover:bg-purple-100"
-                              } transition-all`}
+                              className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-all flex-shrink-0"
+                              title="Eliminar objetivo"
                             >
-                              <Trash2 className={`w-4 h-4 ${textSecondaryClass}`} />
+                              <Trash2 className="w-4 h-4 text-red-600" />
                             </button>
                           </div>
 
-                          <div className="space-y-3">
-                            <div className="flex justify-between items-center">
-                              <span className={`text-sm ${textSecondaryClass}`}>
-                                €{goal.currentAmount.toFixed(2)} / €{goal.targetAmount.toFixed(2)}
-                              </span>
-                              <span className={`text-sm font-semibold ${
-                                isComplete ? "text-green-500" : progress.progress >= 80 ? "text-yellow-500" : "text-purple-600"
-                              }`}>
-                                {progress.progress.toFixed(1)}%
-                              </span>
-                            </div>
-
-                            <div className={`h-2 rounded-full ${
-                              darkMode ? "bg-gray-700" : "bg-purple-100"
-                            } overflow-hidden`}>
-                              <div
-                                className={`h-full transition-all ${
+                          <div className="space-y-4">
+                            <div className="flex justify-between items-baseline">
+                              <div>
+                                <p className={`text-xs ${textSecondaryClass} mb-1`}>Ahorrado</p>
+                                <p className={`text-2xl font-semibold ${
                                   isComplete
-                                    ? "bg-green-500"
+                                    ? "text-green-600"
                                     : progress.progress >= 80
-                                    ? "bg-yellow-500"
-                                    : "bg-purple-600"
-                                }`}
-                                style={{ width: `${Math.min(progress.progress, 100)}%` }}
-                              ></div>
+                                    ? "text-yellow-600"
+                                    : darkMode ? "text-purple-400" : "text-purple-600"
+                                }`}>
+                                  €{goal.currentAmount.toFixed(2)}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className={`text-xs ${textSecondaryClass} mb-1`}>Objetivo</p>
+                                <p className={`text-lg font-semibold ${textClass}`}>
+                                  €{goal.targetAmount.toFixed(2)}
+                                </p>
+                              </div>
                             </div>
 
-                            <div className="flex justify-between items-center text-xs">
-                              <span className={textSecondaryClass}>
-                                Cuota mensual: €{goal.monthlyContribution.toFixed(2)}
-                              </span>
-                              <span className={textSecondaryClass}>
-                                Restante: €{progress.remaining.toFixed(2)}
-                              </span>
+                            <div className="space-y-2">
+                              <div className="flex justify-between items-center text-xs">
+                                <span className={textSecondaryClass}>
+                                  {isComplete
+                                    ? "🎉 ¡Objetivo alcanzado!"
+                                    : progress.progress >= 80
+                                    ? "💪 ¡Casi lo logras!"
+                                    : `Faltan €${progress.remaining.toFixed(2)}`}
+                                </span>
+                                <span className={`font-bold ${
+                                  isComplete
+                                    ? "text-green-600"
+                                    : progress.progress >= 80
+                                    ? "text-yellow-600"
+                                    : darkMode ? "text-purple-400" : "text-purple-600"
+                                }`}>
+                                  {Math.min(progress.progress, 100).toFixed(1)}%
+                                </span>
+                              </div>
+                              <div className={`h-4 rounded-full ${
+                                darkMode ? "bg-gray-700" : "bg-purple-100"
+                              } overflow-hidden shadow-inner`}>
+                                <div
+                                  className={`h-full transition-all duration-500 ${
+                                    isComplete
+                                      ? "bg-gradient-to-r from-green-500 to-green-600"
+                                      : progress.progress >= 80
+                                      ? "bg-gradient-to-r from-yellow-500 to-yellow-600"
+                                      : "bg-gradient-to-r from-purple-600 to-blue-600"
+                                  }`}
+                                  style={{ width: `${Math.min(progress.progress, 100)}%` }}
+                                ></div>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+                              <div>
+                                <p className={`text-xs ${textSecondaryClass} mb-1`}>Cuota mensual</p>
+                                <p className={`text-sm font-semibold ${textClass}`}>
+                                  €{goal.monthlyContribution.toFixed(2)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className={`text-xs ${textSecondaryClass} mb-1`}>Restante</p>
+                                <p className={`text-sm font-semibold ${
+                                  isComplete ? "text-green-600" : textClass
+                                }`}>
+                                  €{progress.remaining.toFixed(2)}
+                                </p>
+                              </div>
                             </div>
 
                             <div className="flex gap-2">
                               <input
                                 type="number"
                                 step="0.01"
+                                min="0"
                                 value={goal.currentAmount}
-                                onChange={(e) => handleUpdateLongTermGoalCurrentAmount(goal.id, e.target.value)}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  if (value === "" || parseFloat(value) >= 0) {
+                                    handleUpdateLongTermGoalCurrentAmount(goal.id, value);
+                                  }
+                                }}
                                 className={`flex-1 px-3 py-2 rounded-lg border text-sm ${inputClass} focus:ring-2 focus:border-transparent`}
                                 placeholder="Actualizar cantidad"
                               />

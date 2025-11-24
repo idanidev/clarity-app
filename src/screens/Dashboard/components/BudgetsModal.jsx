@@ -59,6 +59,7 @@ const BudgetsModal = ({
             </label>
             <select
               value={budgetCategory}
+              onClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
               onTouchStart={(e) => e.stopPropagation()}
               onChange={(e) => onBudgetCategoryChange(e.target.value)}
@@ -83,8 +84,14 @@ const BudgetsModal = ({
             <input
               type="number"
               step="0.01"
+              min="0"
               value={budgetAmount}
-              onChange={(e) => onBudgetAmountChange(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === "" || parseFloat(value) >= 0) {
+                  onBudgetAmountChange(value);
+                }
+              }}
               className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
               required
               placeholder="0.00"

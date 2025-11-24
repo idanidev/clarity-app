@@ -8,6 +8,7 @@ import {
   Filter,
   Pencil,
   Plus,
+  Search,
   Table as TableIcon,
   Target,
   Trash2,
@@ -71,6 +72,7 @@ const MainContent = memo(({
   const [isMobile, setIsMobile] = useState(false);
   const [activeIndex, setActiveIndex] = useState(null);
   const [clickedCategory, setClickedCategory] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Detectar si es móvil
   useEffect(() => {
@@ -195,7 +197,7 @@ const MainContent = memo(({
   return (
     <div className="max-w-7xl mx-auto px-2 md:px-4 py-2 md:py-6 pb-20 md:pb-6">
       {/* Estadísticas con estilo Liquid Glass mejorado - Solo en vista principal, más compactas en móvil */}
-      {(activeView === "table" || activeView === "chart" || activeView === "recent") && (
+      {activeView === "table" && (
         <div className="relative mb-3 md:mb-6">
           <div className="grid grid-cols-4 gap-1.5 md:gap-4">
             {/* TOTAL - Más pequeño en móvil */}
@@ -875,6 +877,32 @@ const MainContent = memo(({
 
       {activeView === "table" && (
         <div className="max-w-7xl mx-auto">
+          {/* Buscador */}
+          {Object.keys(expensesByCategory).length > 0 && (
+            <div className="mb-3 sm:mb-4">
+              <div className={`relative ${darkMode ? "bg-gray-800/50" : "bg-white/60"} rounded-lg md:rounded-xl border ${
+                darkMode ? "border-gray-700/40" : "border-white/40"
+              } backdrop-blur-xl`}>
+                <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 ${textSecondaryClass}`} />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Buscar gastos por nombre, categoría o subcategoría..."
+                  className={`w-full pl-10 pr-4 py-2.5 sm:py-3 rounded-lg md:rounded-xl bg-transparent ${textClass} placeholder:${textSecondaryClass} focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-sm sm:text-base`}
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className={`absolute right-3 top-1/2 transform -translate-y-1/2 ${textSecondaryClass} hover:opacity-70 transition-opacity`}
+                  >
+                    <X className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {Object.keys(expensesByCategory).length === 0 ? (
             <div className="text-center py-16">
               <Wallet className={`w-16 h-16 mx-auto ${textSecondaryClass} mb-4`} />
@@ -887,8 +915,21 @@ const MainContent = memo(({
             </div>
           ) : (
             <div className="space-y-1.5 sm:space-y-6">
-              {Object.entries(expensesByCategory).map(
-                ([category, subcategories]) => {
+              {(() => {
+                const filteredCategories = Object.entries(expensesByCategory)
+                  .filter(([category, subcategories]) => {
+                    if (!searchQuery.trim()) return true;
+                    const query = searchQuery.toLowerCase();
+                    // Buscar en nombre de categoría
+                    if (category.toLowerCase().includes(query)) return true;
+                    // Buscar en gastos
+                    const allExpenses = Object.values(subcategories).flat();
+                    return allExpenses.some(exp => 
+                      (exp.name && exp.name.toLowerCase().includes(query)) ||
+                      (exp.subcategory && exp.subcategory.toLowerCase().includes(query))
+                    );
+                  })
+                  .map(([category, subcategories]) => {
                   const categoryTotal = Object.values(subcategories)
                     .flat()
                     .reduce((sum, exp) => sum + exp.amount, 0);
@@ -896,51 +937,88 @@ const MainContent = memo(({
                   const expenseCount = Object.values(subcategories).flat().length;
                   const CategoryIcon = categoryIcons[category] || Wallet;
 
+                  // Filtrar gastos según búsqueda
+                  const filteredSubcategories = Object.entries(subcategories).reduce((acc, [subcategory, exps]) => {
+                    if (!searchQuery.trim()) {
+                      acc[subcategory] = exps;
+                      return acc;
+                    }
+                    const query = searchQuery.toLowerCase();
+                    const filtered = exps.filter(exp => 
+                      (exp.name && exp.name.toLowerCase().includes(query)) ||
+                      (exp.subcategory && exp.subcategory.toLowerCase().includes(query)) ||
+                      category.toLowerCase().includes(query)
+                    );
+                    if (filtered.length > 0) {
+                      acc[subcategory] = filtered;
+                    }
+                    return acc;
+                  }, {});
+
+                  // Si no hay gastos después del filtro, no mostrar la categoría
+                  if (searchQuery.trim() && Object.keys(filteredSubcategories).length === 0) {
+                    return null;
+                  }
+
+                  const categoryData = categories[category];
+                  const categoryColor = getCategoryColor(categoryData);
+                  const filteredTotal = Object.values(filteredSubcategories).flat().reduce((sum, exp) => sum + exp.amount, 0);
+                  const filteredCount = Object.values(filteredSubcategories).flat().length;
+
                   return (
-                    <div key={category}>
+                    <div key={category} className="mb-2 sm:mb-3">
                       <button
                         onClick={() => onToggleCategory(category)}
-                        className={`w-full rounded-lg ${
+                        className={`w-full rounded-xl sm:rounded-2xl ${
                           darkMode
-                            ? "bg-gray-700/50 hover:bg-gray-700"
-                            : "bg-purple-100/80 hover:bg-purple-100"
-                        } px-2 py-1.5 sm:px-4 sm:py-3 flex items-center justify-between gap-1.5 transition-all`}
+                            ? "bg-gray-800/60 hover:bg-gray-800 border border-gray-700/50"
+                            : "bg-white hover:bg-purple-50/50 border border-purple-200/50 shadow-sm"
+                        } px-3 py-2.5 sm:px-4 sm:py-3.5 flex items-center justify-between gap-2 transition-all hover:shadow-md`}
+                        style={{
+                          borderLeftWidth: "4px",
+                          borderLeftColor: categoryColor,
+                        }}
                       >
-                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                           {isExpanded ? (
-                            <ChevronUp className={`w-3.5 h-3.5 flex-shrink-0 ${textSecondaryClass}`} />
+                            <ChevronUp className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${textSecondaryClass}`} />
                           ) : (
                             <ChevronDown
-                              className={`w-3.5 h-3.5 flex-shrink-0 ${textSecondaryClass}`}
+                              className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${textSecondaryClass}`}
                             />
                           )}
-                          {(() => {
-                            const categoryData = categories[category];
-                            const color = getCategoryColor(categoryData);
-                            return (
-                              <span
-                                className="w-2 h-2 rounded-full flex-shrink-0"
-                                style={{ backgroundColor: color }}
-                                title={`Color: ${color}`}
-                              />
-                            );
-                          })()}
-                          <p className={`text-xs sm:text-sm font-semibold truncate ${textClass}`}>{category}</p>
-                          <span className={`text-xs ${textSecondaryClass} whitespace-nowrap`}>
-                            €{categoryTotal.toFixed(2)}
-                          </span>
-                          <span className={`text-xs ${textSecondaryClass} whitespace-nowrap`}>
-                            {Object.values(subcategories).flat().length} {t("expenses.expenseCount")}
-                          </span>
+                          <div
+                            className="w-3 h-3 sm:w-4 sm:h-4 rounded-full flex-shrink-0 shadow-sm"
+                            style={{ backgroundColor: categoryColor }}
+                            title={`Color: ${categoryColor}`}
+                          />
+                          <div className="flex-1 min-w-0 flex items-center gap-2">
+                            <p className={`text-[11px] sm:text-xs font-bold truncate ${textClass}`}>{category}</p>
+                            <span className={`text-[10px] ${textSecondaryClass} whitespace-nowrap`}>
+                              {filteredCount} {filteredCount === 1 ? "gasto" : "gastos"}
+                            </span>
+                          </div>
+                          <div className="flex flex-col items-end flex-shrink-0">
+                            <span className={`text-xs sm:text-sm font-bold ${textClass}`}>
+                              €{filteredTotal.toFixed(2)}
+                            </span>
+                            {searchQuery.trim() && categoryTotal !== filteredTotal && (
+                              <span className={`text-xs ${textSecondaryClass} line-through opacity-60`}>
+                                €{categoryTotal.toFixed(2)}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </button>
 
-                      {/* Gastos expandidos - ultra compactos */}
+                      {/* Gastos expandidos - con mejor espaciado */}
                       {isExpanded && (
-                        <div className="mt-1 space-y-1 transition-all duration-300">
-                          {Object.entries(subcategories).map(
+                        <div className="mt-2 sm:mt-3 ml-2 sm:ml-4 space-y-1.5 sm:space-y-2 transition-all duration-300 border-l-2 pl-2 sm:pl-3"
+                          style={{ borderColor: `${categoryColor}40` }}
+                        >
+                          {Object.entries(filteredSubcategories).map(
                             ([subcategory, exps]) => (
-                              <div key={subcategory} className="space-y-1">
+                              <div key={subcategory} className="space-y-1.5 sm:space-y-2">
                                 {exps.map((expense) => (
                                   <ExpenseCard
                                     key={expense.id}
@@ -964,8 +1042,26 @@ const MainContent = memo(({
                       )}
                     </div>
                   );
+                  })
+                  .filter(Boolean);
+
+                // Mostrar mensaje si hay búsqueda pero no hay resultados
+                if (searchQuery.trim() && filteredCategories.length === 0) {
+                  return (
+                    <div className="text-center py-12">
+                      <Search className={`w-12 h-12 mx-auto ${textSecondaryClass} mb-4 opacity-50`} />
+                      <h3 className={`text-lg font-medium mb-2 ${textClass}`}>
+                        No se encontraron resultados
+                      </h3>
+                      <p className={`${textSecondaryClass} text-sm`}>
+                        Intenta con otros términos de búsqueda
+                      </p>
+                    </div>
+                  );
                 }
-              )}
+
+                return filteredCategories;
+              })()}
             </div>
           )}
         </div>
@@ -973,10 +1069,6 @@ const MainContent = memo(({
 
       {activeView === "chart" && (
         <div className={`${cardClass} rounded-2xl p-3 md:p-6 border shadow-lg`}>
-          <h3 className={`text-lg md:text-xl font-bold ${textClass} mb-3 md:mb-6`}>
-            Distribución por Categoría
-          </h3>
-
           {categoryTotals.length === 0 ? (
             <div className="text-center py-8 md:py-12">
               <AlertTriangle
@@ -1224,18 +1316,18 @@ const MainContent = memo(({
                               style={{ backgroundColor: categoryColor }}
                             ></span>
                             <div className="text-left min-w-0 flex-1">
-                              <p className={`text-xs md:text-sm font-semibold ${textClass} truncate`}>
+                              <p className={`text-sm md:text-base font-semibold ${textClass} truncate`}>
                                 {category}
                               </p>
                               <p
-                                className={`text-[10px] md:text-sm ${textSecondaryClass} opacity-80`}
+                                className={`text-xs md:text-sm ${textSecondaryClass} opacity-80`}
                               >
                                 {percentage.toFixed(1)}% del total
                               </p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
-                            <span className={`text-xs md:text-sm font-semibold ${textClass}`}>
+                            <span className={`text-sm md:text-base font-semibold ${textClass}`}>
                               €{categoryTotal.toFixed(2)}
                             </span>
                             {isExpanded ? (
@@ -1271,11 +1363,11 @@ const MainContent = memo(({
                                     } rounded-lg md:rounded-xl p-2 md:p-3`}
                                   >
                                     <div className="flex justify-between items-center mb-1.5 md:mb-2">
-                                      <p className={`text-xs md:text-sm font-medium ${textClass} truncate`}>
+                                      <p className={`text-sm md:text-base font-medium ${textClass} truncate`}>
                                         {subcategory}
                                       </p>
                                       <span
-                                        className={`text-[10px] md:text-sm font-semibold flex-shrink-0 ml-2 ${textSecondaryClass}`}
+                                        className={`text-xs md:text-sm font-semibold flex-shrink-0 ml-2 ${textSecondaryClass}`}
                                       >
                                         €{spent.toFixed(2)}
                                       </span>
@@ -1906,105 +1998,40 @@ const MainContent = memo(({
       )}
 
       {activeView === "recent" && (
-        <div className={`${cardClass} rounded-2xl p-4 sm:p-6 border shadow-lg`}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className={`text-lg sm:text-xl font-bold ${textClass}`}>
+        <div className={`${cardClass} rounded-xl sm:rounded-2xl p-2 sm:p-4 border shadow-lg`}>
+          <div className="flex items-center justify-between mb-2 sm:mb-3">
+            <h3 className={`text-sm sm:text-lg font-bold ${textClass}`}>
               Últimos Gastos Añadidos
             </h3>
-            <span className={`text-sm ${textSecondaryClass}`}>
+            <span className={`text-xs sm:text-sm ${textSecondaryClass}`}>
               ({recentExpenses.length})
             </span>
           </div>
 
           {recentExpenses.length === 0 ? (
-            <div className="text-center py-12">
-              <Clock className={`w-16 h-16 ${textSecondaryClass} mx-auto mb-4`} />
-              <p className={`text-xl font-semibold ${textClass} mb-2`}>
+            <div className="text-center py-8 sm:py-12">
+              <Clock className={`w-12 h-12 sm:w-16 sm:h-16 ${textSecondaryClass} mx-auto mb-3 sm:mb-4`} />
+              <p className={`text-base sm:text-xl font-semibold ${textClass} mb-1 sm:mb-2`}>
                 No hay gastos todavía
               </p>
-              <p className={textSecondaryClass}>
+              <p className={`text-xs sm:text-sm ${textSecondaryClass}`}>
                 Añade tu primer gasto para comenzar
               </p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1.5 sm:space-y-2">
               {recentExpenses.map((expense) => (
-                <div
+                <ExpenseCard
                   key={expense.id}
-                  className={`p-3 sm:p-4 rounded-xl ${
-                    darkMode ? "bg-gray-700" : "bg-white"
-                  } border ${
-                    darkMode ? "border-gray-600" : "border-purple-100"
-                  } hover:shadow-md transition-all`}
-                >
-                  <div className="flex justify-between items-start gap-2 mb-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className={`font-semibold ${textClass} truncate`}>
-                          {expense.name}
-                        </p>
-                        {expense.isRecurring && (
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 flex-shrink-0 ${
-                              darkMode
-                                ? "bg-blue-900/50 text-blue-400"
-                                : "bg-blue-100 text-blue-700"
-                            }`}
-                          >
-                            <Clock className="w-3 h-3" />
-                            <span className="hidden sm:inline">Recurrente</span>
-                          </span>
-                        )}
-                      </div>
-                      <p className={`text-xs sm:text-sm ${textSecondaryClass} truncate`}>
-                        {expense.category} • {expense.subcategory}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className={`font-bold ${textClass} text-sm sm:text-base`}>
-                        €{expense.amount.toFixed(2)}
-                      </span>
-                      <button
-                        onClick={() => onEditExpense(expense)}
-                        className={`p-1.5 sm:p-2 rounded-lg ${
-                          darkMode
-                            ? "hover:bg-purple-900/50"
-                            : "hover:bg-purple-100"
-                        } transition-all`}
-                      >
-                        <Pencil
-                          className={`w-3 h-3 sm:w-4 sm:h-4 ${
-                            darkMode ? "text-purple-400" : "text-purple-600"
-                          }`}
-                        />
-                      </button>
-                      <button
-                        onClick={() =>
-                          onRequestDelete({ type: "expense", id: expense.id })
-                        }
-                        className={`p-1.5 sm:p-2 rounded-lg ${
-                          darkMode
-                            ? "hover:bg-red-900/50"
-                            : "hover:bg-red-100"
-                        } transition-all`}
-                      >
-                        <Trash2 className="w-3 h-3 sm:w-4 sm:h-4 text-red-600" />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs flex-wrap">
-                    <span className={textSecondaryClass}>
-                      {new Date(expense.date).toLocaleDateString("es-ES")}
-                    </span>
-                    <span
-                      className={`px-2 py-0.5 rounded-full ${
-                        darkMode ? "bg-gray-600" : "bg-purple-100"
-                      } ${textSecondaryClass}`}
-                    >
-                      {expense.paymentMethod}
-                    </span>
-                  </div>
-                </div>
+                  expense={expense}
+                  onEdit={onEditExpense}
+                  onDelete={(exp) => onRequestDelete({
+                    type: "expense",
+                    id: exp.id,
+                  })}
+                  darkMode={darkMode}
+                  isMobile={isMobile}
+                />
               ))}
             </div>
           )}

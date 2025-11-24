@@ -39,9 +39,15 @@ const normalizeSubcategories = (rawSubcategories) => {
 
 export const addExpense = async (userId, expenseData) => {
   try {
+    // Validación: asegurar que amount no sea negativo
+    if (expenseData.amount !== undefined && expenseData.amount < 0) {
+      throw new Error("El monto del gasto no puede ser negativo");
+    }
+
     const expensesRef = collection(db, "users", userId, "expenses");
     const docRef = await addDoc(expensesRef, {
       ...expenseData,
+      amount: Math.max(0, expenseData.amount || 0), // Asegurar que sea >= 0
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
@@ -54,11 +60,23 @@ export const addExpense = async (userId, expenseData) => {
 
 export const updateExpense = async (userId, expenseId, expenseData) => {
   try {
+    // Validación: asegurar que amount no sea negativo
+    if (expenseData.amount !== undefined && expenseData.amount < 0) {
+      throw new Error("El monto del gasto no puede ser negativo");
+    }
+
     const expenseRef = doc(db, "users", userId, "expenses", expenseId);
-    await updateDoc(expenseRef, {
+    const updateData = {
       ...expenseData,
       updatedAt: new Date().toISOString(),
-    });
+    };
+    
+    // Asegurar que amount sea >= 0 si está presente
+    if (updateData.amount !== undefined) {
+      updateData.amount = Math.max(0, updateData.amount);
+    }
+
+    await updateDoc(expenseRef, updateData);
     return { id: expenseId, ...expenseData };
   } catch (error) {
     console.error("Error updating expense:", error);
@@ -115,9 +133,15 @@ export const subscribeToExpenses = (userId, callback) => {
 
 export const addRecurringExpense = async (userId, recurringData) => {
   try {
+    // Validación: asegurar que amount no sea negativo
+    if (recurringData.amount !== undefined && recurringData.amount < 0) {
+      throw new Error("El monto del gasto recurrente no puede ser negativo");
+    }
+
     const recurringRef = collection(db, "users", userId, "recurringExpenses");
     const docRef = await addDoc(recurringRef, {
       ...recurringData,
+      amount: Math.max(0, recurringData.amount || 0), // Asegurar que sea >= 0
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
@@ -134,6 +158,11 @@ export const updateRecurringExpense = async (
   recurringData
 ) => {
   try {
+    // Validación: asegurar que amount no sea negativo
+    if (recurringData.amount !== undefined && recurringData.amount < 0) {
+      throw new Error("El monto del gasto recurrente no puede ser negativo");
+    }
+
     const recurringRef = doc(
       db,
       "users",
@@ -141,10 +170,17 @@ export const updateRecurringExpense = async (
       "recurringExpenses",
       recurringId
     );
-    await updateDoc(recurringRef, {
+    const updateData = {
       ...recurringData,
       updatedAt: new Date().toISOString(),
-    });
+    };
+    
+    // Asegurar que amount sea >= 0 si está presente
+    if (updateData.amount !== undefined) {
+      updateData.amount = Math.max(0, updateData.amount);
+    }
+
+    await updateDoc(recurringRef, updateData);
     return { id: recurringId, ...recurringData };
   } catch (error) {
     console.error("Error updating recurring expense:", error);
@@ -741,9 +777,15 @@ export const initializeUser = async (userId, userData) => {
 
 export const saveIncome = async (userId, income) => {
   try {
+    // Validar que el ingreso no sea negativo
+    const incomeValue = parseFloat(income) || 0;
+    if (incomeValue < 0) {
+      throw new Error("El ingreso no puede ser negativo");
+    }
+    
     const userDocRef = doc(db, "users", userId);
     await updateDoc(userDocRef, {
-      income: parseFloat(income) || 0,
+      income: incomeValue,
       updatedAt: new Date().toISOString(),
     });
   } catch (error) {
@@ -771,10 +813,61 @@ export const getUserIncome = async (userId) => {
 
 export const saveGoals = async (userId, goals) => {
   try {
+    // Validar que los objetivos no sean negativos
+    const validatedGoals = { ...goals };
+    
+    // Validar monthlySavingsGoal
+    if (validatedGoals.monthlySavingsGoal !== undefined) {
+      const value = parseFloat(validatedGoals.monthlySavingsGoal) || 0;
+      if (value < 0) {
+        throw new Error("El objetivo de ahorro mensual no puede ser negativo");
+      }
+      validatedGoals.monthlySavingsGoal = value;
+    }
+    
+    // Validar totalSavingsGoal
+    if (validatedGoals.totalSavingsGoal !== undefined) {
+      const value = parseFloat(validatedGoals.totalSavingsGoal) || 0;
+      if (value < 0) {
+        throw new Error("El objetivo de ahorro total no puede ser negativo");
+      }
+      validatedGoals.totalSavingsGoal = value;
+    }
+    
+    // Validar categoryGoals
+    if (validatedGoals.categoryGoals) {
+      Object.keys(validatedGoals.categoryGoals).forEach((category) => {
+        const value = parseFloat(validatedGoals.categoryGoals[category]) || 0;
+        if (value < 0) {
+          throw new Error(`El objetivo de la categoría ${category} no puede ser negativo`);
+        }
+        validatedGoals.categoryGoals[category] = value;
+      });
+    }
+    
+    // Validar longTermGoals
+    if (validatedGoals.longTermGoals && Array.isArray(validatedGoals.longTermGoals)) {
+      validatedGoals.longTermGoals = validatedGoals.longTermGoals.map((goal) => {
+        const targetAmount = parseFloat(goal.targetAmount) || 0;
+        const currentAmount = parseFloat(goal.currentAmount) || 0;
+        if (targetAmount < 0) {
+          throw new Error(`El objetivo a largo plazo "${goal.name}" no puede tener un monto objetivo negativo`);
+        }
+        if (currentAmount < 0) {
+          throw new Error(`El objetivo a largo plazo "${goal.name}" no puede tener un monto actual negativo`);
+        }
+        return {
+          ...goal,
+          targetAmount,
+          currentAmount,
+        };
+      });
+    }
+    
     const userDocRef = doc(db, "users", userId);
     await updateDoc(userDocRef, {
       goals: {
-        ...goals,
+        ...validatedGoals,
         updatedAt: new Date().toISOString(),
       },
       updatedAt: new Date().toISOString(),
@@ -886,6 +979,11 @@ export const getUserNotificationSettings = async (userId) => {
           enabled: true,
           message: "No olvides registrar tus gastos",
         },
+        weeklyReminder: {
+          enabled: true,
+          dayOfWeek: 0, // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
+          message: "¡No olvides registrar tus gastos de esta semana en Clarity!",
+        },
         pushNotifications: {
           enabled: false,
         },
@@ -906,6 +1004,11 @@ export const getUserNotificationSettings = async (userId) => {
       customReminders: {
         enabled: true,
         message: "No olvides registrar tus gastos",
+      },
+      weeklyReminder: {
+        enabled: true,
+        dayOfWeek: 0, // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
+        message: "¡No olvides registrar tus gastos de esta semana en Clarity!",
       },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

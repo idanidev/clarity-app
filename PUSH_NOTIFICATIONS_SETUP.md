@@ -12,9 +12,10 @@ Las notificaciones push están implementadas usando Firebase Cloud Messaging (FC
 
 1. Ve a [Firebase Console](https://console.firebase.google.com/)
 2. Selecciona tu proyecto: `clarity-gastos`
-3. Ve a **Project Settings** (⚙️) > **Cloud Messaging**
-4. En la sección **Web Push certificates**, haz clic en **Generate key pair**
-5. Copia la **clave pública** (public key) que se genera
+3. Haz clic en el **ícono de engranaje ⚙️** (Settings) arriba a la izquierda
+4. Ve a la pestaña **Cloud Messaging**
+5. En la sección **Web Push certificates**, haz clic en **Generate key pair** (si no tienes una)
+6. Copia la **clave pública** (public key) que se genera
 
 ## ⚙️ Paso 2: Configurar la Clave VAPID en el Código
 
@@ -112,4 +113,5 @@ exports.sendNotification = functions.https.onCall(async (data, context) => {
 - [Documentación oficial de FCM](https://firebase.google.com/docs/cloud-messaging/js/client)
 - [Guía de Service Workers](https://developer.mozilla.org/es/docs/Web/API/Service_Worker_API)
 - [Notificaciones Push en PWAs](https://web.dev/push-notifications-overview/)
+
 

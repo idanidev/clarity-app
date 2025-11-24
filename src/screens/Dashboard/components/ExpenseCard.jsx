@@ -35,16 +35,33 @@ const paymentStyles = {
     bg: "bg-blue-500/20",
     border: "border-blue-400/30",
     text: "text-blue-200",
+    bgLight: "bg-blue-100",
+    borderLight: "border-blue-300",
+    textLight: "text-blue-700",
   },
   Efectivo: {
     bg: "bg-green-500/20",
     border: "border-green-400/30",
     text: "text-green-200",
+    bgLight: "bg-green-100",
+    borderLight: "border-green-300",
+    textLight: "text-green-700",
   },
   Transferencia: {
     bg: "bg-purple-500/20",
     border: "border-purple-400/30",
     text: "text-purple-200",
+    bgLight: "bg-purple-100",
+    borderLight: "border-purple-300",
+    textLight: "text-purple-700",
+  },
+  Bizum: {
+    bg: "bg-pink-500/20",
+    border: "border-pink-400/30",
+    text: "text-pink-200",
+    bgLight: "bg-pink-100",
+    borderLight: "border-pink-300",
+    textLight: "text-pink-700",
   },
 };
 
@@ -136,19 +153,21 @@ const ExpenseCard = memo(({ expense, onEdit, onDelete, darkMode, isMobile = fals
         </>
       )}
 
-      {/* Main card - ultra compacta en móvil */}
+      {/* Main card - más visual y cómoda */}
       <div
         {...handlers}
         onClick={handleCardClick}
-        className={`relative rounded-lg p-2 sm:p-4
-          bg-white/5 backdrop-blur-xl border border-white/10
+        className={`relative rounded-lg sm:rounded-xl p-2.5 sm:p-3
+          ${darkMode 
+            ? "bg-gray-800/40 border border-gray-700/50 hover:bg-gray-800/60" 
+            : "bg-white border border-purple-100/80 hover:bg-purple-50/50 shadow-sm"
+          }
           transition-all duration-300
-          ${darkMode ? "hover:bg-white/8" : "hover:bg-white/10"}
           hover:-translate-y-0.5
-          hover:shadow-[0_8px_32px_rgba(168,85,247,0.15)]
+          hover:shadow-md
           active:scale-[0.98]
-          ${expense.recurring || expense.isRecurring ? "border-l-4 border-l-purple-500/60" : ""}
-          ${showActions !== "none" ? "bg-purple-500/10 border-purple-500/30 shadow-[0_8px_32px_rgba(168,85,247,0.25)]" : ""}
+          ${expense.recurring || expense.isRecurring ? "border-l-4 border-l-purple-500" : ""}
+          ${showActions !== "none" ? "bg-purple-500/10 border-purple-500/30 shadow-lg" : ""}
           ${isMobile ? "cursor-grab active:cursor-grabbing" : ""}
         `}
         style={{
@@ -157,30 +176,30 @@ const ExpenseCard = memo(({ expense, onEdit, onDelete, darkMode, isMobile = fals
       >
         <div className="flex justify-between items-center gap-2">
           <div className="flex-1 min-w-0">
-            {/* Subcategoría y nombre del gasto separados */}
+            {/* Nombre del gasto y subcategoría separados */}
             <div className="flex items-center gap-1 sm:gap-1.5">
               <CategoryIcon className={`w-3.5 h-3.5 sm:w-5 sm:h-5 flex-shrink-0 ${
                 darkMode ? "text-purple-400" : "text-purple-600"
               }`} />
-              {expense.subcategory && (
-                <span className={`text-xs font-medium ${
-                  darkMode ? "text-purple-300" : "text-purple-600"
-                }`}>
-                  {expense.subcategory}
-                </span>
-              )}
-              {expense.subcategory && expense.name && expense.subcategory !== expense.name && (
-                <span className="text-gray-500 text-xs">•</span>
-              )}
               {expense.name && (
-                <h4 className={`text-xs font-semibold truncate ${
+                <h4 className={`text-[11px] sm:text-xs font-semibold truncate ${
                   darkMode ? "text-white" : "text-gray-900"
                 }`}>
                   {expense.name}
                 </h4>
               )}
+              {expense.subcategory && expense.name && expense.subcategory !== expense.name && (
+                <span className="text-gray-500 text-[10px]">•</span>
+              )}
+              {expense.subcategory && (
+                <span className={`text-[10px] font-medium ${
+                  darkMode ? "text-purple-300" : "text-purple-600"
+                }`}>
+                  {expense.subcategory}
+                </span>
+              )}
               {!expense.subcategory && !expense.name && (
-                <h4 className={`text-xs font-semibold ${
+                <h4 className={`text-[11px] sm:text-xs font-semibold ${
                   darkMode ? "text-white" : "text-gray-900"
                 }`}>
                   Gasto sin nombre
@@ -189,21 +208,27 @@ const ExpenseCard = memo(({ expense, onEdit, onDelete, darkMode, isMobile = fals
             </div>
 
             {/* Date and payment method - más compacto */}
-            <div className="flex items-center gap-1 flex-wrap text-xs text-gray-400 mt-0.5">
-              <Calendar className="w-3 h-3 flex-shrink-0" />
+            <div className="flex items-center gap-1 flex-wrap text-[10px] text-gray-400 mt-0.5">
+              <Calendar className="w-2.5 h-2.5 flex-shrink-0" />
               <span className="whitespace-nowrap">
                 {new Date(expense.date).toLocaleDateString("es-ES", {
                   day: "numeric",
                   month: "short",
                 })}
               </span>
-              <span className={`text-xs px-1 py-0.5 rounded-full border flex-shrink-0 ${
-                paymentStyle.bg
-              } ${paymentStyle.border} ${paymentStyle.text}`}>
+              <span className={`text-[10px] px-1 py-0.5 rounded-full border flex-shrink-0 font-medium ${
+                darkMode 
+                  ? `${paymentStyle.bg} ${paymentStyle.border} ${paymentStyle.text}`
+                  : `${paymentStyle.bgLight} ${paymentStyle.borderLight} ${paymentStyle.textLight}`
+              }`}>
                 {expense.paymentMethod || "Tarjeta"}
               </span>
               {(expense.recurring || expense.isRecurring) && (
-                <span className="text-xs px-1 py-0.5 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-200 flex-shrink-0">
+                <span className={`text-[10px] px-1 py-0.5 rounded-full border flex-shrink-0 font-medium ${
+                  darkMode
+                    ? "bg-purple-500/20 border-purple-400/30 text-purple-200"
+                    : "bg-purple-100 border-purple-300 text-purple-700"
+                }`}>
                   Recurrente
                 </span>
               )}
@@ -212,7 +237,7 @@ const ExpenseCard = memo(({ expense, onEdit, onDelete, darkMode, isMobile = fals
 
           {/* Amount - más pequeño en móvil */}
           <div className="flex flex-col items-end flex-shrink-0">
-            <p className={`text-sm sm:text-xl font-bold whitespace-nowrap ${
+            <p className={`text-xs sm:text-sm font-bold whitespace-nowrap ${
               darkMode ? "text-white" : "text-gray-900"
             }`}>
               €{expense.amount.toFixed(2)}

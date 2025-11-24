@@ -173,6 +173,7 @@ const Dashboard = ({ user }) => {
   const [newSubcategory, setNewSubcategory] = useState("");
   const [selectedCategoryForSub, setSelectedCategoryForSub] = useState("");
   const [editingCategory, setEditingCategory] = useState(null);
+  const [editingSubcategory, setEditingSubcategory] = useState(null);
 
   const [budgetCategory, setBudgetCategory] = useState("");
   const [budgetAmount, setBudgetAmount] = useState("");
@@ -189,6 +190,8 @@ const Dashboard = ({ user }) => {
     budgetAlerts: { enabled: true, at80: true, at90: true, at100: true },
     recurringReminders: { enabled: true },
     customReminders: { enabled: true, message: "No olvides registrar tus gastos" },
+    weeklyReminder: { enabled: true, dayOfWeek: 0, message: "¡No olvides registrar tus gastos de esta semana en Clarity!" },
+    pushNotifications: { enabled: false },
   });
   const [showGoals, setShowGoals] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
@@ -243,6 +246,7 @@ const Dashboard = ({ user }) => {
           budgetAlerts: { enabled: true, at80: true, at90: true, at100: true },
           recurringReminders: { enabled: true },
           customReminders: { enabled: true, message: "No olvides registrar tus gastos" },
+          weeklyReminder: { enabled: true, dayOfWeek: 0, message: "¡No olvides registrar tus gastos de esta semana en Clarity!" },
           pushNotifications: { enabled: false },
         });
         
@@ -481,10 +485,21 @@ const Dashboard = ({ user }) => {
     e.preventDefault();
     if (!user || !newCategory.trim()) return;
 
+    // Validar que la categoría no exista (case-insensitive)
+    const categoryName = newCategory.trim();
+    const existingCategory = Object.keys(categories).find(
+      (cat) => cat.toLowerCase() === categoryName.toLowerCase()
+    );
+
+    if (existingCategory) {
+      showNotification(`La categoría "${existingCategory}" ya existe`, "error");
+      return;
+    }
+
     try {
       const updatedCategories = {
         ...categories,
-        [newCategory]: {
+        [categoryName]: {
           subcategories: [],
           color: newCategoryColor,
         },
@@ -494,7 +509,7 @@ const Dashboard = ({ user }) => {
       setCategories(updatedCategories);
       setExpandedCategories((prev) => ({
         ...prev,
-        [newCategory]: true,
+        [categoryName]: true,
       }));
       setNewCategory("");
       setNewCategoryColor("#8B5CF6");
@@ -627,33 +642,45 @@ const Dashboard = ({ user }) => {
   const handleEditCategory = async (oldCategoryName, newCategoryName, newColor) => {
     if (!user || !oldCategoryName || !newCategoryName.trim()) return;
 
-    // Check if category name is being changed and new name already exists
-    if (oldCategoryName !== newCategoryName && categories[newCategoryName]) {
-      showNotification("Ya existe una categoría con ese nombre", "error");
-      return;
+    // Validar que el nuevo nombre no exista (case-insensitive)
+    const newNameTrimmed = newCategoryName.trim();
+    if (oldCategoryName !== newNameTrimmed) {
+      const existingCategory = Object.keys(categories).find(
+        (cat) => cat.toLowerCase() === newNameTrimmed.toLowerCase()
+      );
+      if (existingCategory) {
+        showNotification(`Ya existe una categoría con ese nombre: "${existingCategory}"`, "error");
+        return;
+      }
     }
 
     try {
       const categoryData = categories[oldCategoryName];
+      if (!categoryData) {
+        showNotification("Categoría no encontrada", "error");
+        return;
+      }
+      
       const subcategories = getCategorySubcategories(categoryData);
       
+      // Crear objeto con todas las categorías actualizadas
       const updatedCategories = { ...categories };
       const updatedBudgets = { ...budgets };
       
-      // If name changed, we need to update all expenses, budgets, and recurring expenses
-      if (oldCategoryName !== newCategoryName) {
-        // Delete old category
+      // Si el nombre cambió, necesitamos actualizar gastos, presupuestos y gastos recurrentes
+      if (oldCategoryName !== newNameTrimmed) {
+        // Eliminar la categoría antigua del objeto
         delete updatedCategories[oldCategoryName];
         
-        // Update budgets if category has a budget
+        // Actualizar presupuestos si la categoría tiene uno
         if (budgets[oldCategoryName]) {
-          updatedBudgets[newCategoryName] = budgets[oldCategoryName];
+          updatedBudgets[newNameTrimmed] = budgets[oldCategoryName];
           delete updatedBudgets[oldCategoryName];
           await saveBudgets(user.uid, updatedBudgets);
           setBudgets(updatedBudgets);
         }
         
-        // Update expenses with new category name
+        // Actualizar gastos con el nuevo nombre de categoría
         const expensesToUpdate = expenses.filter(
           (exp) => exp.category === oldCategoryName
         );
@@ -661,11 +688,11 @@ const Dashboard = ({ user }) => {
         for (const expense of expensesToUpdate) {
           await updateExpenseDB(user.uid, expense.id, {
             ...expense,
-            category: newCategoryName,
+            category: newNameTrimmed,
           });
         }
         
-        // Update recurring expenses with new category name
+        // Actualizar gastos recurrentes con el nuevo nombre de categoría
         const recurringToUpdate = recurringExpenses.filter(
           (rec) => rec.category === oldCategoryName
         );
@@ -673,24 +700,98 @@ const Dashboard = ({ user }) => {
         for (const recurring of recurringToUpdate) {
           await updateRecurringExpense(user.uid, recurring.id, {
             ...recurring,
-            category: newCategoryName,
+            category: newNameTrimmed,
           });
         }
       }
       
-      // Add/update category with new data
-      updatedCategories[newCategoryName] = {
+      // Añadir/actualizar categoría con los nuevos datos
+      updatedCategories[newNameTrimmed] = {
         subcategories: subcategories,
         color: newColor,
       };
 
-      await saveCategories(user.uid, updatedCategories);
+      // Usar modo "smart" que eliminará categorías que no están en updatedCategories
+      // Si cambió el nombre, la categoría antigua ya fue eliminada del objeto (línea 669)
+      // por lo que el modo "smart" la eliminará de Firestore también
+      await saveCategories(user.uid, updatedCategories, { mergeMode: "smart" });
       setCategories(updatedCategories);
       setEditingCategory(null);
       showNotification("Categoría actualizada correctamente");
     } catch (error) {
       console.error("Error updating category:", error);
       showNotification("Error al actualizar la categoría", "error");
+    }
+  };
+
+  const handleEditSubcategory = async (categoryName, oldSubcategoryName, newSubcategoryName) => {
+    if (!user || !categoryName || !oldSubcategoryName || !newSubcategoryName.trim()) return;
+
+    // Validar que el nuevo nombre no exista (case-insensitive)
+    const newNameTrimmed = newSubcategoryName.trim();
+    if (oldSubcategoryName !== newNameTrimmed) {
+      const categoryData = categories[categoryName];
+      const subcategories = getCategorySubcategories(categoryData);
+      const existingSubcategory = subcategories.find(
+        (sub) => sub.toLowerCase() === newNameTrimmed.toLowerCase()
+      );
+      if (existingSubcategory) {
+        showNotification(`Ya existe una subcategoría con ese nombre: "${existingSubcategory}"`, "error");
+        return;
+      }
+    }
+
+    try {
+      const categoryData = categories[categoryName];
+      if (!categoryData) {
+        showNotification("Categoría no encontrada", "error");
+        return;
+      }
+
+      const subcategories = getCategorySubcategories(categoryData);
+      const updatedSubcategories = subcategories.map(sub => 
+        sub === oldSubcategoryName ? newNameTrimmed : sub
+      );
+
+      const updatedCategories = {
+        ...categories,
+        [categoryName]: {
+          ...categoryData,
+          subcategories: updatedSubcategories,
+        },
+      };
+
+      // Actualizar gastos con el nuevo nombre de subcategoría
+      const expensesToUpdate = expenses.filter(
+        (exp) => exp.category === categoryName && exp.subcategory === oldSubcategoryName
+      );
+
+      for (const expense of expensesToUpdate) {
+        await updateExpenseDB(user.uid, expense.id, {
+          ...expense,
+          subcategory: newNameTrimmed,
+        });
+      }
+
+      // Actualizar gastos recurrentes con el nuevo nombre de subcategoría
+      const recurringToUpdate = recurringExpenses.filter(
+        (rec) => rec.category === categoryName && rec.subcategory === oldSubcategoryName
+      );
+
+      for (const recurring of recurringToUpdate) {
+        await updateRecurringExpense(user.uid, recurring.id, {
+          ...recurring,
+          subcategory: newNameTrimmed,
+        });
+      }
+
+      await saveCategories(user.uid, updatedCategories, { mergeMode: "smart" });
+      setCategories(updatedCategories);
+      setEditingSubcategory(null);
+      showNotification("Subcategoría actualizada correctamente");
+    } catch (error) {
+      console.error("Error updating subcategory:", error);
+      showNotification("Error al actualizar la subcategoría", "error");
     }
   };
 
@@ -1188,6 +1289,42 @@ const Dashboard = ({ user }) => {
       return () => clearTimeout(timer);
     }
   }, [notificationSettings?.customReminders?.enabled, notificationSettings?.customReminders?.message, user?.uid]); // Dependencias más específicas
+
+  // Recordatorio semanal
+  useEffect(() => {
+    if (!user || !notificationSettings?.weeklyReminder?.enabled) {
+      return;
+    }
+
+    const checkWeeklyReminder = () => {
+      const today = new Date();
+      const currentDayOfWeek = today.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
+      const configuredDay = notificationSettings.weeklyReminder.dayOfWeek || 0;
+      
+      // Solo mostrar si es el día configurado
+      if (currentDayOfWeek !== configuredDay) {
+        return;
+      }
+
+      const todayKey = today.toDateString();
+      const lastWeeklyReminder = localStorage.getItem(`weeklyReminder_${user.uid}_${todayKey}`);
+      
+      // Solo mostrar si no se ha mostrado hoy
+      if (!lastWeeklyReminder) {
+        const message = notificationSettings.weeklyReminder.message || "¡No olvides registrar tus gastos de esta semana en Clarity!";
+        showNotification(message, "success");
+        localStorage.setItem(`weeklyReminder_${user.uid}_${todayKey}`, "true");
+      }
+    };
+
+    // Verificar inmediatamente
+    checkWeeklyReminder();
+
+    // Verificar cada hora por si el usuario abre la app en el día configurado
+    const interval = setInterval(checkWeeklyReminder, 60 * 60 * 1000); // Cada hora
+
+    return () => clearInterval(interval);
+  }, [notificationSettings?.weeklyReminder?.enabled, notificationSettings?.weeklyReminder?.dayOfWeek, notificationSettings?.weeklyReminder?.message, user?.uid]);
 
   // Inicializar notificaciones push cuando el usuario inicia sesión
   useEffect(() => {
@@ -1701,6 +1838,44 @@ const Dashboard = ({ user }) => {
           onChange={setNewExpense}
           onSubmit={handleAddExpense}
           onClose={() => setShowAddExpense(false)}
+          onAddCategory={async (categoryName) => {
+            if (!user || !categoryName) return;
+            try {
+              const updatedCategories = {
+                ...categories,
+                [categoryName]: {
+                  subcategories: [],
+                  color: newCategoryColor,
+                },
+              };
+              await saveCategories(user.uid, updatedCategories);
+              setCategories(updatedCategories);
+              setNewExpense({ ...newExpense, category: categoryName });
+              showNotification("Categoría añadida correctamente");
+            } catch (error) {
+              showNotification("Error al añadir la categoría", "error");
+            }
+          }}
+          onAddSubcategory={async (subcategoryName) => {
+            if (!user || !newExpense.category || !subcategoryName) return;
+            try {
+              const categoryData = categories[newExpense.category];
+              const subcategories = getCategorySubcategories(categoryData);
+              const updatedCategories = {
+                ...categories,
+                [newExpense.category]: {
+                  subcategories: [...subcategories, subcategoryName],
+                  color: categoryData?.color || "#8B5CF6",
+                },
+              };
+              await saveCategories(user.uid, updatedCategories);
+              setCategories(updatedCategories);
+              setNewExpense({ ...newExpense, subcategory: subcategoryName });
+              showNotification("Subcategoría añadida correctamente");
+            } catch (error) {
+              showNotification("Error al añadir la subcategoría", "error");
+            }
+          }}
         />
       </Suspense>
 
@@ -1745,6 +1920,18 @@ const Dashboard = ({ user }) => {
                 editingCategory.name,
                 editingCategory.newName,
                 editingCategory.newColor
+              );
+            }
+          }}
+          editingSubcategory={editingSubcategory}
+          onStartEditSubcategory={setEditingSubcategory}
+          onCancelEditSubcategory={() => setEditingSubcategory(null)}
+          onSaveEditSubcategory={() => {
+            if (editingSubcategory) {
+              handleEditSubcategory(
+                editingSubcategory.category,
+                editingSubcategory.oldName,
+                editingSubcategory.newName
               );
             }
           }}

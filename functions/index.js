@@ -183,10 +183,18 @@ exports.createRecurringExpenses = onSchedule(
             continue;
           }
 
+          // Validación: asegurar que amount no sea negativo
+          const amount = Math.max(0, recurring.amount || 0);
+          if (recurring.amount < 0) {
+            logger.warn(
+              `  ⚠️  Gasto "${recurring.name}" tiene monto negativo (€${recurring.amount}). Se ajustará a 0.`
+            );
+          }
+
           // Crear el gasto
           const newExpense = {
             name: recurring.name,
-            amount: recurring.amount,
+            amount: amount,
             category: recurring.category,
             subcategory: recurring.subcategory,
             date: currentDate,
@@ -310,16 +318,16 @@ exports.checkMissedRecurringExpenses = onSchedule(
 
             const newExpense = {
               name: recurring.name,
-              amount: recurring.amount,
-              category: recurring.category,
-              subcategory: recurring.subcategory,
-              date: expenseDate,
-              paymentMethod: recurring.paymentMethod,
-              isRecurring: true,
-              recurringId: recurringId,
-              createdAt: FieldValue.serverTimestamp(),
-              updatedAt: FieldValue.serverTimestamp(),
-            };
+            amount: Math.max(0, recurring.amount || 0), // Asegurar que amount sea >= 0
+            category: recurring.category,
+            subcategory: recurring.subcategory,
+            date: expenseDate,
+            paymentMethod: recurring.paymentMethod,
+            isRecurring: true,
+            recurringId: recurringId,
+            createdAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+          };
 
             await db
               .collection("users")

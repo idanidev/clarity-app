@@ -121,3 +121,4 @@ const LongTermGoalsSection = ({ goals, darkMode, onUpdateAmount }) => {
 
 export default LongTermGoalsSection;
 
+

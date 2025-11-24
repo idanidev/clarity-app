@@ -71,21 +71,29 @@ function EditRecurringDialog({
 
   const content = (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 overflow-hidden"
       role="dialog"
       aria-modal="true"
       aria-labelledby="edit-recurring-title"
       onMouseDown={onCancelEdit} // clic fuera cierra
+      style={{
+        overscrollBehavior: "none",
+        touchAction: "none",
+      }}
     >
       <div
         ref={dialogRef}
         onMouseDown={(e) => e.stopPropagation()} // evita cierre si clic dentro
-        className={`${cardClass} w-full max-w-xl rounded-2xl border shadow-2xl ${
+        className={`${cardClass} w-full max-w-xl rounded-2xl border shadow-2xl max-h-[90vh] flex flex-col overflow-hidden ${
           darkMode ? "bg-gray-800" : "bg-white"
         }`}
+        style={{
+          overscrollBehavior: "none",
+          touchAction: "none",
+        }}
       >
         <div
-          className={`flex items-center justify-between px-6 py-4 border-b ${
+          className={`flex-shrink-0 flex items-center justify-between px-6 py-4 border-b ${
             darkMode ? "border-gray-700" : "border-purple-100"
           }`}
         >
@@ -106,15 +114,24 @@ function EditRecurringDialog({
           </button>
         </div>
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!editingRecurring) return;
-            const payload = normalizeRecurring(editingRecurring);
-            onSubmitEditRecurring && onSubmitEditRecurring(payload); // solo payload
+        <div
+          className="overflow-y-auto flex-1"
+          style={{
+            WebkitOverflowScrolling: "touch",
+            scrollBehavior: "smooth",
+            overscrollBehavior: "contain",
+            touchAction: "pan-y",
           }}
-          className="px-6 py-5 space-y-4"
         >
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!editingRecurring) return;
+              const payload = normalizeRecurring(editingRecurring);
+              onSubmitEditRecurring && onSubmitEditRecurring(payload); // solo payload
+            }}
+            className="px-6 py-5 space-y-4"
+          >
           <div>
             <label className={`block text-sm font-medium ${textClass} mb-2`}>
               {t("recurring.expenseName")}
@@ -137,8 +154,14 @@ function EditRecurringDialog({
               <input
                 type="number"
                 step="0.01"
+                min="0"
                 value={editingRecurring.amount}
-                onChange={(e) => updateEditing("amount", e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === "" || parseFloat(value) >= 0) {
+                    updateEditing("amount", value);
+                  }
+                }}
                 className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
                 required
               />
@@ -149,6 +172,7 @@ function EditRecurringDialog({
               </label>
               <select
                 value={editingRecurring.category}
+                onClick={(e) => e.stopPropagation()}
                 onChange={(e) =>
                   onEditingRecurringChange({
                     ...editingRecurring,
@@ -178,6 +202,7 @@ function EditRecurringDialog({
               </label>
               <select
                 value={editingRecurring.subcategory}
+                onClick={(e) => e.stopPropagation()}
                 onChange={(e) => updateEditing("subcategory", e.target.value)}
                 onMouseDown={(e) => e.stopPropagation()}
                 onTouchStart={(e) => e.stopPropagation()}
@@ -201,6 +226,7 @@ function EditRecurringDialog({
               </label>
               <select
                 value={editingRecurring.frequency || "monthly"}
+                onClick={(e) => e.stopPropagation()}
                 onChange={(e) => updateEditing("frequency", e.target.value)}
                 onMouseDown={(e) => e.stopPropagation()}
                 onTouchStart={(e) => e.stopPropagation()}
@@ -235,6 +261,7 @@ function EditRecurringDialog({
             </label>
             <select
               value={editingRecurring.paymentMethod}
+              onClick={(e) => e.stopPropagation()}
               onChange={(e) => updateEditing("paymentMethod", e.target.value)}
               onMouseDown={(e) => e.stopPropagation()}
               onTouchStart={(e) => e.stopPropagation()}
@@ -315,6 +342,7 @@ function EditRecurringDialog({
             </div>
           </div>
         </form>
+        </div>
       </div>
     </div>
   );
@@ -431,10 +459,11 @@ const RecurringExpensesModal = ({
     <>
       {/* MODAL PRINCIPAL */}
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-hidden"
         onMouseDown={onClose}
         style={{
-          overscrollBehavior: "contain",
+          overscrollBehavior: "none",
+          touchAction: "none",
         }}
         onClick={(e) => {
           if (e.target === e.currentTarget) {
@@ -444,11 +473,12 @@ const RecurringExpensesModal = ({
       >
         <div
           ref={modalContentRef}
-          className={`${cardClass} rounded-2xl p-0 max-w-2xl w-full border shadow-2xl max-h-[90vh] flex flex-col`}
+          className={`${cardClass} rounded-2xl p-0 max-w-2xl w-full border shadow-2xl max-h-[90vh] flex flex-col overflow-hidden`}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
           style={{
-            overscrollBehavior: "contain",
+            overscrollBehavior: "none",
+            touchAction: "none",
           }}
         >
           {/* Header fijo */}
@@ -479,10 +509,12 @@ const RecurringExpensesModal = ({
 
           {/* Contenedor scrolleable */}
           <div
-            className="overflow-y-auto overscroll-contain flex-1"
+            className="overflow-y-auto flex-1"
             style={{
               WebkitOverflowScrolling: "touch",
               scrollBehavior: "smooth",
+              overscrollBehavior: "contain",
+              touchAction: "pan-y",
             }}
           >
           <div className="px-6 pt-4">
@@ -535,6 +567,85 @@ const RecurringExpensesModal = ({
                   />
                 </div>
 
+                <div>
+                  <label
+                    className={`block text-sm font-medium ${textClass} mb-1`}
+                  >
+                    {t("expenses.category")}
+                  </label>
+                  <select
+                    value={newRecurring.category}
+                    onChange={(e) =>
+                      onNewRecurringChange({
+                        ...newRecurring,
+                        category: e.target.value,
+                        subcategory: "",
+                      })
+                    }
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                    required
+                  >
+                    <option value="">{t("expenses.selectCategory")}</option>
+                    {Object.keys(categories).map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {newRecurring.category && (
+                  <div>
+                    <label
+                      className={`block text-sm font-medium ${textClass} mb-1`}
+                    >
+                      {t("expenses.subcategory")}
+                    </label>
+                    <select
+                      value={newRecurring.subcategory}
+                      onChange={(e) => updateNew("subcategory", e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onTouchStart={(e) => e.stopPropagation()}
+                      className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                      required
+                    >
+                      <option value="">{t("recurring.selectSubcategory")}</option>
+                      {getCategorySubcategories(categories[newRecurring.category])?.map((sub) => (
+                        <option key={sub} value={sub}>
+                          {sub}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div>
+                  <label
+                    className={`block text-sm font-medium ${textClass} mb-1`}
+                  >
+                    {t("expenses.paymentMethod")}
+                  </label>
+                  <select
+                    value={newRecurring.paymentMethod}
+                    onChange={(e) =>
+                      updateNew("paymentMethod", e.target.value)
+                    }
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                  >
+                    <option value="Tarjeta">{t("expenses.card")}</option>
+                    <option value="Efectivo">{t("expenses.cash")}</option>
+                    <option value="Bizum">{t("expenses.bizum")}</option>
+                    <option value="Transferencia">{t("expenses.transfer")}</option>
+                  </select>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label
@@ -545,9 +656,15 @@ const RecurringExpensesModal = ({
                     <input
                       type="number"
                       step="0.01"
+                      min="0"
                       placeholder="0.00"
                       value={newRecurring.amount}
-                      onChange={(e) => updateNew("amount", e.target.value)}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === "" || parseFloat(value) >= 0) {
+                          updateNew("amount", value);
+                        }
+                      }}
                       className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
                       required
                     />
@@ -570,103 +687,27 @@ const RecurringExpensesModal = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label
-                      className={`block text-sm font-medium ${textClass} mb-1`}
-                    >
-                      {t("recurring.frequency")}
-                    </label>
-                    <select
-                      value={newRecurring.frequency || "monthly"}
-                      onChange={(e) => updateNew("frequency", e.target.value)}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onTouchStart={(e) => e.stopPropagation()}
-                      className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
-                      required
-                    >
-                      <option value="monthly">{t("recurring.frequencyMonthly")}</option>
-                      <option value="quarterly">{t("recurring.frequencyQuarterly")}</option>
-                      <option value="semiannual">{t("recurring.frequencySemiannual")}</option>
-                      <option value="annual">{t("recurring.frequencyAnnual")}</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label
-                      className={`block text-sm font-medium ${textClass} mb-1`}
-                    >
-                      {t("expenses.category")}
-                    </label>
-                    <select
-                      value={newRecurring.category}
-                      onChange={(e) =>
-                        onNewRecurringChange({
-                          ...newRecurring,
-                          category: e.target.value,
-                          subcategory: "",
-                        })
-                      }
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onTouchStart={(e) => e.stopPropagation()}
-                      className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
-                      required
-                    >
-                      <option value="">{t("expenses.selectCategory")}</option>
-                      {Object.keys(categories).map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
                 <div>
                   <label
                     className={`block text-sm font-medium ${textClass} mb-1`}
                   >
-                    {t("expenses.paymentMethod")}
+                    {t("recurring.frequency")}
                   </label>
                   <select
-                    value={newRecurring.paymentMethod}
-                    onChange={(e) =>
-                      updateNew("paymentMethod", e.target.value)
-                    }
+                    value={newRecurring.frequency || "monthly"}
+                    onChange={(e) => updateNew("frequency", e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
                     onMouseDown={(e) => e.stopPropagation()}
                     onTouchStart={(e) => e.stopPropagation()}
                     className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                    required
                   >
-                    <option value="Tarjeta">{t("expenses.card")}</option>
-                    <option value="Efectivo">{t("expenses.cash")}</option>
-                    <option value="Bizum">{t("expenses.bizum")}</option>
-                    <option value="Transferencia">{t("expenses.transfer")}</option>
+                    <option value="monthly">{t("recurring.frequencyMonthly")}</option>
+                    <option value="quarterly">{t("recurring.frequencyQuarterly")}</option>
+                    <option value="semiannual">{t("recurring.frequencySemiannual")}</option>
+                    <option value="annual">{t("recurring.frequencyAnnual")}</option>
                   </select>
                 </div>
-
-                {newRecurring.category && (
-                  <div>
-                    <label
-                      className={`block text-sm font-medium ${textClass} mb-1`}
-                    >
-                      {t("expenses.subcategory")}
-                    </label>
-                    <select
-                      value={newRecurring.subcategory}
-                      onChange={(e) => updateNew("subcategory", e.target.value)}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onTouchStart={(e) => e.stopPropagation()}
-                      className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
-                      required
-                    >
-                      <option value="">{t("recurring.selectSubcategory")}</option>
-                      {getCategorySubcategories(categories[newRecurring.category])?.map((sub) => (
-                        <option key={sub} value={sub}>
-                          {sub}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
 
                 <div>
                   <label
