@@ -311,6 +311,9 @@ const GoalsModal = ({
               <div className="grid grid-cols-2 gap-3">
                 <select
                   value={newGoalCategory}
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
                   onChange={(e) => setNewGoalCategory(e.target.value)}
                   className={`px-4 py-2 rounded-lg border ${inputClass} focus:ring-2 focus:border-transparent`}
                 >

@@ -1,4 +1,3 @@
-// src/components/AchievementsSection.jsx
 import { Trophy, TrendingUp, Flame } from "lucide-react";
 
 const AchievementsSection = ({ achievements, streakMonths, monthlyComparison, darkMode }) => {
@@ -86,6 +85,7 @@ const AchievementsSection = ({ achievements, streakMonths, monthlyComparison, da
 };
 
 export default AchievementsSection;
+
 
 
 

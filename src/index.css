@@ -95,8 +95,50 @@ input[type="month"] {
   }
 }
 
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .animate-in {
-  animation: slideInFromTop 0.2s ease-out;
+  animation: slideInFromTop 0.3s ease-out;
+  animation-fill-mode: both;
+}
+
+/* Mejoras para móvil */
+@media (max-width: 640px) {
+  /* Mejor feedback táctil */
+  button, a, [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  
+  /* Animaciones más rápidas en móvil */
+  .animate-in {
+    animation-duration: 0.2s;
+  }
+  
+  /* Mejor scroll en móvil */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 /* Focus visible mejorado */

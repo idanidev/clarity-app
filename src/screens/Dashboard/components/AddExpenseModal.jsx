@@ -1,6 +1,6 @@
 import { X, Plus } from "lucide-react";
 import { getCategorySubcategories } from "../../../services/firestoreService";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const AddExpenseModal = ({
   visible,
@@ -20,15 +20,139 @@ const AddExpenseModal = ({
   const [newCategoryName, setNewCategoryName] = useState("");
   const [showNewSubcategory, setShowNewSubcategory] = useState(false);
   const [newSubcategoryName, setNewSubcategoryName] = useState("");
+  
+  // Limpiar estados cuando se cierra el modal
+  useEffect(() => {
+    if (!visible) {
+      setShowNewCategory(false);
+      setNewCategoryName("");
+      setShowNewSubcategory(false);
+      setNewSubcategoryName("");
+    }
+  }, [visible]);
+
   if (!visible) {
     return null;
   }
+
+  const textSecondaryClass = darkMode ? "text-gray-400" : "text-gray-600";
 
   const handleChange = (field, value) => {
     onChange({
       ...newExpense,
       [field]: value,
     });
+  };
+
+  // Manejar el submit del formulario con validación de categorías/subcategorías nuevas
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    let finalCategory = newExpense.category;
+    let finalSubcategory = newExpense.subcategory;
+    let needsUpdate = false;
+    
+    // Si hay una categoría nueva escrita pero no creada, crearla primero
+    if (showNewCategory && newCategoryName.trim()) {
+      const categoryNameTrimmed = newCategoryName.trim();
+      
+      // Verificar si ya existe (case-insensitive)
+      const existingCategory = Object.keys(categories).find(
+        (cat) => cat.toLowerCase() === categoryNameTrimmed.toLowerCase()
+      );
+      
+      if (existingCategory) {
+        // Si ya existe, usar la existente
+        finalCategory = existingCategory;
+        setShowNewCategory(false);
+        setNewCategoryName("");
+        needsUpdate = true;
+      } else if (onAddCategory) {
+        // Si no existe, crearla
+        try {
+          await onAddCategory(categoryNameTrimmed);
+          finalCategory = categoryNameTrimmed;
+          setShowNewCategory(false);
+          setNewCategoryName("");
+          needsUpdate = true;
+          // Esperar un momento para que se actualice el estado
+          await new Promise(resolve => setTimeout(resolve, 200));
+        } catch (error) {
+          console.error("Error creando categoría:", error);
+          return; // No continuar si falla la creación
+        }
+      }
+    }
+    
+    // Verificar que tenemos una categoría válida antes de continuar
+    if (!finalCategory || finalCategory === "") {
+      // Si no hay categoría seleccionada ni en creación, no permitir enviar
+      return;
+    }
+    
+    // Actualizar el estado con la categoría final si es necesario
+    if (needsUpdate || finalCategory !== newExpense.category) {
+      onChange({
+        ...newExpense,
+        category: finalCategory,
+        subcategory: "", // Resetear subcategoría al cambiar categoría
+      });
+      // Esperar a que se actualice
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    // Si hay una subcategoría nueva escrita pero no creada, crearla primero
+    if (showNewSubcategory && newSubcategoryName.trim() && finalCategory) {
+      const subcategoryNameTrimmed = newSubcategoryName.trim();
+      // Obtener la categoría actualizada (puede haber cambiado)
+      const currentCategoryData = categories[finalCategory] || 
+        categories[Object.keys(categories).find(c => c.toLowerCase() === finalCategory.toLowerCase())];
+      
+      if (currentCategoryData) {
+        const subcategories = getCategorySubcategories(currentCategoryData);
+        
+        // Verificar si ya existe (case-insensitive)
+        const existingSubcategory = subcategories.find(
+          (sub) => sub.toLowerCase() === subcategoryNameTrimmed.toLowerCase()
+        );
+        
+        if (existingSubcategory) {
+          // Si ya existe, usar la existente
+          finalSubcategory = existingSubcategory;
+          setShowNewSubcategory(false);
+          setNewSubcategoryName("");
+          needsUpdate = true;
+        } else if (onAddSubcategory) {
+          // Si no existe, crearla
+          try {
+            await onAddSubcategory(subcategoryNameTrimmed);
+            finalSubcategory = subcategoryNameTrimmed;
+            setShowNewSubcategory(false);
+            setNewSubcategoryName("");
+            needsUpdate = true;
+            // Esperar un momento para que se actualice el estado
+            await new Promise(resolve => setTimeout(resolve, 200));
+          } catch (error) {
+            console.error("Error creando subcategoría:", error);
+            return; // No continuar si falla la creación
+          }
+        }
+      }
+    }
+    
+    // Actualizar el estado final antes de enviar si es necesario
+    if (needsUpdate || finalCategory !== newExpense.category || finalSubcategory !== newExpense.subcategory) {
+      onChange({
+        ...newExpense,
+        category: finalCategory,
+        subcategory: finalSubcategory || newExpense.subcategory,
+      });
+      // Esperar a que se actualice el estado antes de enviar
+      await new Promise(resolve => setTimeout(resolve, 150));
+    }
+    
+    // Enviar el formulario
+    onSubmit(e);
   };
 
   return (
@@ -58,7 +182,7 @@ const AddExpenseModal = ({
           </button>
         </div>
 
-        <form onSubmit={onSubmit} className="px-6 py-6 space-y-4">
+        <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4">
           <div>
             <label className={`block text-sm font-medium ${textClass} mb-2`}>
               Nombre del gasto
@@ -117,28 +241,46 @@ const AddExpenseModal = ({
               </button>
             </div>
             {showNewCategory ? (
-              <div className="flex gap-2 mb-2">
-                <input
-                  type="text"
-                  value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
-                  placeholder="Nombre de categoría"
-                  className={`flex-1 px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
-                />
-                <button
-                  type="button"
-                  onClick={async (e) => {
-                    e.preventDefault();
-                    if (newCategoryName.trim() && onAddCategory) {
-                      await onAddCategory(newCategoryName.trim());
-                      setNewCategoryName("");
-                      setShowNewCategory(false);
-                    }
-                  }}
-                  className="px-4 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all"
-                >
-                  <Plus className="w-5 h-5" />
-                </button>
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        if (newCategoryName.trim() && onAddCategory) {
+                          onAddCategory(newCategoryName.trim()).then(() => {
+                            setNewCategoryName("");
+                            setShowNewCategory(false);
+                          });
+                        }
+                      }
+                    }}
+                    placeholder="Nombre de categoría"
+                    className={`flex-1 px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      if (newCategoryName.trim() && onAddCategory) {
+                        await onAddCategory(newCategoryName.trim());
+                        setNewCategoryName("");
+                        setShowNewCategory(false);
+                      }
+                    }}
+                    disabled={!newCategoryName.trim()}
+                    className="px-4 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+                <p className={`text-xs ${textSecondaryClass}`}>
+                  💡 Escribe el nombre y pulsa Enter o el botón +. Se creará automáticamente al enviar el gasto.
+                </p>
               </div>
             ) : (
               <select
@@ -154,7 +296,7 @@ const AddExpenseModal = ({
                   })
                 }
                 className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
-                required
+                required={!showNewCategory}
               >
                 <option value="">Selecciona una categoría</option>
                 {Object.keys(categories).map((cat) => (
@@ -190,28 +332,46 @@ const AddExpenseModal = ({
                 </button>
               </div>
               {showNewSubcategory ? (
-                <div className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={newSubcategoryName}
-                    onChange={(e) => setNewSubcategoryName(e.target.value)}
-                    placeholder="Nombre de subcategoría"
-                    className={`flex-1 px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
-                  />
-                  <button
-                    type="button"
-                    onClick={async (e) => {
-                      e.preventDefault();
-                      if (newSubcategoryName.trim() && onAddSubcategory) {
-                        await onAddSubcategory(newSubcategoryName.trim());
-                        setNewSubcategoryName("");
-                        setShowNewSubcategory(false);
-                      }
-                    }}
-                    className="px-4 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all"
-                  >
-                    <Plus className="w-5 h-5" />
-                  </button>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newSubcategoryName}
+                      onChange={(e) => setNewSubcategoryName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          if (newSubcategoryName.trim() && onAddSubcategory) {
+                            onAddSubcategory(newSubcategoryName.trim()).then(() => {
+                              setNewSubcategoryName("");
+                              setShowNewSubcategory(false);
+                            });
+                          }
+                        }
+                      }}
+                      placeholder="Nombre de subcategoría"
+                      className={`flex-1 px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        if (newSubcategoryName.trim() && onAddSubcategory) {
+                          await onAddSubcategory(newSubcategoryName.trim());
+                          setNewSubcategoryName("");
+                          setShowNewSubcategory(false);
+                        }
+                      }}
+                      disabled={!newSubcategoryName.trim()}
+                      className="px-4 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <p className={`text-xs ${textSecondaryClass}`}>
+                    💡 Escribe el nombre y pulsa Enter o el botón +. Se creará automáticamente al enviar el gasto.
+                  </p>
                 </div>
               ) : (
                 <select
@@ -221,7 +381,7 @@ const AddExpenseModal = ({
                   onTouchStart={(e) => e.stopPropagation()}
                   onChange={(e) => handleChange("subcategory", e.target.value)}
                   className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
-                  required
+                  required={!showNewSubcategory}
                 >
                   <option value="">Selecciona una subcategoría</option>
                   {getCategorySubcategories(categories[newExpense.category])?.map((sub) => (
