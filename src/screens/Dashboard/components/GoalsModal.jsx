@@ -83,22 +83,42 @@ const GoalsModal = ({
 
   const handleAddLongTermGoal = (e) => {
     e.preventDefault();
-    if (!newLongTermGoal.name || !newLongTermGoal.targetAmount || !newLongTermGoal.targetDate) return;
+    
+    // Validaciones
+    if (!newLongTermGoal.name || !newLongTermGoal.name.trim()) {
+      return;
+    }
+    
+    const targetAmount = parseFloat(newLongTermGoal.targetAmount);
+    if (!targetAmount || targetAmount <= 0) {
+      return;
+    }
+    
+    if (!newLongTermGoal.targetDate) {
+      return;
+    }
 
     const targetDate = new Date(newLongTermGoal.targetDate);
     const today = new Date();
+    
+    // Validar que la fecha no sea en el pasado
+    if (targetDate < today) {
+      return;
+    }
+    
     const monthsDiff = Math.max(1, Math.ceil((targetDate - today) / (1000 * 60 * 60 * 24 * 30)));
-    const monthlyContribution = parseFloat(newLongTermGoal.targetAmount) / monthsDiff;
+    const monthlyContribution = targetAmount / monthsDiff;
+    const currentAmount = parseFloat(newLongTermGoal.currentAmount) || 0;
 
     const newGoal = {
-      id: `goal-${Date.now()}`,
-      name: newLongTermGoal.name,
-      targetAmount: parseFloat(newLongTermGoal.targetAmount),
-      currentAmount: parseFloat(newLongTermGoal.currentAmount) || 0,
+      id: `goal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name: newLongTermGoal.name.trim(),
+      targetAmount: targetAmount,
+      currentAmount: currentAmount,
       startDate: today.toISOString().split("T")[0],
       targetDate: newLongTermGoal.targetDate,
       monthlyContribution: monthlyContribution,
-      icon: newLongTermGoal.icon || "🎯",
+      icon: (newLongTermGoal.icon && newLongTermGoal.icon.trim()) || "🎯",
       status: "active",
     };
 
@@ -487,29 +507,75 @@ const GoalsModal = ({
                 </button>
               )}
 
-              {/* Formulario nuevo objetivo */}
+              {/* Formulario nuevo objetivo - Mejorado */}
               {showLongTermForm && (
-                <form onSubmit={handleAddLongTermGoal} className={`p-4 rounded-xl ${
-                  darkMode ? "bg-gray-700" : "bg-purple-50"
-                }`}>
-                  <div className="space-y-3">
+                <div className={`p-4 sm:p-6 rounded-xl border-2 ${
+                  darkMode 
+                    ? "bg-gray-800/50 border-gray-700" 
+                    : "bg-purple-50/80 border-purple-200"
+                } shadow-lg`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className={`text-lg font-bold ${textClass}`}>
+                      Nuevo Objetivo a Largo Plazo
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowLongTermForm(false);
+                        setNewLongTermGoal({ name: "", targetAmount: "", targetDate: "", icon: "🎯", currentAmount: 0 });
+                      }}
+                      className={`p-1.5 rounded-lg ${
+                        darkMode ? "hover:bg-gray-700" : "hover:bg-purple-100"
+                      } transition-all`}
+                    >
+                      <X className={`w-5 h-5 ${textClass}`} />
+                    </button>
+                  </div>
+                  
+                  <form onSubmit={handleAddLongTermGoal} className="space-y-4">
+                    {/* Icono */}
                     <div>
-                      <label className={`block text-sm font-medium ${textClass} mb-1`}>
-                        Nombre del objetivo
+                      <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                        Icono (opcional)
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={newLongTermGoal.icon}
+                          onChange={(e) => setNewLongTermGoal({ ...newLongTermGoal, icon: e.target.value || "🎯" })}
+                          className={`w-20 px-3 py-2.5 rounded-lg border text-center text-2xl ${inputClass} focus:ring-2 focus:border-transparent`}
+                          placeholder="🎯"
+                          maxLength={2}
+                        />
+                        <div className="flex-1">
+                          <p className={`text-xs ${textSecondaryClass}`}>
+                            Escribe un emoji para personalizar tu objetivo
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Nombre */}
+                    <div>
+                      <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                        Nombre del objetivo <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
                         value={newLongTermGoal.name}
                         onChange={(e) => setNewLongTermGoal({ ...newLongTermGoal, name: e.target.value })}
-                        className={`w-full px-4 py-2 rounded-lg border ${inputClass} focus:ring-2 focus:border-transparent`}
-                        placeholder="Ej: Vacaciones en Grecia"
+                        className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
+                        placeholder="Ej: Vacaciones en Grecia, Moto nueva, Casa propia..."
                         required
+                        autoFocus
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+
+                    {/* Grid responsive para cantidad y fecha */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className={`block text-sm font-medium ${textClass} mb-1`}>
-                          Cantidad objetivo (€)
+                        <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                          Cantidad objetivo (€) <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="number"
@@ -522,28 +588,30 @@ const GoalsModal = ({
                               setNewLongTermGoal({ ...newLongTermGoal, targetAmount: value });
                             }
                           }}
-                          className={`w-full px-4 py-2 rounded-lg border ${inputClass} focus:ring-2 focus:border-transparent`}
+                          className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
                           placeholder="5000"
                           required
                         />
                       </div>
                       <div>
-                        <label className={`block text-sm font-medium ${textClass} mb-1`}>
-                          Fecha límite
+                        <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                          Fecha límite <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="date"
                           value={newLongTermGoal.targetDate}
                           onChange={(e) => setNewLongTermGoal({ ...newLongTermGoal, targetDate: e.target.value })}
-                          className={`w-full px-4 py-2 rounded-lg border ${inputClass} focus:ring-2 focus:border-transparent`}
+                          className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
                           min={new Date().toISOString().split("T")[0]}
                           required
                         />
                       </div>
                     </div>
+
+                    {/* Cantidad actual */}
                     <div>
-                      <label className={`block text-sm font-medium ${textClass} mb-1`}>
-                        Cantidad actual (€) - Opcional
+                      <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                        Cantidad actual (€) <span className={`text-xs ${textSecondaryClass}`}>(opcional)</span>
                       </label>
                       <input
                         type="number"
@@ -556,16 +624,21 @@ const GoalsModal = ({
                             setNewLongTermGoal({ ...newLongTermGoal, currentAmount: value });
                           }
                         }}
-                        className={`w-full px-4 py-2 rounded-lg border ${inputClass} focus:ring-2 focus:border-transparent`}
+                        className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
                         placeholder="0"
                       />
+                      <p className={`text-xs mt-1 ${textSecondaryClass}`}>
+                        Si ya has ahorrado algo, indícalo aquí
+                      </p>
                     </div>
-                    <div className="flex gap-2">
+
+                    {/* Botones */}
+                    <div className="flex flex-col sm:flex-row gap-2 pt-2">
                       <button
                         type="submit"
-                        className="flex-1 py-2 rounded-lg bg-purple-600 text-white font-medium hover:bg-purple-700 transition-all"
+                        className="flex-1 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all active:scale-95"
                       >
-                        Guardar
+                        Crear Objetivo
                       </button>
                       <button
                         type="button"
@@ -573,13 +646,17 @@ const GoalsModal = ({
                           setShowLongTermForm(false);
                           setNewLongTermGoal({ name: "", targetAmount: "", targetDate: "", icon: "🎯", currentAmount: 0 });
                         }}
-                        className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+                        className={`px-6 py-3 rounded-xl border-2 font-medium transition-all active:scale-95 ${
+                          darkMode
+                            ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                            : "border-gray-300 text-gray-700 hover:bg-gray-100"
+                        }`}
                       >
                         Cancelar
                       </button>
                     </div>
-                  </div>
-                </form>
+                  </form>
+                </div>
               )}
 
               {/* Lista de objetivos a largo plazo */}

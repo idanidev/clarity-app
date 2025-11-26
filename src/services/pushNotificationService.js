@@ -139,6 +139,8 @@ export const setupForegroundMessageListener = (callback) => {
     }
     
     // Mostrar notificación manual si el usuario no la bloqueó
+    // En iOS, estas notificaciones aparecerán como banners (tiras)
+    // No se pueden hacer persistentes desde el código web
     if (Notification.permission === "granted") {
       const notificationTitle = payload.notification?.title || "Clarity";
       const notificationOptions = {
@@ -146,9 +148,27 @@ export const setupForegroundMessageListener = (callback) => {
         icon: "/icon-192.png",
         badge: "/icon-192.png",
         tag: payload.data?.tag || "clarity-notification",
+        // requireInteraction no funciona en iOS, pero lo dejamos para otros navegadores
+        requireInteraction: payload.data?.persistent === 'true' || false,
+        // Datos adicionales
+        data: {
+          ...payload.data,
+          url: payload.data?.url || '/',
+        },
+        // Vibrar si está disponible (no funciona en iOS)
+        vibrate: [200, 100, 200],
       };
       
-      new Notification(notificationTitle, notificationOptions);
+      const notification = new Notification(notificationTitle, notificationOptions);
+      
+      // Manejar clic en la notificación
+      notification.onclick = (event) => {
+        event.preventDefault();
+        const url = payload.data?.url || '/';
+        window.focus();
+        window.location.href = url;
+        notification.close();
+      };
     }
   });
 };

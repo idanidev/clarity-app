@@ -210,3 +210,28 @@ select {
     padding-right: max(1rem, env(safe-area-inset-right));
   }
 }
+
+/* Animación para notificaciones */
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Fix para iOS - notificaciones fijas */
+@supports (-webkit-touch-callout: none) {
+  /* iOS específico - forzar notificaciones a estar fijas */
+  [role="status"] {
+    position: fixed !important;
+    -webkit-transform: translateZ(0) !important;
+    transform: translateZ(0) !important;
+    -webkit-backface-visibility: hidden !important;
+    backface-visibility: hidden !important;
+    will-change: transform !important;
+  }
+}

@@ -26,7 +26,7 @@ const SettingsModal = ({
     budgetAlerts: { enabled: true, at80: true, at90: true, at100: true },
     recurringReminders: { enabled: true },
     customReminders: { enabled: true, message: "No olvides registrar tus gastos" },
-    weeklyReminder: { enabled: true, dayOfWeek: 0, message: "¡No olvides registrar tus gastos de esta semana en Clarity!" },
+    weeklyReminder: { enabled: true, dayOfWeek: 0, hour: 10, message: "¡No olvides registrar tus gastos de esta semana en Clarity!" },
     pushNotifications: { enabled: false },
   });
   const [activeTab, setActiveTab] = useState("general"); // "general" | "notifications"
@@ -567,38 +567,70 @@ const SettingsModal = ({
                 </div>
                 {localNotificationSettings.weeklyReminder?.enabled && (
                   <div className="mt-4 pl-8 space-y-3">
-                    <div>
-                      <label className={`block text-sm font-medium ${textClass} mb-2`}>
-                        {t("settings.weeklyReminderDay")}
-                      </label>
-                      <select
-                        value={localNotificationSettings.weeklyReminder?.dayOfWeek ?? 0}
-                        onChange={(e) => {
-                          setLocalNotificationSettings({
-                            ...localNotificationSettings,
-                            weeklyReminder: {
-                              ...localNotificationSettings.weeklyReminder,
-                              dayOfWeek: parseInt(e.target.value),
-                            },
-                          });
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onTouchStart={(e) => e.stopPropagation()}
-                        className={`w-full px-4 py-2 rounded-lg border ${
-                          darkMode
-                            ? "bg-gray-800 border-gray-600 text-gray-100"
-                            : "bg-white border-purple-200 text-purple-900"
-                        } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
-                      >
-                        <option value="0">Domingo</option>
-                        <option value="1">Lunes</option>
-                        <option value="2">Martes</option>
-                        <option value="3">Miércoles</option>
-                        <option value="4">Jueves</option>
-                        <option value="5">Viernes</option>
-                        <option value="6">Sábado</option>
-                      </select>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                          {t("settings.weeklyReminderDay")}
+                        </label>
+                        <select
+                          value={localNotificationSettings.weeklyReminder?.dayOfWeek ?? 0}
+                          onChange={(e) => {
+                            setLocalNotificationSettings({
+                              ...localNotificationSettings,
+                              weeklyReminder: {
+                                ...localNotificationSettings.weeklyReminder,
+                                dayOfWeek: parseInt(e.target.value),
+                              },
+                            });
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
+                          className={`w-full px-4 py-2 rounded-lg border ${
+                            darkMode
+                              ? "bg-gray-800 border-gray-600 text-gray-100"
+                              : "bg-white border-purple-200 text-purple-900"
+                          } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
+                        >
+                          <option value="0">Domingo</option>
+                          <option value="1">Lunes</option>
+                          <option value="2">Martes</option>
+                          <option value="3">Miércoles</option>
+                          <option value="4">Jueves</option>
+                          <option value="5">Viernes</option>
+                          <option value="6">Sábado</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                          Hora
+                        </label>
+                        <input
+                          type="time"
+                          value={localNotificationSettings.weeklyReminder?.hour !== undefined 
+                            ? `${String(localNotificationSettings.weeklyReminder.hour).padStart(2, '0')}:00`
+                            : "10:00"}
+                          onChange={(e) => {
+                            const timeValue = e.target.value;
+                            const hour = timeValue ? parseInt(timeValue.split(':')[0]) : 10;
+                            setLocalNotificationSettings({
+                              ...localNotificationSettings,
+                              weeklyReminder: {
+                                ...localNotificationSettings.weeklyReminder,
+                                hour: hour,
+                              },
+                            });
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
+                          className={`w-full px-4 py-2 rounded-lg border ${
+                            darkMode
+                              ? "bg-gray-800 border-gray-600 text-gray-100"
+                              : "bg-white border-purple-200 text-purple-900"
+                          } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
+                        />
+                      </div>
                     </div>
                     <div>
                       <label className={`block text-sm font-medium ${textClass} mb-2`}>

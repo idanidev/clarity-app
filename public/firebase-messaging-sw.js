@@ -25,15 +25,41 @@ messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
   
   const notificationTitle = payload.notification?.title || 'Clarity';
+  
+  // Determinar si es un recordatorio (debe quedarse en la bandeja)
+  const isReminder = payload.data?.type === 'reminder' || payload.data?.type === 'daily-reminder' || payload.data?.type === 'weekly-reminder';
+  
   const notificationOptions = {
     body: payload.notification?.body || payload.data?.message || 'Tienes una nueva notificación',
     icon: '/icon-192.png',
     badge: '/icon-192.png',
     tag: payload.data?.tag || 'clarity-notification',
-    requireInteraction: false,
-    data: payload.data,
+    // Para recordatorios, intentar que se quede en la bandeja
+    // En iOS, esto hará que la notificación se quede en la bandeja de notificaciones
+    requireInteraction: isReminder || payload.data?.persistent === 'true',
+    // Vibrar si está disponible
+    vibrate: [200, 100, 200],
+    // Sonido personalizado si está disponible
+    sound: payload.data?.sound || undefined,
+    // Datos adicionales para cuando se toque la notificación
+    data: {
+      ...payload.data,
+      url: payload.data?.url || '/',
+      timestamp: Date.now(),
+      type: payload.data?.type || 'notification',
+    },
+    // Acciones (no soportadas en iOS, pero útil para Android)
+    actions: payload.data?.actions ? JSON.parse(payload.data.actions) : undefined,
+    // Timestamp
+    timestamp: Date.now(),
+    // Renovar la notificación si ya existe
+    renotify: true,
+    // Para iOS: usar silent: false para asegurar que se muestre
+    silent: false,
   };
 
+  // Mostrar la notificación
+  // En iOS, las notificaciones con requireInteraction: true se quedan en la bandeja
   self.registration.showNotification(notificationTitle, notificationOptions);
 });
 

@@ -51,6 +51,12 @@ import {
   setVAPIDKey,
 } from "../../services/pushNotificationService";
 import {
+  scheduleDailyReminder,
+  scheduleWeeklyReminder,
+  showLocalNotification,
+  requestLocalNotificationPermission,
+} from "../../services/localNotificationService";
+import {
   calculateBadges,
   calculateStreak,
   compareWithPreviousMonth,
@@ -246,7 +252,7 @@ const Dashboard = ({ user }) => {
           budgetAlerts: { enabled: true, at80: true, at90: true, at100: true },
           recurringReminders: { enabled: true },
           customReminders: { enabled: true, message: "No olvides registrar tus gastos" },
-          weeklyReminder: { enabled: true, dayOfWeek: 0, message: "¡No olvides registrar tus gastos de esta semana en Clarity!" },
+          weeklyReminder: { enabled: true, dayOfWeek: 0, hour: 10, message: "¡No olvides registrar tus gastos de esta semana en Clarity!" },
           pushNotifications: { enabled: false },
         });
         
@@ -1269,61 +1275,42 @@ const Dashboard = ({ user }) => {
     checkRecurringReminders();
   }, [recurringExpenses?.length, notificationSettings?.recurringReminders?.enabled, user?.uid]); // Dependencias más específicas
 
-  // Efecto para recordatorios personalizados - Solo una vez al día
+  // Efecto para recordatorios personalizados - Programar notificación local que se queda en la bandeja
   useEffect(() => {
     if (!user || !notificationSettings?.customReminders?.enabled || !notificationSettings?.customReminders?.message) {
       return;
     }
 
-    const todayKey = new Date().toDateString();
-    const lastReminder = localStorage.getItem(`customReminder_${user.uid}_${todayKey}`);
-    
-    // Solo mostrar si no se ha mostrado hoy Y si la app lleva al menos 30 segundos abierta
-    if (!lastReminder) {
-      // Esperar 30 segundos después de cargar la app (solo la primera vez del día)
-      const timer = setTimeout(() => {
-        showNotification(notificationSettings.customReminders.message, "success");
-        localStorage.setItem(`customReminder_${user.uid}_${todayKey}`, "true");
-      }, 30000); // 30 segundos
+    // Programar recordatorio diario usando notificaciones locales
+    // Estas SÍ se quedan en la bandeja de notificaciones en iOS
+    const setupDailyReminder = async () => {
+      const hasPermission = await requestLocalNotificationPermission();
+      if (hasPermission) {
+        await scheduleDailyReminder(notificationSettings.customReminders.message);
+      }
+    };
 
-      return () => clearTimeout(timer);
-    }
-  }, [notificationSettings?.customReminders?.enabled, notificationSettings?.customReminders?.message, user?.uid]); // Dependencias más específicas
+    setupDailyReminder();
+  }, [notificationSettings?.customReminders?.enabled, notificationSettings?.customReminders?.message, user?.uid]);
 
-  // Recordatorio semanal
+  // Recordatorio semanal - Programar notificación local que se queda en la bandeja
   useEffect(() => {
     if (!user || !notificationSettings?.weeklyReminder?.enabled) {
       return;
     }
 
-    const checkWeeklyReminder = () => {
-      const today = new Date();
-      const currentDayOfWeek = today.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
-      const configuredDay = notificationSettings.weeklyReminder.dayOfWeek || 0;
-      
-      // Solo mostrar si es el día configurado
-      if (currentDayOfWeek !== configuredDay) {
-        return;
-      }
-
-      const todayKey = today.toDateString();
-      const lastWeeklyReminder = localStorage.getItem(`weeklyReminder_${user.uid}_${todayKey}`);
-      
-      // Solo mostrar si no se ha mostrado hoy
-      if (!lastWeeklyReminder) {
+    // Programar recordatorio semanal usando notificaciones locales
+    // Estas SÍ se quedan en la bandeja de notificaciones en iOS
+    const setupWeeklyReminder = async () => {
+      const hasPermission = await requestLocalNotificationPermission();
+      if (hasPermission) {
+        const dayOfWeek = notificationSettings.weeklyReminder.dayOfWeek || 0;
         const message = notificationSettings.weeklyReminder.message || "¡No olvides registrar tus gastos de esta semana en Clarity!";
-        showNotification(message, "success");
-        localStorage.setItem(`weeklyReminder_${user.uid}_${todayKey}`, "true");
+        await scheduleWeeklyReminder(dayOfWeek, message);
       }
     };
 
-    // Verificar inmediatamente
-    checkWeeklyReminder();
-
-    // Verificar cada hora por si el usuario abre la app en el día configurado
-    const interval = setInterval(checkWeeklyReminder, 60 * 60 * 1000); // Cada hora
-
-    return () => clearInterval(interval);
+    setupWeeklyReminder();
   }, [notificationSettings?.weeklyReminder?.enabled, notificationSettings?.weeklyReminder?.dayOfWeek, notificationSettings?.weeklyReminder?.message, user?.uid]);
 
   // Inicializar notificaciones push cuando el usuario inicia sesión

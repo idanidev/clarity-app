@@ -7,11 +7,13 @@ const { setGlobalOptions } = require("firebase-functions/v2");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getMessaging } = require("firebase-admin/messaging");
 const logger = require("firebase-functions/logger");
 
 // Inicializar Firebase Admin
 initializeApp();
 const db = getFirestore();
+const messaging = getMessaging();
 
 // Configuración global
 setGlobalOptions({
@@ -354,6 +356,243 @@ exports.checkMissedRecurringExpenses = onSchedule(
       };
     } catch (error) {
       logger.error("❌ Error en checkMissedRecurringExpenses:", error);
+      throw error;
+    }
+  }
+);
+
+/**
+ * Cloud Function que envía recordatorios diarios a las 20:00
+ * Se ejecuta todos los días a las 20:00 (8 PM)
+ * Funciona incluso cuando la app está cerrada
+ */
+exports.sendDailyReminders = onSchedule(
+  {
+    schedule: "0 20 * * *", // Todos los días a las 20:00
+    timeZone: "Europe/Madrid",
+    memory: "256MiB",
+    timeoutSeconds: 300,
+    invoker: "public",
+  },
+  async (event) => {
+    logger.info("🔔 Iniciando envío de recordatorios diarios...");
+
+    try {
+      // Obtener todos los usuarios
+      const usersSnapshot = await db.collection("users").get();
+      let remindersSent = 0;
+      let remindersSkipped = 0;
+
+      logger.info(`👥 Procesando ${usersSnapshot.size} usuarios...`);
+
+      for (const userDoc of usersSnapshot.docs) {
+        const userId = userDoc.id;
+        const userData = userDoc.data();
+        
+        // Verificar si tiene recordatorios personalizados activos
+        const notificationSettings = userData.notificationSettings;
+        
+        if (!notificationSettings?.customReminders?.enabled) {
+          remindersSkipped++;
+          continue;
+        }
+
+        const message = notificationSettings.customReminders?.message || 
+                       "No olvides registrar tus gastos de hoy";
+
+        // Obtener tokens FCM del usuario
+        const fcmTokens = userData.fcmTokens || [];
+        
+        if (fcmTokens.length === 0) {
+          logger.info(`  ⏭️  Usuario ${userId} no tiene tokens FCM`);
+          remindersSkipped++;
+          continue;
+        }
+
+        // Enviar notificación a cada token
+        const messages = fcmTokens.map(token => ({
+          token: token,
+          notification: {
+            title: "📝 Clarity - Recordatorio",
+            body: message,
+          },
+          data: {
+            type: "daily-reminder",
+            persistent: "true",
+            url: "/",
+            tag: "daily-reminder",
+          },
+          android: {
+            priority: "high",
+            notification: {
+              sound: "default",
+              channelId: "reminders",
+            },
+          },
+          apns: {
+            payload: {
+              aps: {
+                sound: "default",
+                badge: 1,
+                contentAvailable: true,
+              },
+            },
+          },
+          webpush: {
+            notification: {
+              requireInteraction: true,
+              badge: "/icon-192.png",
+              icon: "/icon-192.png",
+            },
+          },
+        }));
+
+        try {
+          const response = await messaging.sendEach(messages);
+          logger.info(`  ✅ Recordatorio enviado a usuario ${userId}: ${response.successCount} exitosos`);
+          remindersSent += response.successCount;
+        } catch (error) {
+          logger.error(`  ❌ Error enviando recordatorio a usuario ${userId}:`, error);
+        }
+      }
+
+      logger.info("\n" + "=".repeat(50));
+      logger.info("📊 RESUMEN DE RECORDATORIOS DIARIOS:");
+      logger.info(`  ✅ Recordatorios enviados: ${remindersSent}`);
+      logger.info(`  ⏭️  Usuarios omitidos: ${remindersSkipped}`);
+      logger.info(`  👥 Usuarios procesados: ${usersSnapshot.size}`);
+      logger.info("=".repeat(50));
+
+      return { success: true, sent: remindersSent, skipped: remindersSkipped };
+    } catch (error) {
+      logger.error("❌ Error en sendDailyReminders:", error);
+      throw error;
+    }
+  }
+);
+
+/**
+ * Cloud Function que envía recordatorios semanales
+ * Se ejecuta cada hora y verifica si es el día y hora configurados por cada usuario
+ * Funciona incluso cuando la app está cerrada
+ */
+exports.sendWeeklyReminders = onSchedule(
+  {
+    schedule: "0 * * * *", // Cada hora
+    timeZone: "Europe/Madrid",
+    memory: "256MiB",
+    timeoutSeconds: 300,
+    invoker: "public",
+  },
+  async (event) => {
+    logger.info("🔔 Iniciando envío de recordatorios semanales...");
+
+    try {
+      const now = new Date();
+      const currentDayOfWeek = now.getDay(); // 0 = Domingo, 6 = Sábado
+      const currentHour = now.getHours(); // 0-23
+
+      logger.info(`📅 Día de la semana: ${currentDayOfWeek} (0=Domingo, 6=Sábado), Hora: ${currentHour}:00`);
+
+      // Obtener todos los usuarios
+      const usersSnapshot = await db.collection("users").get();
+      let remindersSent = 0;
+      let remindersSkipped = 0;
+
+      logger.info(`👥 Procesando ${usersSnapshot.size} usuarios...`);
+
+      for (const userDoc of usersSnapshot.docs) {
+        const userId = userDoc.id;
+        const userData = userDoc.data();
+        
+        // Verificar si tiene recordatorios semanales activos
+        const notificationSettings = userData.notificationSettings;
+        
+        if (!notificationSettings?.weeklyReminder?.enabled) {
+          remindersSkipped++;
+          continue;
+        }
+
+        // Verificar si es el día configurado
+        const configuredDay = notificationSettings.weeklyReminder?.dayOfWeek || 0;
+        const configuredHour = notificationSettings.weeklyReminder?.hour !== undefined 
+          ? notificationSettings.weeklyReminder.hour 
+          : 10; // Hora por defecto: 10:00
+        
+        // Verificar si coincide con el día y hora configurados
+        if (currentDayOfWeek !== configuredDay || currentHour !== configuredHour) {
+          continue;
+        }
+
+        const message = notificationSettings.weeklyReminder?.message || 
+                       "¡No olvides registrar tus gastos de esta semana en Clarity!";
+
+        // Obtener tokens FCM del usuario
+        const fcmTokens = userData.fcmTokens || [];
+        
+        if (fcmTokens.length === 0) {
+          logger.info(`  ⏭️  Usuario ${userId} no tiene tokens FCM`);
+          remindersSkipped++;
+          continue;
+        }
+
+        // Enviar notificación
+        const messages = fcmTokens.map(token => ({
+          token: token,
+          notification: {
+            title: "📝 Clarity - Recordatorio Semanal",
+            body: message,
+          },
+          data: {
+            type: "weekly-reminder",
+            persistent: "true",
+            url: "/",
+            tag: "weekly-reminder",
+          },
+          android: {
+            priority: "high",
+            notification: {
+              sound: "default",
+              channelId: "reminders",
+            },
+          },
+          apns: {
+            payload: {
+              aps: {
+                sound: "default",
+                badge: 1,
+                contentAvailable: true,
+              },
+            },
+          },
+          webpush: {
+            notification: {
+              requireInteraction: true,
+              badge: "/icon-192.png",
+              icon: "/icon-192.png",
+            },
+          },
+        }));
+
+        try {
+          const response = await messaging.sendEach(messages);
+          logger.info(`  ✅ Recordatorio semanal enviado a usuario ${userId}: ${response.successCount} exitosos`);
+          remindersSent += response.successCount;
+        } catch (error) {
+          logger.error(`  ❌ Error enviando recordatorio semanal a usuario ${userId}:`, error);
+        }
+      }
+
+      logger.info("\n" + "=".repeat(50));
+      logger.info("📊 RESUMEN DE RECORDATORIOS SEMANALES:");
+      logger.info(`  ✅ Recordatorios enviados: ${remindersSent}`);
+      logger.info(`  ⏭️  Usuarios omitidos: ${remindersSkipped}`);
+      logger.info(`  👥 Usuarios procesados: ${usersSnapshot.size}`);
+      logger.info("=".repeat(50));
+
+      return { success: true, sent: remindersSent, skipped: remindersSkipped };
+    } catch (error) {
+      logger.error("❌ Error en sendWeeklyReminders:", error);
       throw error;
     }
   }

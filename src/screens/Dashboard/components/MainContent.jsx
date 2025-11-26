@@ -196,7 +196,7 @@ const MainContent = memo(({
   }, [goals, income, categoryTotalsForBudgets]);
 
   return (
-    <div className="max-w-7xl mx-auto px-2 md:px-4 py-2 md:py-6 pb-20 md:pb-6">
+    <div className="max-w-7xl mx-auto px-2 md:px-4 py-2 md:py-6 md:pb-6" style={{ paddingBottom: 'max(5.5rem, calc(5.5rem + env(safe-area-inset-bottom)))' }}>
       {/* Estadísticas con estilo Liquid Glass mejorado - Solo en vista principal, más compactas en móvil */}
       {activeView === "table" && (
         <div className="relative mb-3 md:mb-6">
@@ -767,20 +767,26 @@ const MainContent = memo(({
         </div>
       </div>
 
-      {/* Barra inferior flotante estilo Liquid Glass para móvil */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 px-2 pt-1 pointer-events-none" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
+      {/* Barra inferior flotante estilo Liquid Glass para móvil - Fija siempre */}
+      <div 
+        className="md:hidden fixed bottom-0 left-0 right-0 z-[100] px-2 pt-1 pointer-events-none" 
+        style={{ 
+          paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))',
+        }}
+      >
         <div
           className={`max-w-md mx-auto rounded-t-2xl shadow-xl border-t border-l border-r backdrop-blur-xl pointer-events-auto ${
             darkMode
-              ? "bg-gray-900/80 border-gray-700/40"
-              : "bg-white/80 border-white/30"
+              ? "bg-gray-900/90 border-gray-700/50"
+              : "bg-white/90 border-white/40"
           }`}
           style={{
             boxShadow: darkMode
-              ? "0 4px 16px 0 rgba(0, 0, 0, 0.3), 0 0 0 0.5px rgba(255, 255, 255, 0.05) inset"
-              : "0 4px 16px 0 rgba(31, 38, 135, 0.12), 0 0 0 0.5px rgba(255, 255, 255, 0.7) inset",
+              ? "0 -4px 20px 0 rgba(0, 0, 0, 0.4), 0 0 0 0.5px rgba(255, 255, 255, 0.05) inset"
+              : "0 -4px 20px 0 rgba(31, 38, 135, 0.15), 0 0 0 0.5px rgba(255, 255, 255, 0.8) inset",
             backdropFilter: "blur(20px) saturate(180%)",
             WebkitBackdropFilter: "blur(20px) saturate(180%)",
+            position: 'relative',
           }}
         >
           <div className="grid grid-cols-4 gap-0.5 p-1" style={{ paddingBottom: 'max(0.5rem, calc(0.5rem + env(safe-area-inset-bottom)))' }}>
@@ -1556,12 +1562,22 @@ const MainContent = memo(({
             const daysPassed = today.getDate();
             
             const currentMonthExpenses = categoryTotalsForBudgets.reduce((sum, item) => sum + item.total, 0);
-            const monthlySavings = income - currentMonthExpenses;
-            const savingsProgress = goals.totalSavingsGoal > 0 
-              ? Math.min((monthlySavings / goals.totalSavingsGoal) * 100, 100) 
+            
+            // Lógica corregida: calcular límite de gasto máximo
+            const maxSpendingAllowed = income - goals.totalSavingsGoal; // Máximo que puede gastar
+            const monthlySavings = income - currentMonthExpenses; // Ahorro actual
+            const overspending = Math.max(0, currentMonthExpenses - maxSpendingAllowed); // Cuánto se ha pasado
+            const remainingSpending = Math.max(0, maxSpendingAllowed - currentMonthExpenses); // Cuánto puede gastar aún
+            
+            // Estados
+            const hasOverspent = currentMonthExpenses > maxSpendingAllowed; // Se ha pasado del límite
+            const isOnTrack = monthlySavings >= goals.totalSavingsGoal; // Ha alcanzado el objetivo
+            const isCloseToLimit = currentMonthExpenses >= maxSpendingAllowed * 0.9; // Cerca del límite (90%)
+            
+            // Progreso basado en el límite de gasto (no en el ahorro)
+            const spendingProgress = maxSpendingAllowed > 0 
+              ? Math.min((currentMonthExpenses / maxSpendingAllowed) * 100, 100) 
               : 0;
-            const isOnTrack = monthlySavings >= goals.totalSavingsGoal;
-            const hasNegativeSavings = monthlySavings < 0;
             
             return (
               <div
@@ -1603,32 +1619,40 @@ const MainContent = memo(({
                   <div className="mb-4 sm:mb-6">
                     <div className="flex items-baseline gap-2 sm:gap-3 mb-2">
                       <span className={`text-4xl sm:text-5xl md:text-6xl font-bold leading-tight ${
-                        hasNegativeSavings 
+                        hasOverspent 
                           ? "text-red-500" 
                           : isOnTrack 
                           ? "text-green-500" 
+                          : isCloseToLimit
+                          ? "text-yellow-500"
                           : "text-purple-600"
                       }`}>
-                        €{Math.abs(monthlySavings).toFixed(0)}
+                        {hasOverspent 
+                          ? `+€${overspending.toFixed(0)}`
+                          : isOnTrack
+                          ? `€${monthlySavings.toFixed(0)}`
+                          : `€${currentMonthExpenses.toFixed(0)}`}
                       </span>
-                      {!isOnTrack && !hasNegativeSavings && (
-                        <span className={`text-xl sm:text-2xl ${textSecondaryClass}`}>
-                          / €{goals.totalSavingsGoal.toFixed(0)}
-                        </span>
-                      )}
+                      <span className={`text-xl sm:text-2xl ${textSecondaryClass}`}>
+                        / €{maxSpendingAllowed.toFixed(0)}
+                      </span>
                     </div>
                     <p className={`text-xs sm:text-sm font-medium ${
-                      hasNegativeSavings 
+                      hasOverspent 
                         ? "text-red-400" 
                         : isOnTrack 
                         ? "text-green-500" 
+                        : isCloseToLimit
+                        ? "text-yellow-500"
                         : textSecondaryClass
                     }`}>
-                      {hasNegativeSavings 
-                        ? "Estás gastando más de lo que ingresas" 
+                      {hasOverspent 
+                        ? `⚠️ Te has pasado €${overspending.toFixed(2)} del límite. No podrás ahorrar ${goals.totalSavingsGoal.toFixed(0)}€ este mes.`
                         : isOnTrack 
-                        ? "¡Objetivo alcanzado! 🎉" 
-                        : `Faltan €${(goals.totalSavingsGoal - monthlySavings).toFixed(2)} para alcanzar tu objetivo`}
+                        ? `✅ ¡Objetivo alcanzado! Has ahorrado €${monthlySavings.toFixed(2)} este mes 🎉`
+                        : isCloseToLimit
+                        ? `⚠️ Cuidado: Te quedan €${remainingSpending.toFixed(2)} disponibles. Estás cerca del límite.`
+                        : `Puedes gastar €${remainingSpending.toFixed(2)} más este mes para alcanzar tu objetivo de ahorro`}
                     </p>
                   </div>
 
@@ -1639,28 +1663,37 @@ const MainContent = memo(({
                     } shadow-inner`}>
                       <div
                         className={`h-full transition-all duration-700 ease-out ${
-                          hasNegativeSavings
+                          hasOverspent
                             ? "bg-gradient-to-r from-red-500 to-red-600"
                             : isOnTrack
                             ? "bg-gradient-to-r from-green-500 to-green-600"
-                            : savingsProgress >= 80
+                            : isCloseToLimit
                             ? "bg-gradient-to-r from-yellow-500 to-yellow-600"
                             : "bg-gradient-to-r from-purple-600 to-blue-600"
                         } flex items-center justify-end pr-2`}
-                        style={{ width: `${Math.max(Math.min(savingsProgress, 100), 0)}%` }}
+                        style={{ width: `${Math.min(spendingProgress, 100)}%` }}
                       >
-                        {savingsProgress > 15 && (
+                        {spendingProgress > 15 && (
                           <span className="text-[10px] sm:text-xs font-bold text-white">
-                            {savingsProgress.toFixed(0)}%
+                            {spendingProgress.toFixed(0)}%
                           </span>
                         )}
                       </div>
                     </div>
-                    {savingsProgress <= 15 && (
-                      <p className={`text-[10px] sm:text-xs text-center mt-1 ${textSecondaryClass}`}>
-                        {savingsProgress.toFixed(0)}% completado
+                    <div className="flex justify-between items-center mt-1">
+                      <p className={`text-[10px] sm:text-xs ${textSecondaryClass}`}>
+                        {hasOverspent 
+                          ? `⚠️ ${spendingProgress.toFixed(0)}% del límite (te has pasado)`
+                          : `${spendingProgress.toFixed(0)}% del límite de gasto usado`}
                       </p>
-                    )}
+                      {!hasOverspent && (
+                        <p className={`text-[10px] sm:text-xs font-medium ${
+                          isCloseToLimit ? "text-yellow-500" : "text-green-500"
+                        }`}>
+                          {remainingSpending.toFixed(0)}€ disponibles
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   {/* Info rápida - Grid responsive */}
@@ -1676,9 +1709,15 @@ const MainContent = memo(({
                     <div className={`p-2 sm:p-3 rounded-lg sm:rounded-xl transition-all active:scale-95 ${
                       darkMode ? "bg-gray-800/50" : "bg-white/60"
                     }`}>
-                      <p className={`text-[10px] sm:text-xs ${textSecondaryClass} mb-1`}>Ritmo diario</p>
-                      <p className={`text-xs sm:text-sm font-semibold ${textClass}`}>
-                        €{(monthlySavings / daysPassed || 0).toFixed(2)}/día
+                      <p className={`text-[10px] sm:text-xs ${textSecondaryClass} mb-1`}>
+                        {hasOverspent ? "Te has pasado" : "Ahorro actual"}
+                      </p>
+                      <p className={`text-xs sm:text-sm font-semibold ${
+                        hasOverspent ? "text-red-500" : isOnTrack ? "text-green-500" : textClass
+                      }`}>
+                        {hasOverspent 
+                          ? `+€${overspending.toFixed(0)}`
+                          : `€${monthlySavings.toFixed(0)}`}
                       </p>
                     </div>
                   </div>
