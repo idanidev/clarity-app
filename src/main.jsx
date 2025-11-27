@@ -41,14 +41,52 @@ if (typeof window !== "undefined") {
 if ("serviceWorker" in navigator && typeof window !== "undefined") {
   window.addEventListener("load", () => {
     navigator.serviceWorker
-      .register("/firebase-messaging-sw.js")
+      .register("/firebase-messaging-sw.js", {
+        scope: "/",
+        updateViaCache: "none", // Siempre verificar actualizaciones
+      })
       .then((registration) => {
         console.log("Service Worker registrado correctamente:", registration.scope);
+        
+        // Verificar actualizaciones periódicamente
+        setInterval(() => {
+          registration.update();
+        }, 60000); // Cada minuto
+        
+        // Escuchar actualizaciones del Service Worker
+        registration.addEventListener("updatefound", () => {
+          console.log("Nueva versión del Service Worker encontrada");
+          const newWorker = registration.installing;
+          if (newWorker) {
+            newWorker.addEventListener("statechange", () => {
+              if (newWorker.state === "activated") {
+                console.log("Nueva versión del Service Worker activada");
+                // Recargar para usar la nueva versión
+                window.location.reload();
+              }
+            });
+          }
+        });
       })
       .catch((error) => {
-        console.log("Error al registrar Service Worker:", error);
+        console.error("Error al registrar Service Worker:", error);
       });
   });
+  
+  // También intentar registrar inmediatamente si el DOM ya está listo
+  if (document.readyState === "complete" || document.readyState === "interactive") {
+    navigator.serviceWorker
+      .register("/firebase-messaging-sw.js", {
+        scope: "/",
+        updateViaCache: "none",
+      })
+      .then((registration) => {
+        console.log("Service Worker registrado (DOM ya listo):", registration.scope);
+      })
+      .catch((error) => {
+        console.error("Error al registrar Service Worker (DOM ya listo):", error);
+      });
+  }
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(

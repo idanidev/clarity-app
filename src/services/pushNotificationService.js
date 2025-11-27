@@ -36,13 +36,26 @@ export const requestNotificationPermission = async (userId) => {
       return null;
     }
 
-    // Registrar service worker si no está registrado
+    // Asegurar que el Service Worker esté registrado y activo
     if ("serviceWorker" in navigator) {
       try {
-        const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
-        console.log("Service Worker registrado:", registration);
+        // Intentar obtener el registro existente primero
+        let registration = await navigator.serviceWorker.getRegistration();
+        
+        // Si no existe, registrarlo
+        if (!registration) {
+          registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+          console.log("Service Worker registrado:", registration.scope);
+        } else {
+          console.log("Service Worker ya registrado:", registration.scope);
+        }
+        
+        // Esperar a que esté activo
+        await navigator.serviceWorker.ready;
+        console.log("Service Worker activo y listo");
       } catch (error) {
         console.error("Error registrando service worker:", error);
+        return null;
       }
     }
 
@@ -52,7 +65,10 @@ export const requestNotificationPermission = async (userId) => {
       return null;
     }
 
+    // Esperar a que el Service Worker esté completamente listo
     const serviceWorkerRegistration = await navigator.serviceWorker.ready;
+    
+    // Obtener el token FCM
     const currentToken = await getMessagingToken(messaging, {
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration: serviceWorkerRegistration,

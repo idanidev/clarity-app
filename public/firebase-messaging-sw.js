@@ -23,6 +23,7 @@ const messaging = firebase.messaging();
 // Handle background messages
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
+  console.log('[firebase-messaging-sw.js] App está cerrada o en background');
   
   const notificationTitle = payload.notification?.title || 'Clarity';
   
@@ -58,9 +59,17 @@ messaging.onBackgroundMessage((payload) => {
     silent: false,
   };
 
+  console.log('[firebase-messaging-sw.js] Mostrando notificación:', notificationTitle, notificationOptions);
+
   // Mostrar la notificación
   // En iOS, las notificaciones con requireInteraction: true se quedan en la bandeja
-  self.registration.showNotification(notificationTitle, notificationOptions);
+  return self.registration.showNotification(notificationTitle, notificationOptions)
+    .then(() => {
+      console.log('[firebase-messaging-sw.js] Notificación mostrada correctamente');
+    })
+    .catch((error) => {
+      console.error('[firebase-messaging-sw.js] Error mostrando notificación:', error);
+    });
 });
 
 // Handle notification clicks

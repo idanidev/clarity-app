@@ -22,12 +22,11 @@ const Notification = memo(({ notification, onClose }) => {
 
   const notificationElement = (
     <div
-      className={`fixed bottom-4 left-4 right-4 sm:top-6 sm:right-6 sm:left-auto sm:bottom-auto z-[9999] px-3 py-2.5 sm:px-5 sm:py-3 rounded-lg sm:rounded-xl backdrop-blur-xl border ${intentClasses} text-white font-medium shadow-2xl max-w-sm sm:max-w-sm mx-auto sm:mx-0 animate-in`}
+      className={`fixed top-20 left-4 right-4 sm:top-6 sm:right-6 sm:left-auto z-[9999] px-3 py-2.5 sm:px-5 sm:py-3 rounded-lg sm:rounded-xl backdrop-blur-xl border ${intentClasses} text-white font-medium shadow-2xl max-w-sm sm:max-w-sm mx-auto sm:mx-0 animate-in`}
       role="status"
       aria-live="polite"
       style={{
-        // Asegurar que no tape la barra inferior en móvil
-        paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))',
+        // En móvil: arriba con espacio suficiente para no tapar el header
         // Forzar aceleración de hardware en iOS
         WebkitTransform: 'translateZ(0)',
         transform: 'translateZ(0)',

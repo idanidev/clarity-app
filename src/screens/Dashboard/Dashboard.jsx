@@ -1335,15 +1335,42 @@ const Dashboard = ({ user }) => {
     if (VAPID_KEY_FROM_FIREBASE) {
       setVAPIDKey(VAPID_KEY_FROM_FIREBASE);
       
-      // Verificar permisos y solicitar si es necesario
-      const permission = getNotificationPermission();
+      // Asegurar que el Service Worker esté registrado y activo
+      const ensureServiceWorkerActive = async () => {
+        if ("serviceWorker" in navigator) {
+          try {
+            // Esperar a que el Service Worker esté listo
+            const registration = await navigator.serviceWorker.ready;
+            console.log("Service Worker activo:", registration.active?.scriptURL);
+            
+            // Verificar permisos y solicitar token FCM
+            const permission = getNotificationPermission();
+            
+            if (permission === "granted") {
+              // Solicitar token FCM (esto también lo guarda automáticamente)
+              try {
+                const token = await requestNotificationPermission(user.uid);
+                if (token) {
+                  console.log("Token FCM obtenido y guardado:", token);
+                } else {
+                  console.warn("No se pudo obtener el token FCM");
+                }
+              } catch (error) {
+                console.error("Error obteniendo token FCM:", error);
+              }
+            } else {
+              console.log("Permisos de notificación:", permission);
+            }
+          } catch (error) {
+            console.error("Error verificando Service Worker:", error);
+          }
+        }
+      };
       
-      if (permission === "granted") {
-        // Solicitar token FCM
-        requestNotificationPermission(user.uid).catch((error) => {
-          console.error("Error obteniendo token FCM:", error);
-        });
-      }
+      // Ejecutar después de un pequeño delay para asegurar que todo esté cargado
+      setTimeout(() => {
+        ensureServiceWorkerActive();
+      }, 1000);
       
       // Configurar listener para mensajes en primer plano
       const unsubscribe = setupForegroundMessageListener((payload) => {
