@@ -1295,6 +1295,8 @@ const Dashboard = ({ user }) => {
       
       // Asegurar que el Service Worker esté registrado y activo (solo una vez)
       let tokenRequested = false;
+      let listenerConfigured = false;
+      
       const ensureServiceWorkerActive = async () => {
         // Evitar múltiples solicitudes de token
         if (tokenRequested) {
@@ -1355,24 +1357,38 @@ const Dashboard = ({ user }) => {
         }
       };
       
+      // Configurar listener para mensajes en primer plano (solo una vez)
+      let unsubscribe = null;
+      if (!listenerConfigured) {
+        listenerConfigured = true;
+        console.log("🔧 Configurando listener de notificaciones push...");
+        unsubscribe = setupForegroundMessageListener((payload) => {
+          console.log("📬 Notificación recibida en primer plano:", payload);
+          showNotification(
+            payload.notification?.body || payload.data?.message || "Tienes una nueva notificación",
+            "success"
+          );
+        });
+        
+        if (unsubscribe) {
+          console.log("✅ Listener de notificaciones push configurado correctamente");
+        } else {
+          console.warn("⚠️ No se pudo configurar el listener de notificaciones push");
+          listenerConfigured = false; // Permitir reintento si falla
+        }
+      }
+      
       // Ejecutar solo una vez después de un pequeño delay
       const timeoutId = setTimeout(() => {
         ensureServiceWorkerActive();
       }, 1000);
       
-      // Configurar listener para mensajes en primer plano
-      const unsubscribe = setupForegroundMessageListener((payload) => {
-        console.log("Notificación recibida en primer plano:", payload);
-        showNotification(
-          payload.notification?.body || payload.data?.message || "Tienes una nueva notificación",
-          "success"
-        );
-      });
-      
       return () => {
         clearTimeout(timeoutId);
         if (unsubscribe) {
+          console.log("🧹 Limpiando listener de notificaciones push...");
           unsubscribe();
+          listenerConfigured = false;
         }
       };
     } else {

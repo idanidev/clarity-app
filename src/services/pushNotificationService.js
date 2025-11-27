@@ -168,20 +168,25 @@ export const removeFCMToken = async (userId, token) => {
  */
 export const setupForegroundMessageListener = (callback) => {
   if (!messaging) {
+    console.warn("⚠️ Firebase Messaging no está disponible para configurar listener");
     return null;
   }
 
-  return onMessagingMessage(messaging, (payload) => {
-    console.log("Mensaje recibido en primer plano:", payload);
+  console.log("✅ Configurando listener de mensajes en primer plano...");
+  
+  const unsubscribe = onMessagingMessage(messaging, (payload) => {
+    console.log("🔔 Mensaje recibido en primer plano:", payload);
     
+    // Primero ejecutar el callback para mostrar la notificación interna
     if (callback) {
       callback(payload);
     }
     
-    // Mostrar notificación manual si el usuario no la bloqueó
+    // Mostrar notificación del sistema si el usuario no la bloqueó
     // En iOS, estas notificaciones aparecerán como banners (tiras)
     // No se pueden hacer persistentes desde el código web
     if (Notification.permission === "granted") {
+      console.log("📱 Mostrando notificación del sistema...");
       const notificationTitle = payload.notification?.title || "Clarity";
       const notificationOptions = {
         body: payload.notification?.body || payload.data?.message || "Tienes una nueva notificación",
@@ -211,6 +216,9 @@ export const setupForegroundMessageListener = (callback) => {
       };
     }
   });
+  
+  console.log("✅ Listener de mensajes en primer plano configurado correctamente");
+  return unsubscribe;
 };
 
 /**
