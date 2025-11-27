@@ -1,28 +1,8 @@
-import { memo, useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import { memo } from "react";
 import { AlertTriangle, Check, X } from "lucide-react";
 
 const Notification = memo(({ notification, onClose }) => {
-  const [mounted, setMounted] = useState(false);
-  const [container, setContainer] = useState(null);
-
-  useEffect(() => {
-    setMounted(true);
-    // Crear un contenedor específico para las notificaciones
-    const notificationContainer = document.createElement('div');
-    notificationContainer.id = 'notification-container';
-    document.body.appendChild(notificationContainer);
-    setContainer(notificationContainer);
-
-    return () => {
-      // Limpiar el contenedor al desmontar
-      if (notificationContainer && notificationContainer.parentNode) {
-        document.body.removeChild(notificationContainer);
-      }
-    };
-  }, []);
-
-  if (!notification || !mounted || !container) {
+  if (!notification) {
     return null;
   }
 
@@ -33,7 +13,7 @@ const Notification = memo(({ notification, onClose }) => {
       ? "bg-red-500/95 border-red-400"
       : "bg-orange-500/95 border-orange-400";
 
-  const notificationElement = (
+  return (
     <div
       className={`fixed top-20 left-4 right-4 sm:top-6 sm:right-6 sm:left-auto z-[9999] px-3 py-2.5 sm:px-5 sm:py-3 rounded-lg sm:rounded-xl backdrop-blur-xl border ${intentClasses} text-white font-medium shadow-2xl max-w-sm sm:max-w-sm mx-auto sm:mx-0 animate-in`}
       role="status"
@@ -72,9 +52,6 @@ const Notification = memo(({ notification, onClose }) => {
       </div>
     </div>
   );
-
-  // Renderizar usando portal en el contenedor específico para evitar problemas de React
-  return createPortal(notificationElement, container);
 });
 
 Notification.displayName = "Notification";

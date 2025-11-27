@@ -50,13 +50,7 @@ import {
   getNotificationPermission,
   setVAPIDKey,
 } from "../../services/pushNotificationService";
-import {
-  scheduleDailyReminder,
-  scheduleWeeklyReminder,
-  showLocalNotification,
-  requestLocalNotificationPermission,
-  scheduleTestNotification,
-} from "../../services/localNotificationService";
+// Las notificaciones push ahora se manejan desde Cloud Functions
 import {
   calculateBadges,
   calculateStreak,
@@ -1277,44 +1271,8 @@ const Dashboard = ({ user }) => {
   }, [recurringExpenses?.length, notificationSettings?.recurringReminders?.enabled, user?.uid]); // Dependencias más específicas
 
   // Efecto para recordatorios personalizados - Programar notificación local que se queda en la bandeja
-  useEffect(() => {
-    if (!user || !notificationSettings?.customReminders?.enabled || !notificationSettings?.customReminders?.message) {
-      return;
-    }
-
-    // Programar recordatorio diario usando notificaciones locales
-    // Estas SÍ se quedan en la bandeja de notificaciones en iOS
-    const setupDailyReminder = async () => {
-      const hasPermission = await requestLocalNotificationPermission();
-      if (hasPermission) {
-        await scheduleDailyReminder(notificationSettings.customReminders.message);
-      }
-    };
-
-    setupDailyReminder();
-  }, [notificationSettings?.customReminders?.enabled, notificationSettings?.customReminders?.message, user?.uid]);
-
-  // Recordatorio semanal - Programar notificación local que se queda en la bandeja
-  useEffect(() => {
-    if (!user || !notificationSettings?.weeklyReminder?.enabled) {
-      return;
-    }
-
-    // Programar recordatorio semanal usando notificaciones locales
-    // Estas SÍ se quedan en la bandeja de notificaciones en iOS
-    const setupWeeklyReminder = async () => {
-      const hasPermission = await requestLocalNotificationPermission();
-      if (hasPermission) {
-        const dayOfWeek = notificationSettings.weeklyReminder.dayOfWeek ?? 0;
-        const hour = notificationSettings.weeklyReminder.hour ?? 21;
-        const minute = notificationSettings.weeklyReminder.minute ?? 0;
-        const message = notificationSettings.weeklyReminder.message || "¡No olvides registrar tus gastos de esta semana en Clarity!";
-        await scheduleWeeklyReminder(dayOfWeek, hour, minute, message);
-      }
-    };
-
-    setupWeeklyReminder();
-  }, [notificationSettings?.weeklyReminder?.enabled, notificationSettings?.weeklyReminder?.dayOfWeek, notificationSettings?.weeklyReminder?.hour, notificationSettings?.weeklyReminder?.minute, notificationSettings?.weeklyReminder?.message, user?.uid]);
+  // Las notificaciones ahora se manejan desde Cloud Functions
+  // No necesitamos programar notificaciones locales aquí
 
   // Inicializar notificaciones push cuando el usuario inicia sesión
   useEffect(() => {
@@ -1590,27 +1548,7 @@ const Dashboard = ({ user }) => {
     try {
       await saveNotificationSettings(user.uid, settings);
       setNotificationSettings(settings);
-      
-      // Si hay minutos de prueba configurados, programar notificación de prueba
-      if (settings.customReminders?.testMinutes && settings.customReminders.testMinutes > 0) {
-        const message = settings.customReminders?.message || "No olvides registrar tus gastos";
-        await scheduleTestNotification(settings.customReminders.testMinutes, message);
-        showNotification(`Notificación de prueba programada para ${settings.customReminders.testMinutes} minutos`);
-      } else {
-        showNotification("Configuración de notificaciones actualizada");
-        
-        // Si el recordatorio semanal está activado, programarlo localmente también
-        if (settings.weeklyReminder?.enabled) {
-          const hasPermission = await requestLocalNotificationPermission();
-          if (hasPermission) {
-            const dayOfWeek = settings.weeklyReminder.dayOfWeek ?? 0;
-            const hour = settings.weeklyReminder.hour ?? 21;
-            const minute = settings.weeklyReminder.minute ?? 0;
-            const message = settings.weeklyReminder.message || "¡No olvides registrar tus gastos de esta semana en Clarity!";
-            await scheduleWeeklyReminder(dayOfWeek, hour, minute, message);
-          }
-        }
-      }
+      showNotification("Configuración de notificaciones actualizada", "success");
     } catch (error) {
       console.error("Error saving notification settings:", error);
       showNotification("Error al guardar la configuración", "error");

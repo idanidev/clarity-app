@@ -498,7 +498,7 @@ exports.sendDailyReminders = onSchedule(
  */
 exports.sendWeeklyReminders = onSchedule(
   {
-    schedule: "0 * * * *", // Cada hora
+    schedule: "* * * * *", // Cada minuto
     timeZone: "Europe/Madrid",
     memory: "256MiB",
     timeoutSeconds: 300,
@@ -511,8 +511,9 @@ exports.sendWeeklyReminders = onSchedule(
       const now = new Date();
       const currentDayOfWeek = now.getDay(); // 0 = Domingo, 6 = Sábado
       const currentHour = now.getHours(); // 0-23
+      const currentMinute = now.getMinutes(); // 0-59
 
-      logger.info(`📅 Día de la semana: ${currentDayOfWeek} (0=Domingo, 6=Sábado), Hora: ${currentHour}:00`);
+      logger.info(`📅 Día de la semana: ${currentDayOfWeek} (0=Domingo, 6=Sábado), Hora: ${currentHour}:${String(currentMinute).padStart(2, '0')}`);
 
       // Obtener todos los usuarios
       const usersSnapshot = await db.collection("users").get();
@@ -537,10 +538,13 @@ exports.sendWeeklyReminders = onSchedule(
         const configuredDay = notificationSettings.weeklyReminder?.dayOfWeek || 0;
         const configuredHour = notificationSettings.weeklyReminder?.hour !== undefined 
           ? notificationSettings.weeklyReminder.hour 
-          : 10; // Hora por defecto: 10:00
+          : 21; // Hora por defecto: 21:00
+        const configuredMinute = notificationSettings.weeklyReminder?.minute !== undefined 
+          ? notificationSettings.weeklyReminder.minute 
+          : 0; // Minutos por defecto: 0
         
-        // Verificar si coincide con el día y hora configurados
-        if (currentDayOfWeek !== configuredDay || currentHour !== configuredHour) {
+        // Verificar si coincide con el día, hora y minutos configurados
+        if (currentDayOfWeek !== configuredDay || currentHour !== configuredHour || currentMinute !== configuredMinute) {
           continue;
         }
 
