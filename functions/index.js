@@ -451,6 +451,26 @@ exports.sendDailyReminders = onSchedule(
           const response = await messaging.sendEach(messages);
           logger.info(`  ✅ Recordatorio enviado a usuario ${userId}: ${response.successCount} exitosos`);
           remindersSent += response.successCount;
+          
+          // Limpiar tokens inválidos
+          if (response.responses) {
+            const invalidTokens = [];
+            response.responses.forEach((resp, idx) => {
+              if (!resp.success && (resp.error?.code === 'messaging/invalid-registration-token' || 
+                                    resp.error?.code === 'messaging/registration-token-not-registered')) {
+                invalidTokens.push(messages[idx].token);
+              }
+            });
+            
+            if (invalidTokens.length > 0) {
+              logger.info(`  🧹 Limpiando ${invalidTokens.length} tokens inválidos para usuario ${userId}`);
+              const validTokens = fcmTokens.filter(token => !invalidTokens.includes(token));
+              await db.collection("users").doc(userId).update({
+                fcmTokens: validTokens,
+                updatedAt: FieldValue.serverTimestamp(),
+              });
+            }
+          }
         } catch (error) {
           logger.error(`  ❌ Error enviando recordatorio a usuario ${userId}:`, error);
         }
@@ -578,6 +598,26 @@ exports.sendWeeklyReminders = onSchedule(
           const response = await messaging.sendEach(messages);
           logger.info(`  ✅ Recordatorio semanal enviado a usuario ${userId}: ${response.successCount} exitosos`);
           remindersSent += response.successCount;
+          
+          // Limpiar tokens inválidos
+          if (response.responses) {
+            const invalidTokens = [];
+            response.responses.forEach((resp, idx) => {
+              if (!resp.success && (resp.error?.code === 'messaging/invalid-registration-token' || 
+                                    resp.error?.code === 'messaging/registration-token-not-registered')) {
+                invalidTokens.push(messages[idx].token);
+              }
+            });
+            
+            if (invalidTokens.length > 0) {
+              logger.info(`  🧹 Limpiando ${invalidTokens.length} tokens inválidos para usuario ${userId}`);
+              const validTokens = fcmTokens.filter(token => !invalidTokens.includes(token));
+              await db.collection("users").doc(userId).update({
+                fcmTokens: validTokens,
+                updatedAt: FieldValue.serverTimestamp(),
+              });
+            }
+          }
         } catch (error) {
           logger.error(`  ❌ Error enviando recordatorio semanal a usuario ${userId}:`, error);
         }

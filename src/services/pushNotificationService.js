@@ -61,30 +61,46 @@ export const requestNotificationPermission = async (userId) => {
 
     // Obtener token FCM
     if (!VAPID_KEY) {
-      console.warn("VAPID key no configurada. Ve a Firebase Console > Cloud Messaging > Web Push certificates");
+      console.warn("⚠️ VAPID key no configurada. Ve a Firebase Console > Cloud Messaging > Web Push certificates");
       return null;
     }
 
     // Esperar a que el Service Worker esté completamente listo
+    console.log("⏳ Esperando a que el Service Worker esté listo...");
     const serviceWorkerRegistration = await navigator.serviceWorker.ready;
+    console.log("✅ Service Worker listo:", serviceWorkerRegistration.scope);
+    
+    // Verificar que el Service Worker esté activo
+    if (!serviceWorkerRegistration.active) {
+      console.warn("⚠️ Service Worker no está activo. Intentando activarlo...");
+      await serviceWorkerRegistration.update();
+    }
     
     // Obtener el token FCM
+    console.log("🔑 Obteniendo token FCM...");
     const currentToken = await getMessagingToken(messaging, {
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration: serviceWorkerRegistration,
     });
 
     if (currentToken) {
-      console.log("Token FCM obtenido:", currentToken);
+      console.log("✅ Token FCM obtenido:", currentToken.substring(0, 30) + "...");
       
       // Guardar token en Firestore
       if (userId) {
-        await saveFCMToken(userId, currentToken);
+        try {
+          await saveFCMToken(userId, currentToken);
+          console.log("✅ Token FCM guardado en Firestore para usuario:", userId);
+        } catch (error) {
+          console.error("❌ Error guardando token FCM:", error);
+        }
+      } else {
+        console.warn("⚠️ No hay userId, no se puede guardar el token");
       }
       
       return currentToken;
     } else {
-      console.log("No se pudo obtener el token FCM");
+      console.warn("⚠️ No se pudo obtener el token FCM. Verifica que el Service Worker esté activo y que tengas permisos de notificación.");
       return null;
     }
   } catch (error) {
@@ -106,14 +122,22 @@ export const saveFCMToken = async (userId, token) => {
       
       // Solo añadir si no existe ya
       if (!tokens.includes(token)) {
+        // Limitar a máximo 5 tokens para evitar acumulación excesiva
+        const updatedTokens = [...tokens, token].slice(-5);
         await updateDoc(userDocRef, {
-          fcmTokens: [...tokens, token],
+          fcmTokens: updatedTokens,
           updatedAt: new Date().toISOString(),
         });
+        console.log(`✅ Token FCM guardado en Firestore para usuario ${userId}. Total tokens: ${updatedTokens.length}`);
+      } else {
+        console.log(`ℹ️ Token FCM ya existe para usuario ${userId}, no se duplica`);
       }
+    } else {
+      console.warn(`⚠️ Usuario ${userId} no existe en Firestore`);
     }
   } catch (error) {
-    console.error("Error guardando token FCM:", error);
+    console.error("❌ Error guardando token FCM:", error);
+    throw error;
   }
 };
 

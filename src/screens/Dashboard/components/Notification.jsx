@@ -4,12 +4,25 @@ import { AlertTriangle, Check, X } from "lucide-react";
 
 const Notification = memo(({ notification, onClose }) => {
   const [mounted, setMounted] = useState(false);
+  const [container, setContainer] = useState(null);
 
   useEffect(() => {
     setMounted(true);
+    // Crear un contenedor específico para las notificaciones
+    const notificationContainer = document.createElement('div');
+    notificationContainer.id = 'notification-container';
+    document.body.appendChild(notificationContainer);
+    setContainer(notificationContainer);
+
+    return () => {
+      // Limpiar el contenedor al desmontar
+      if (notificationContainer && notificationContainer.parentNode) {
+        document.body.removeChild(notificationContainer);
+      }
+    };
   }, []);
 
-  if (!notification || !mounted) {
+  if (!notification || !mounted || !container) {
     return null;
   }
 
@@ -26,7 +39,9 @@ const Notification = memo(({ notification, onClose }) => {
       role="status"
       aria-live="polite"
       style={{
-        // En móvil: arriba con espacio suficiente para no tapar el header
+        // En móvil: arriba, justo debajo del header (80px = top-20)
+        // La barra inferior está en bottom-0 con z-[100], esta notificación está arriba con z-[9999]
+        // No deberían interferir porque están en extremos opuestos
         // Forzar aceleración de hardware en iOS
         WebkitTransform: 'translateZ(0)',
         transform: 'translateZ(0)',
@@ -58,8 +73,8 @@ const Notification = memo(({ notification, onClose }) => {
     </div>
   );
 
-  // Renderizar usando portal directamente en el body para evitar problemas de z-index en iOS
-  return createPortal(notificationElement, document.body);
+  // Renderizar usando portal en el contenedor específico para evitar problemas de React
+  return createPortal(notificationElement, container);
 });
 
 Notification.displayName = "Notification";

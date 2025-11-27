@@ -20,6 +20,18 @@ firebase.initializeApp(firebaseConfig);
 // Retrieve firebase messaging
 const messaging = firebase.messaging();
 
+// Log cuando el Service Worker se activa
+self.addEventListener('activate', (event) => {
+  console.log('[firebase-messaging-sw.js] Service Worker activado');
+  event.waitUntil(self.clients.claim());
+});
+
+// Log cuando el Service Worker se instala
+self.addEventListener('install', (event) => {
+  console.log('[firebase-messaging-sw.js] Service Worker instalado');
+  self.skipWaiting(); // Activar inmediatamente
+});
+
 // Handle background messages
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);

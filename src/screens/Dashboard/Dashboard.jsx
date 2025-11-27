@@ -1335,40 +1335,70 @@ const Dashboard = ({ user }) => {
     if (VAPID_KEY_FROM_FIREBASE) {
       setVAPIDKey(VAPID_KEY_FROM_FIREBASE);
       
-      // Asegurar que el Service Worker esté registrado y activo
+      // Asegurar que el Service Worker esté registrado y activo (solo una vez)
+      let tokenRequested = false;
       const ensureServiceWorkerActive = async () => {
+        // Evitar múltiples solicitudes de token
+        if (tokenRequested) {
+          return;
+        }
+        
         if ("serviceWorker" in navigator) {
           try {
-            // Esperar a que el Service Worker esté listo
-            const registration = await navigator.serviceWorker.ready;
-            console.log("Service Worker activo:", registration.active?.scriptURL);
+            // Verificar si hay un Service Worker registrado
+            let registration = await navigator.serviceWorker.getRegistration();
             
-            // Verificar permisos y solicitar token FCM
+            if (!registration) {
+              console.log("⚠️ No hay Service Worker registrado, registrando...");
+              registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js", {
+                scope: "/",
+                updateViaCache: "none",
+              });
+              console.log("✅ Service Worker registrado:", registration.scope);
+            }
+            
+            // Esperar a que el Service Worker esté listo
+            await navigator.serviceWorker.ready;
+            console.log("✅ Service Worker activo y listo");
+            
+            // Verificar permisos y solicitar token FCM (solo una vez)
             const permission = getNotificationPermission();
+            console.log("📱 Permisos de notificación:", permission);
             
             if (permission === "granted") {
-              // Solicitar token FCM (esto también lo guarda automáticamente)
-              try {
-                const token = await requestNotificationPermission(user.uid);
-                if (token) {
-                  console.log("Token FCM obtenido y guardado:", token);
-                } else {
-                  console.warn("No se pudo obtener el token FCM");
+              if (!tokenRequested) {
+                tokenRequested = true;
+                // Solicitar token FCM (esto también lo guarda automáticamente)
+                try {
+                  console.log("🔑 Solicitando token FCM...");
+                  const token = await requestNotificationPermission(user.uid);
+                  if (token) {
+                    console.log("✅ Token FCM obtenido y guardado:", token.substring(0, 20) + "...");
+                  } else {
+                    console.warn("⚠️ No se pudo obtener el token FCM");
+                    tokenRequested = false; // Permitir reintento si falla
+                  }
+                } catch (error) {
+                  console.error("❌ Error obteniendo token FCM:", error);
+                  tokenRequested = false; // Permitir reintento si falla
                 }
-              } catch (error) {
-                console.error("Error obteniendo token FCM:", error);
               }
-            } else {
-              console.log("Permisos de notificación:", permission);
+            } else if (permission === "default") {
+              console.log("ℹ️ Permisos de notificación pendientes. El usuario debe concederlos.");
+            } else if (permission === "denied") {
+              console.warn("⚠️ Permisos de notificación denegados");
             }
           } catch (error) {
-            console.error("Error verificando Service Worker:", error);
+            console.error("❌ Error verificando Service Worker:", error);
+            tokenRequested = false; // Permitir reintento si falla
           }
+        } else {
+          console.warn("⚠️ Service Worker no está disponible en este navegador");
         }
       };
       
-      // Ejecutar después de un pequeño delay para asegurar que todo esté cargado
-      setTimeout(() => {
+      // Ejecutar solo una vez después de un pequeño delay
+      const timeoutId = setTimeout(() => {
         ensureServiceWorkerActive();
       }, 1000);
       
@@ -1382,6 +1412,7 @@ const Dashboard = ({ user }) => {
       });
       
       return () => {
+        clearTimeout(timeoutId);
         if (unsubscribe) {
           unsubscribe();
         }
