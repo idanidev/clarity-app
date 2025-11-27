@@ -1,3 +1,4 @@
+/* eslint-disable max-len */
 /**
  * Clarity - Cloud Functions para Gastos Recurrentes
  * Firebase Functions v2
@@ -320,16 +321,16 @@ exports.checkMissedRecurringExpenses = onSchedule(
 
             const newExpense = {
               name: recurring.name,
-            amount: Math.max(0, recurring.amount || 0), // Asegurar que amount sea >= 0
-            category: recurring.category,
-            subcategory: recurring.subcategory,
-            date: expenseDate,
-            paymentMethod: recurring.paymentMethod,
-            isRecurring: true,
-            recurringId: recurringId,
-            createdAt: FieldValue.serverTimestamp(),
-            updatedAt: FieldValue.serverTimestamp(),
-          };
+              amount: Math.max(0, recurring.amount || 0), // Asegurar que amount sea >= 0
+              category: recurring.category,
+              subcategory: recurring.subcategory,
+              date: expenseDate,
+              paymentMethod: recurring.paymentMethod,
+              isRecurring: true,
+              recurringId: recurringId,
+              createdAt: FieldValue.serverTimestamp(),
+              updatedAt: FieldValue.serverTimestamp(),
+            };
 
             await db
               .collection("users")
@@ -388,21 +389,21 @@ exports.sendDailyReminders = onSchedule(
       for (const userDoc of usersSnapshot.docs) {
         const userId = userDoc.id;
         const userData = userDoc.data();
-        
+
         // Verificar si tiene recordatorios personalizados activos
         const notificationSettings = userData.notificationSettings;
-        
+
         if (!notificationSettings?.customReminders?.enabled) {
           remindersSkipped++;
           continue;
         }
 
-        const message = notificationSettings.customReminders?.message || 
+        const message = notificationSettings.customReminders?.message ||
                        "No olvides registrar tus gastos de hoy";
 
         // Obtener tokens FCM del usuario
         const fcmTokens = userData.fcmTokens || [];
-        
+
         if (fcmTokens.length === 0) {
           logger.info(`  ⏭️  Usuario ${userId} no tiene tokens FCM`);
           remindersSkipped++;
@@ -410,7 +411,7 @@ exports.sendDailyReminders = onSchedule(
         }
 
         // Enviar notificación a cada token
-        const messages = fcmTokens.map(token => ({
+        const messages = fcmTokens.map((token) => ({
           token: token,
           notification: {
             title: "📝 Clarity - Recordatorio",
@@ -451,20 +452,20 @@ exports.sendDailyReminders = onSchedule(
           const response = await messaging.sendEach(messages);
           logger.info(`  ✅ Recordatorio enviado a usuario ${userId}: ${response.successCount} exitosos`);
           remindersSent += response.successCount;
-          
+
           // Limpiar tokens inválidos
           if (response.responses) {
             const invalidTokens = [];
             response.responses.forEach((resp, idx) => {
-              if (!resp.success && (resp.error?.code === 'messaging/invalid-registration-token' || 
-                                    resp.error?.code === 'messaging/registration-token-not-registered')) {
+              if (!resp.success && (resp.error?.code === "messaging/invalid-registration-token" ||
+                                    resp.error?.code === "messaging/registration-token-not-registered")) {
                 invalidTokens.push(messages[idx].token);
               }
             });
-            
+
             if (invalidTokens.length > 0) {
               logger.info(`  🧹 Limpiando ${invalidTokens.length} tokens inválidos para usuario ${userId}`);
-              const validTokens = fcmTokens.filter(token => !invalidTokens.includes(token));
+              const validTokens = fcmTokens.filter((token) => !invalidTokens.includes(token));
               await db.collection("users").doc(userId).update({
                 fcmTokens: validTokens,
                 updatedAt: FieldValue.serverTimestamp(),
@@ -513,7 +514,7 @@ exports.sendWeeklyReminders = onSchedule(
       const currentHour = now.getHours(); // 0-23
       const currentMinute = now.getMinutes(); // 0-59
 
-      logger.info(`📅 Día de la semana: ${currentDayOfWeek} (0=Domingo, 6=Sábado), Hora: ${currentHour}:${String(currentMinute).padStart(2, '0')}`);
+      logger.info(`📅 Día de la semana: ${currentDayOfWeek} (0=Domingo, 6=Sábado), Hora: ${currentHour}:${String(currentMinute).padStart(2, "0")}`);
 
       // Obtener todos los usuarios
       const usersSnapshot = await db.collection("users").get();
@@ -525,10 +526,10 @@ exports.sendWeeklyReminders = onSchedule(
       for (const userDoc of usersSnapshot.docs) {
         const userId = userDoc.id;
         const userData = userDoc.data();
-        
+
         // Verificar si tiene recordatorios semanales activos
         const notificationSettings = userData.notificationSettings;
-        
+
         if (!notificationSettings?.weeklyReminder?.enabled) {
           remindersSkipped++;
           continue;
@@ -536,24 +537,24 @@ exports.sendWeeklyReminders = onSchedule(
 
         // Verificar si es el día configurado
         const configuredDay = notificationSettings.weeklyReminder?.dayOfWeek || 0;
-        const configuredHour = notificationSettings.weeklyReminder?.hour !== undefined 
-          ? notificationSettings.weeklyReminder.hour 
-          : 21; // Hora por defecto: 21:00
-        const configuredMinute = notificationSettings.weeklyReminder?.minute !== undefined 
-          ? notificationSettings.weeklyReminder.minute 
-          : 0; // Minutos por defecto: 0
-        
+        const configuredHour = notificationSettings.weeklyReminder?.hour !== undefined ?
+          notificationSettings.weeklyReminder.hour :
+          21; // Hora por defecto: 21:00
+        const configuredMinute = notificationSettings.weeklyReminder?.minute !== undefined ?
+          notificationSettings.weeklyReminder.minute :
+          0; // Minutos por defecto: 0
+
         // Verificar si coincide con el día, hora y minutos configurados
         if (currentDayOfWeek !== configuredDay || currentHour !== configuredHour || currentMinute !== configuredMinute) {
           continue;
         }
 
-        const message = notificationSettings.weeklyReminder?.message || 
+        const message = notificationSettings.weeklyReminder?.message ||
                        "¡No olvides registrar tus gastos de esta semana en Clarity!";
 
         // Obtener tokens FCM del usuario
         const fcmTokens = userData.fcmTokens || [];
-        
+
         if (fcmTokens.length === 0) {
           logger.info(`  ⏭️  Usuario ${userId} no tiene tokens FCM`);
           remindersSkipped++;
@@ -561,7 +562,7 @@ exports.sendWeeklyReminders = onSchedule(
         }
 
         // Enviar notificación
-        const messages = fcmTokens.map(token => ({
+        const messages = fcmTokens.map((token) => ({
           token: token,
           notification: {
             title: "📝 Clarity - Recordatorio Semanal",
@@ -602,20 +603,20 @@ exports.sendWeeklyReminders = onSchedule(
           const response = await messaging.sendEach(messages);
           logger.info(`  ✅ Recordatorio semanal enviado a usuario ${userId}: ${response.successCount} exitosos`);
           remindersSent += response.successCount;
-          
+
           // Limpiar tokens inválidos
           if (response.responses) {
             const invalidTokens = [];
             response.responses.forEach((resp, idx) => {
-              if (!resp.success && (resp.error?.code === 'messaging/invalid-registration-token' || 
-                                    resp.error?.code === 'messaging/registration-token-not-registered')) {
+              if (!resp.success && (resp.error?.code === "messaging/invalid-registration-token" ||
+                                    resp.error?.code === "messaging/registration-token-not-registered")) {
                 invalidTokens.push(messages[idx].token);
               }
             });
-            
+
             if (invalidTokens.length > 0) {
               logger.info(`  🧹 Limpiando ${invalidTokens.length} tokens inválidos para usuario ${userId}`);
-              const validTokens = fcmTokens.filter(token => !invalidTokens.includes(token));
+              const validTokens = fcmTokens.filter((token) => !invalidTokens.includes(token));
               await db.collection("users").doc(userId).update({
                 fcmTokens: validTokens,
                 updatedAt: FieldValue.serverTimestamp(),
