@@ -371,24 +371,26 @@ const MainContent = memo(({
               </div>
             )}
           </div>
-          
-          {/* Botón de filtrar en móvil - arriba a la derecha - Solo en table y chart */}
-          {(activeView === "table" || activeView === "chart") && (
-            <button
-              onClick={onToggleFilters}
-              className={`md:hidden absolute -top-2 -right-2 p-3 rounded-full shadow-xl backdrop-blur-xl border transition-all active:scale-95 z-10 ${
-                showFilters
-                  ? darkMode
-                    ? "bg-purple-600/90 border-purple-500/50 text-white"
-                    : "bg-purple-600/90 border-purple-400/50 text-white"
-                  : darkMode
-                  ? "bg-gray-800/80 backdrop-blur-xl border-gray-700/50 text-gray-300"
-                  : "bg-white/80 backdrop-blur-xl border-white/60 text-purple-600"
-              }`}
-            >
-              <Filter className="w-5 h-5" />
-            </button>
-          )}
+        </div>
+      )}
+
+      {/* Botón de filtrar en móvil - arriba a la derecha - Solo en table y chart */}
+      {(activeView === "table" || activeView === "chart") && (
+        <div className="md:hidden relative mb-2">
+          <button
+            onClick={onToggleFilters}
+            className={`absolute -top-2 -right-2 p-3 rounded-full shadow-xl backdrop-blur-xl border transition-all active:scale-95 z-10 ${
+              showFilters
+                ? darkMode
+                  ? "bg-purple-600/90 border-purple-500/50 text-white"
+                  : "bg-purple-600/90 border-purple-400/50 text-white"
+                : darkMode
+                ? "bg-gray-800/80 backdrop-blur-xl border-gray-700/50 text-gray-300"
+                : "bg-white/80 backdrop-blur-xl border-white/60 text-purple-600"
+            }`}
+          >
+            <Filter className="w-5 h-5" />
+          </button>
         </div>
       )}
 
@@ -789,7 +791,8 @@ const MainContent = memo(({
             position: 'relative',
           }}
         >
-          <div className="grid grid-cols-4 gap-0.5 p-1" style={{ paddingBottom: 'max(0.5rem, calc(0.5rem + env(safe-area-inset-bottom)))' }}>
+          <div className="grid grid-cols-5 gap-0.5 p-1" style={{ paddingBottom: 'max(0.5rem, calc(0.5rem + env(safe-area-inset-bottom)))' }}>
+            {/* Botón Tabla */}
             <button
               onClick={() => {
                 onChangeView("table");
@@ -812,6 +815,7 @@ const MainContent = memo(({
               )}
             </button>
 
+            {/* Botón Gráfica */}
             <button
               onClick={() => {
                 onChangeView("chart");
@@ -834,6 +838,16 @@ const MainContent = memo(({
               )}
             </button>
 
+            {/* Botón Añadir Gasto - CENTRO */}
+            <button
+              onClick={onAddExpenseClick}
+              className="flex items-center justify-center p-2 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg transition-all active:scale-95 -mt-2 z-10"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
+            >
+              <Plus className="w-6 h-6" />
+            </button>
+
+            {/* Botón Recientes */}
             <button
               onClick={() => {
                 onChangeView("recent");
@@ -856,6 +870,7 @@ const MainContent = memo(({
               )}
             </button>
 
+            {/* Botón Objetivos */}
             <button
               onClick={() => {
                 onChangeView("goals");
@@ -881,19 +896,6 @@ const MainContent = memo(({
         </div>
       </div>
 
-      {/* Botón FAB flotante para añadir gasto en móvil */}
-      <button
-        onClick={onAddExpenseClick}
-        className="md:hidden fixed right-4 z-50 w-14 h-14 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-2xl flex items-center justify-center transition-all active:scale-95 hover:scale-105"
-        style={{
-          bottom: 'max(5rem, calc(5rem + env(safe-area-inset-bottom)))',
-          boxShadow: "0 8px 24px rgba(139, 92, 246, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.2) inset, 0 2px 8px rgba(0, 0, 0, 0.15)",
-          backdropFilter: "blur(10px)",
-          WebkitBackdropFilter: "blur(10px)",
-        }}
-      >
-        <Plus className="w-6 h-6" strokeWidth={3} />
-      </button>
 
       {activeView === "table" && (
         <div className="max-w-7xl mx-auto">
@@ -1555,14 +1557,14 @@ const MainContent = memo(({
 
           {/* Objetivo de Ahorro Mensual - Diseño Simplificado y Visual */}
           {goals?.totalSavingsGoal > 0 && income > 0 && (() => {
-            const today = new Date();
-            const currentYear = today.getFullYear();
-            const currentMonth = today.getMonth() + 1;
-            const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
-            const daysPassed = today.getDate();
-            
-            const currentMonthExpenses = categoryTotalsForBudgets.reduce((sum, item) => sum + item.total, 0);
-            
+                const today = new Date();
+                const currentYear = today.getFullYear();
+                const currentMonth = today.getMonth() + 1;
+                const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+                const daysPassed = today.getDate();
+                
+                const currentMonthExpenses = categoryTotalsForBudgets.reduce((sum, item) => sum + item.total, 0);
+                
             // Lógica corregida: calcular límite de gasto máximo
             const maxSpendingAllowed = income - goals.totalSavingsGoal; // Máximo que puede gastar
             const monthlySavings = income - currentMonthExpenses; // Ahorro actual
@@ -1578,11 +1580,11 @@ const MainContent = memo(({
             const spendingProgress = maxSpendingAllowed > 0 
               ? Math.min((currentMonthExpenses / maxSpendingAllowed) * 100, 100) 
               : 0;
-            
-            return (
+                
+                return (
               <div
                 className={`relative overflow-hidden rounded-2xl sm:rounded-3xl border-2 ${
-                  darkMode 
+                      darkMode 
                     ? "bg-gradient-to-br from-purple-900/40 via-blue-900/30 to-purple-800/40 border-purple-700/50" 
                     : "bg-gradient-to-br from-purple-50 via-blue-50 to-purple-100 border-purple-200"
                 } p-4 sm:p-6 md:p-8 shadow-xl transition-all duration-300 animate-in`}
@@ -1596,25 +1598,25 @@ const MainContent = memo(({
                 {/* Icono decorativo de fondo - Responsive */}
                 <div className={`absolute top-2 right-2 sm:top-4 sm:right-4 opacity-10 ${darkMode ? "text-purple-400" : "text-purple-600"}`}>
                   <Target className="w-20 h-20 sm:w-32 sm:h-32" strokeWidth={1} />
-                </div>
-                
+                        </div>
+                        
                 <div className="relative z-10">
                   <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
                     <div className={`p-2 sm:p-3 rounded-xl sm:rounded-2xl ${
                       darkMode ? "bg-purple-600/30" : "bg-purple-100"
                     }`}>
                       <Target className={`w-5 h-5 sm:w-6 sm:h-6 ${darkMode ? "text-purple-300" : "text-purple-600"}`} />
-                    </div>
+                          </div>
                     <div>
                       <h4 className={`text-base sm:text-lg font-bold ${textClass}`}>
                         Ahorro Mensual
                       </h4>
                       <p className={`text-xs sm:text-sm ${textSecondaryClass}`}>
                         Objetivo: €{goals.totalSavingsGoal.toFixed(2)} este mes
-                      </p>
-                    </div>
-                  </div>
-
+                          </p>
+                        </div>
+                      </div>
+                      
                   {/* Números grandes y claros - Optimizado para móvil */}
                   <div className="mb-4 sm:mb-6">
                     <div className="flex items-baseline gap-2 sm:gap-3 mb-2">
@@ -1635,8 +1637,8 @@ const MainContent = memo(({
                       </span>
                       <span className={`text-xl sm:text-2xl ${textSecondaryClass}`}>
                         / €{maxSpendingAllowed.toFixed(0)}
-                      </span>
-                    </div>
+                        </span>
+                      </div>
                     <p className={`text-xs sm:text-sm font-medium ${
                       hasOverspent 
                         ? "text-red-400" 
@@ -1654,7 +1656,7 @@ const MainContent = memo(({
                         ? `⚠️ Cuidado: Te quedan €${remainingSpending.toFixed(2)} disponibles. Estás cerca del límite.`
                         : `Puedes gastar €${remainingSpending.toFixed(2)} más este mes para alcanzar tu objetivo de ahorro`}
                     </p>
-                  </div>
+                    </div>
 
                   {/* Barra de progreso grande y visual - Responsive */}
                   <div className="mb-4">
@@ -1676,7 +1678,7 @@ const MainContent = memo(({
                         {spendingProgress > 15 && (
                           <span className="text-[10px] sm:text-xs font-bold text-white">
                             {spendingProgress.toFixed(0)}%
-                          </span>
+                        </span>
                         )}
                       </div>
                     </div>
@@ -1691,9 +1693,9 @@ const MainContent = memo(({
                           isCloseToLimit ? "text-yellow-500" : "text-green-500"
                         }`}>
                           {remainingSpending.toFixed(0)}€ disponibles
-                        </p>
-                      )}
-                    </div>
+                            </p>
+                          )}
+                        </div>
                   </div>
 
                   {/* Info rápida - Grid responsive */}
@@ -1718,13 +1720,13 @@ const MainContent = memo(({
                         {hasOverspent 
                           ? `+€${overspending.toFixed(0)}`
                           : `€${monthlySavings.toFixed(0)}`}
-                      </p>
+                            </p>
+                          </div>
+                        </div>
                     </div>
-                  </div>
-                </div>
               </div>
-            );
-          })()}
+                );
+              })()}
 
           {/* Objetivos de Límite de Gasto por Categoría */}
           {goals?.categoryGoals && Object.keys(goals.categoryGoals).length > 0 && (
@@ -1738,32 +1740,32 @@ const MainContent = memo(({
                 </h4>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                {Object.entries(goals.categoryGoals).map(([category, goalAmount]) => {
-                  const today = new Date();
-                  const currentYear = today.getFullYear();
-                  const currentMonth = today.getMonth() + 1;
-                  const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
-                  const daysPassed = today.getDate();
-                  
-                  const categoryTotal = categoryTotalsForBudgets.find((ct) => ct.category === category)?.total || 0;
-                  const expectedSpendingByNow = (goalAmount * daysPassed) / daysInMonth;
-                  const progress = expectedSpendingByNow > 0 
-                    ? Math.min((categoryTotal / expectedSpendingByNow) * 100, 200) 
-                    : 0;
-                  const dailySpendingRate = daysPassed > 0 ? categoryTotal / daysPassed : 0;
-                  const projectedMonthlySpending = dailySpendingRate * daysInMonth;
-                  
-                  const isExceeded = categoryTotal > goalAmount;
-                  const isOnTrack = projectedMonthlySpending <= goalAmount;
-                  const isAhead = categoryTotal <= expectedSpendingByNow;
-                  
+              {Object.entries(goals.categoryGoals).map(([category, goalAmount]) => {
+                const today = new Date();
+                const currentYear = today.getFullYear();
+                const currentMonth = today.getMonth() + 1;
+                const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+                const daysPassed = today.getDate();
+                
+                const categoryTotal = categoryTotalsForBudgets.find((ct) => ct.category === category)?.total || 0;
+                const expectedSpendingByNow = (goalAmount * daysPassed) / daysInMonth;
+                const progress = expectedSpendingByNow > 0 
+                  ? Math.min((categoryTotal / expectedSpendingByNow) * 100, 200) 
+                  : 0;
+                const dailySpendingRate = daysPassed > 0 ? categoryTotal / daysPassed : 0;
+                const projectedMonthlySpending = dailySpendingRate * daysInMonth;
+                
+                const isExceeded = categoryTotal > goalAmount;
+                const isOnTrack = projectedMonthlySpending <= goalAmount;
+                const isAhead = categoryTotal <= expectedSpendingByNow;
+                
                   const status = isExceeded ? "exceeded" : progress >= 100 ? "warning" : isAhead ? "ok" : "warning";
-                  const categoryColor = getCategoryColor(categories[category]);
+                const categoryColor = getCategoryColor(categories[category]);
                   const percentageUsed = (categoryTotal / goalAmount) * 100;
 
-                  return (
-                    <div
-                      key={category}
+                return (
+                  <div
+                    key={category}
                       className={`relative overflow-hidden rounded-xl sm:rounded-2xl border-2 ${
                         status === "exceeded"
                           ? darkMode 
@@ -1798,48 +1800,48 @@ const MainContent = memo(({
                               <p className={`font-bold text-base sm:text-lg ${textClass} truncate`}>{category}</p>
                               <p className={`text-[10px] sm:text-xs ${textSecondaryClass}`}>
                                 No gastar más de €{goalAmount.toFixed(0)}/mes
-                              </p>
-                            </div>
+                        </p>
+                      </div>
                           </div>
                           <div className={`px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold flex-shrink-0 ${
-                            status === "exceeded"
+                        status === "exceeded"
                               ? "bg-red-500 text-white"
-                              : status === "warning"
+                          : status === "warning"
                               ? "bg-yellow-500 text-white"
                               : "bg-green-500 text-white"
-                          }`}>
+                      }`}>
                             {status === "exceeded" ? "⚠️" : status === "warning" ? "⚠️" : "✓"}
-                          </div>
+                    </div>
                         </div>
 
                         {/* Números grandes - Responsive */}
                         <div className="mb-3 sm:mb-4">
                           <div className="flex items-baseline gap-1.5 sm:gap-2 mb-1">
                             <span className={`text-2xl sm:text-3xl font-bold ${
-                              status === "exceeded"
+                            status === "exceeded"
                                 ? "text-red-500"
-                                : status === "warning"
+                              : status === "warning"
                                 ? "text-yellow-500"
                                 : "text-green-500"
-                            }`}>
+                          }`}>
                               €{categoryTotal.toFixed(0)}
-                            </span>
+                          </span>
                             <span className={`text-sm sm:text-lg ${textSecondaryClass}`}>
                               / €{goalAmount.toFixed(0)}
-                            </span>
-                          </div>
+                          </span>
+                        </div>
                           <p className={`text-xs sm:text-sm font-medium ${
-                            status === "exceeded"
+                          status === "exceeded"
                               ? "text-red-500"
-                              : status === "warning"
+                            : status === "warning"
                               ? "text-yellow-500"
                               : "text-green-500"
                           }`}>
                             {isExceeded 
                               ? `Has superado por €${(categoryTotal - goalAmount).toFixed(2)}` 
                               : `Te quedan €${Math.max(0, goalAmount - categoryTotal).toFixed(2)} disponibles`}
-                          </p>
-                        </div>
+                        </p>
+                      </div>
 
                         {/* Barra de progreso - Responsive */}
                         <div className={`h-3 sm:h-4 rounded-full overflow-hidden mb-3 ${
@@ -1847,21 +1849,21 @@ const MainContent = memo(({
                         }`}>
                           <div
                             className={`h-full transition-all duration-500 ${
-                              status === "exceeded"
+                          status === "exceeded"
                                 ? "bg-gradient-to-r from-red-500 to-red-600"
-                                : status === "warning"
+                            : status === "warning"
                                 ? "bg-gradient-to-r from-yellow-500 to-yellow-600"
                                 : "bg-gradient-to-r from-green-500 to-green-600"
                             }`}
                             style={{ width: `${Math.min(percentageUsed, 100)}%` }}
                           />
-                        </div>
-
+                    </div>
+                    
                         {/* Info rápida */}
                         <div className="flex justify-between items-center text-xs">
-                          <span className={textSecondaryClass}>
+                        <span className={textSecondaryClass}>
                             {percentageUsed.toFixed(0)}% usado
-                          </span>
+                        </span>
                           {!isOnTrack && !isExceeded && (
                             <span className={`font-medium ${
                               darkMode ? "text-orange-400" : "text-orange-600"
@@ -1869,7 +1871,7 @@ const MainContent = memo(({
                               Proyección: €{projectedMonthlySpending.toFixed(0)}
                             </span>
                           )}
-                        </div>
+                      </div>
                       </div>
                     </div>
                   );
@@ -1966,8 +1968,8 @@ const MainContent = memo(({
                               </span>
                               <span className={`text-lg sm:text-xl ${textSecondaryClass}`}>
                                 / €{targetAmount.toFixed(0)}
-                              </span>
-                            </div>
+                            </span>
+                          </div>
                             <p className={`text-xs sm:text-sm font-medium ${
                               isComplete
                                 ? "text-green-500"
@@ -1979,7 +1981,7 @@ const MainContent = memo(({
                                 ? "¡Objetivo completado! 🎉" 
                                 : `Faltan €${progress.remaining.toFixed(2)}`}
                             </p>
-                          </div>
+                        </div>
 
                           {/* Barra de progreso grande - Responsive */}
                           <div className={`h-4 sm:h-5 rounded-full overflow-hidden mb-3 sm:mb-4 ${
@@ -1999,8 +2001,8 @@ const MainContent = memo(({
                                 <span className="text-[10px] sm:text-xs font-bold text-white">
                                   {progressPercentage.toFixed(0)}%
                                 </span>
-                              )}
-                            </div>
+                      )}
+                    </div>
                           </div>
                           {progressPercentage <= 20 && (
                             <p className={`text-[10px] sm:text-xs text-center mb-3 sm:mb-4 ${textSecondaryClass}`}>
@@ -2028,10 +2030,10 @@ const MainContent = memo(({
                             </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-              </div>
+                  </div>
+                );
+              })}
+            </div>
             </div>
           )}
 

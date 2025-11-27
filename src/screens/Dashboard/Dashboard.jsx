@@ -55,6 +55,7 @@ import {
   scheduleWeeklyReminder,
   showLocalNotification,
   requestLocalNotificationPermission,
+  scheduleTestNotification,
 } from "../../services/localNotificationService";
 import {
   calculateBadges,
@@ -1529,7 +1530,15 @@ const Dashboard = ({ user }) => {
     try {
       await saveNotificationSettings(user.uid, settings);
       setNotificationSettings(settings);
-      showNotification("Configuración de notificaciones actualizada");
+      
+      // Si hay minutos de prueba configurados, programar notificación de prueba
+      if (settings.customReminders?.testMinutes && settings.customReminders.testMinutes > 0) {
+        const message = settings.customReminders?.message || "No olvides registrar tus gastos";
+        await scheduleTestNotification(settings.customReminders.testMinutes, message);
+        showNotification(`Notificación de prueba programada para ${settings.customReminders.testMinutes} minutos`);
+      } else {
+        showNotification("Configuración de notificaciones actualizada");
+      }
     } catch (error) {
       console.error("Error saving notification settings:", error);
       showNotification("Error al guardar la configuración", "error");

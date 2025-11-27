@@ -22,12 +22,43 @@ const SettingsModal = ({
   const { t } = useTranslation();
   const { language, changeLanguage, availableLanguages } = useLanguage();
   const [localIncome, setLocalIncome] = useState(income || 0);
-  const [localNotificationSettings, setLocalNotificationSettings] = useState(notificationSettings || {
-    budgetAlerts: { enabled: true, at80: true, at90: true, at100: true },
-    recurringReminders: { enabled: true },
-    customReminders: { enabled: true, message: "No olvides registrar tus gastos" },
-    weeklyReminder: { enabled: true, dayOfWeek: 0, hour: 10, message: "¡No olvides registrar tus gastos de esta semana en Clarity!" },
-    pushNotifications: { enabled: false },
+  const [localNotificationSettings, setLocalNotificationSettings] = useState(() => {
+    const defaultSettings = {
+      budgetAlerts: { enabled: true, at80: true, at90: true, at100: true },
+      recurringReminders: { enabled: true },
+      customReminders: { enabled: true, message: "No olvides registrar tus gastos", hour: 20, minute: 0 },
+      weeklyReminder: { enabled: true, dayOfWeek: 0, hour: 10, minute: 0, message: "¡No olvides registrar tus gastos de esta semana en Clarity!" },
+      pushNotifications: { enabled: false },
+    };
+    
+    if (notificationSettings) {
+      // Asegurar que customReminders tenga hour y minute
+      if (notificationSettings.customReminders) {
+        defaultSettings.customReminders = {
+          ...defaultSettings.customReminders,
+          ...notificationSettings.customReminders,
+          hour: notificationSettings.customReminders.hour ?? 20,
+          minute: notificationSettings.customReminders.minute ?? 0,
+        };
+      }
+      // Asegurar que weeklyReminder tenga hour y minute
+      if (notificationSettings.weeklyReminder) {
+        defaultSettings.weeklyReminder = {
+          ...defaultSettings.weeklyReminder,
+          ...notificationSettings.weeklyReminder,
+          hour: notificationSettings.weeklyReminder.hour ?? 10,
+          minute: notificationSettings.weeklyReminder.minute ?? 0,
+        };
+      }
+      return {
+        ...defaultSettings,
+        ...notificationSettings,
+        customReminders: defaultSettings.customReminders,
+        weeklyReminder: defaultSettings.weeklyReminder,
+      };
+    }
+    
+    return defaultSettings;
   });
   const [activeTab, setActiveTab] = useState("general"); // "general" | "notifications"
 
@@ -494,26 +525,121 @@ const SettingsModal = ({
                   </button>
                 </div>
                 {localNotificationSettings.customReminders.enabled && (
-                  <div className="mt-4 pl-8">
-                    <input
-                      type="text"
-                      value={localNotificationSettings.customReminders.message}
-                      onChange={(e) => {
-                        setLocalNotificationSettings({
-                          ...localNotificationSettings,
-                          customReminders: {
-                            ...localNotificationSettings.customReminders,
-                            message: e.target.value,
-                          },
-                        });
-                      }}
-                      className={`w-full px-4 py-2 rounded-lg border ${
-                        darkMode
-                          ? "bg-gray-800 border-gray-600 text-gray-100"
-                          : "bg-white border-purple-200 text-purple-900"
-                      } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
-                      placeholder={t("settings.customReminderPlaceholder")}
-                    />
+                  <div className="mt-4 pl-8 space-y-3">
+                    <div>
+                      <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                        Mensaje
+                      </label>
+                      <input
+                        type="text"
+                        value={localNotificationSettings.customReminders.message}
+                        onChange={(e) => {
+                          setLocalNotificationSettings({
+                            ...localNotificationSettings,
+                            customReminders: {
+                              ...localNotificationSettings.customReminders,
+                              message: e.target.value,
+                            },
+                          });
+                        }}
+                        className={`w-full px-4 py-2 rounded-lg border ${
+                          darkMode
+                            ? "bg-gray-800 border-gray-600 text-gray-100"
+                            : "bg-white border-purple-200 text-purple-900"
+                        } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
+                        placeholder={t("settings.customReminderPlaceholder")}
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                          Hora
+                        </label>
+                        <select
+                          value={localNotificationSettings.customReminders?.hour ?? 20}
+                          onChange={(e) => {
+                            setLocalNotificationSettings({
+                              ...localNotificationSettings,
+                              customReminders: {
+                                ...localNotificationSettings.customReminders,
+                                hour: parseInt(e.target.value),
+                              },
+                            });
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
+                          className={`w-full px-4 py-2 rounded-lg border ${
+                            darkMode
+                              ? "bg-gray-800 border-gray-600 text-gray-100"
+                              : "bg-white border-purple-200 text-purple-900"
+                          } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
+                        >
+                          {Array.from({ length: 24 }, (_, i) => (
+                            <option key={i} value={i}>
+                              {String(i).padStart(2, '0')}:00
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                          Minutos
+                        </label>
+                        <select
+                          value={localNotificationSettings.customReminders?.minute ?? 0}
+                          onChange={(e) => {
+                            setLocalNotificationSettings({
+                              ...localNotificationSettings,
+                              customReminders: {
+                                ...localNotificationSettings.customReminders,
+                                minute: parseInt(e.target.value),
+                              },
+                            });
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
+                          className={`w-full px-4 py-2 rounded-lg border ${
+                            darkMode
+                              ? "bg-gray-800 border-gray-600 text-gray-100"
+                              : "bg-white border-purple-200 text-purple-900"
+                          } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
+                        >
+                          {Array.from({ length: 60 }, (_, i) => (
+                            <option key={i} value={i}>
+                              {String(i).padStart(2, '0')}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                          Probar en X minutos (solo para pruebas)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="60"
+                          value={localNotificationSettings.customReminders?.testMinutes || ""}
+                          onChange={(e) => {
+                            setLocalNotificationSettings({
+                              ...localNotificationSettings,
+                              customReminders: {
+                                ...localNotificationSettings.customReminders,
+                                testMinutes: e.target.value ? parseInt(e.target.value) : undefined,
+                              },
+                            });
+                          }}
+                          placeholder="Ej: 5"
+                          className={`w-full px-4 py-2 rounded-lg border ${
+                            darkMode
+                              ? "bg-gray-800 border-gray-600 text-gray-100"
+                              : "bg-white border-purple-200 text-purple-900"
+                          } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -567,7 +693,7 @@ const SettingsModal = ({
                 </div>
                 {localNotificationSettings.weeklyReminder?.enabled && (
                   <div className="mt-4 pl-8 space-y-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-3">
                       <div>
                         <label className={`block text-sm font-medium ${textClass} mb-2`}>
                           {t("settings.weeklyReminderDay")}
@@ -601,35 +727,69 @@ const SettingsModal = ({
                           <option value="6">Sábado</option>
                         </select>
                       </div>
-                      <div>
-                        <label className={`block text-sm font-medium ${textClass} mb-2`}>
-                          Hora
-                        </label>
-                        <input
-                          type="time"
-                          value={localNotificationSettings.weeklyReminder?.hour !== undefined 
-                            ? `${String(localNotificationSettings.weeklyReminder.hour).padStart(2, '0')}:00`
-                            : "10:00"}
-                          onChange={(e) => {
-                            const timeValue = e.target.value;
-                            const hour = timeValue ? parseInt(timeValue.split(':')[0]) : 10;
-                            setLocalNotificationSettings({
-                              ...localNotificationSettings,
-                              weeklyReminder: {
-                                ...localNotificationSettings.weeklyReminder,
-                                hour: hour,
-                              },
-                            });
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onTouchStart={(e) => e.stopPropagation()}
-                          className={`w-full px-4 py-2 rounded-lg border ${
-                            darkMode
-                              ? "bg-gray-800 border-gray-600 text-gray-100"
-                              : "bg-white border-purple-200 text-purple-900"
-                          } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
-                        />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                            Hora
+                          </label>
+                          <select
+                            value={localNotificationSettings.weeklyReminder?.hour ?? 10}
+                            onChange={(e) => {
+                              setLocalNotificationSettings({
+                                ...localNotificationSettings,
+                                weeklyReminder: {
+                                  ...localNotificationSettings.weeklyReminder,
+                                  hour: parseInt(e.target.value),
+                                },
+                              });
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onTouchStart={(e) => e.stopPropagation()}
+                            className={`w-full px-4 py-2 rounded-lg border ${
+                              darkMode
+                                ? "bg-gray-800 border-gray-600 text-gray-100"
+                                : "bg-white border-purple-200 text-purple-900"
+                            } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
+                          >
+                            {Array.from({ length: 24 }, (_, i) => (
+                              <option key={i} value={i}>
+                                {String(i).padStart(2, '0')}:00
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                            Minutos
+                          </label>
+                          <select
+                            value={localNotificationSettings.weeklyReminder?.minute ?? 0}
+                            onChange={(e) => {
+                              setLocalNotificationSettings({
+                                ...localNotificationSettings,
+                                weeklyReminder: {
+                                  ...localNotificationSettings.weeklyReminder,
+                                  minute: parseInt(e.target.value),
+                                },
+                              });
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onTouchStart={(e) => e.stopPropagation()}
+                            className={`w-full px-4 py-2 rounded-lg border ${
+                              darkMode
+                                ? "bg-gray-800 border-gray-600 text-gray-100"
+                                : "bg-white border-purple-200 text-purple-900"
+                            } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
+                          >
+                            {Array.from({ length: 60 }, (_, i) => (
+                              <option key={i} value={i}>
+                                {String(i).padStart(2, '0')}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                     </div>
                     <div>

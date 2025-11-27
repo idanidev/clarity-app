@@ -230,6 +230,65 @@ export const scheduleCustomReminder = async (date, message) => {
 };
 
 /**
+ * Programa una notificación de prueba para X minutos desde ahora
+ * Útil para probar notificaciones sin esperar a la hora programada
+ */
+export const scheduleTestNotification = async (minutes, message = "Notificación de prueba") => {
+  if (!("Notification" in window) || Notification.permission !== "granted") {
+    console.warn("Permisos de notificación no concedidos");
+    return false;
+  }
+
+  if (minutes <= 0 || minutes > 60) {
+    console.warn("Los minutos deben estar entre 1 y 60");
+    return false;
+  }
+
+  const now = new Date();
+  const targetTime = new Date(now.getTime() + minutes * 60 * 1000);
+
+  console.log(`Programando notificación de prueba para ${minutes} minutos (${targetTime.toLocaleTimeString()})`);
+
+  setTimeout(async () => {
+    try {
+      if ("serviceWorker" in navigator) {
+        const registration = await navigator.serviceWorker.ready;
+        
+        await registration.showNotification("📝 Clarity - Prueba", {
+          body: message,
+          icon: "/icon-192.png",
+          badge: "/icon-192.png",
+          tag: `test-notification-${Date.now()}`,
+          requireInteraction: true, // Para que se quede en la bandeja en iOS
+          data: {
+            url: "/",
+            type: "test-reminder",
+            persistent: "true",
+          },
+          vibrate: [200, 100, 200],
+          silent: false,
+        });
+        
+        console.log("✅ Notificación de prueba enviada");
+      } else {
+        // Fallback si no hay Service Worker
+        new Notification("📝 Clarity - Prueba", {
+          body: message,
+          icon: "/icon-192.png",
+          badge: "/icon-192.png",
+          tag: `test-notification-${Date.now()}`,
+          requireInteraction: true,
+        });
+      }
+    } catch (error) {
+      console.error("Error mostrando notificación de prueba:", error);
+    }
+  }, minutes * 60 * 1000);
+
+  return true;
+};
+
+/**
  * Muestra una notificación inmediata (para pruebas)
  * Si options.persistent es true, se quedará en la bandeja de iOS
  */
