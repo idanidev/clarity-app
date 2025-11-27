@@ -22,14 +22,12 @@ const Notification = memo(({ notification, onClose }) => {
 
   const notificationElement = (
     <div
-      className={`fixed top-4 right-4 sm:top-6 sm:right-6 z-[9999] px-4 py-3 sm:px-5 sm:py-3 rounded-xl backdrop-blur-xl border ${intentClasses} text-white font-medium shadow-2xl max-w-sm animate-in`}
+      className={`fixed bottom-4 left-4 right-4 sm:top-6 sm:right-6 sm:left-auto sm:bottom-auto z-[9999] px-3 py-2.5 sm:px-5 sm:py-3 rounded-lg sm:rounded-xl backdrop-blur-xl border ${intentClasses} text-white font-medium shadow-2xl max-w-sm sm:max-w-sm mx-auto sm:mx-0 animate-in`}
       role="status"
       aria-live="polite"
       style={{
-        position: 'fixed',
-        top: '1rem',
-        right: '1rem',
-        zIndex: 9999,
+        // Asegurar que no tape la barra inferior en móvil
+        paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))',
         // Forzar aceleración de hardware en iOS
         WebkitTransform: 'translateZ(0)',
         transform: 'translateZ(0)',
@@ -42,20 +40,20 @@ const Notification = memo(({ notification, onClose }) => {
         pointerEvents: 'auto',
       }}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         {notification.type === "success" ? (
-          <Check className="w-5 h-5 flex-shrink-0" />
+          <Check className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
         ) : (
-          <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+          <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
         )}
-        <span className="flex-1 text-sm sm:text-base break-words">{notification.message}</span>
+        <span className="flex-1 text-xs sm:text-sm break-words leading-tight">{notification.message}</span>
         <button
           onClick={onClose}
-          className="ml-2 p-1 rounded hover:bg-white/20 active:bg-white/30 transition-colors flex-shrink-0 touch-manipulation"
+          className="ml-1 sm:ml-2 p-1 rounded hover:bg-white/20 active:bg-white/30 transition-colors flex-shrink-0 touch-manipulation"
           aria-label="Cerrar notificación"
           style={{ WebkitTapHighlightColor: 'transparent' }}
         >
-          <X className="w-4 h-4" />
+          <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
         </button>
       </div>
     </div>

@@ -55,8 +55,9 @@ export const scheduleDailyReminder = async (message = "No olvides registrar tus 
 /**
  * Programa un recordatorio semanal
  */
-export const scheduleWeeklyReminder = async (dayOfWeek = 0, message = "¡No olvides registrar tus gastos de esta semana en Clarity!") => {
+export const scheduleWeeklyReminder = async (dayOfWeek = 0, hour = 21, minute = 0, message = "¡No olvides registrar tus gastos de esta semana en Clarity!") => {
   if (!("Notification" in window) || Notification.permission !== "granted") {
+    console.warn("Permisos de notificación no concedidos");
     return false;
   }
 
@@ -65,15 +66,26 @@ export const scheduleWeeklyReminder = async (dayOfWeek = 0, message = "¡No olvi
   // Calcular el próximo día de la semana (0 = domingo, 6 = sábado)
   const today = new Date();
   const currentDay = today.getDay();
+  const currentHour = today.getHours();
+  const currentMinute = today.getMinutes();
   let daysUntilTarget = dayOfWeek - currentDay;
 
-  if (daysUntilTarget <= 0) {
+  // Si es el mismo día pero ya pasó la hora/minuto, programar para la próxima semana
+  if (daysUntilTarget === 0) {
+    const currentTime = currentHour * 60 + currentMinute;
+    const targetTime = hour * 60 + minute;
+    if (currentTime >= targetTime) {
+      daysUntilTarget = 7; // Próxima semana
+    }
+  } else if (daysUntilTarget <= 0) {
     daysUntilTarget += 7; // Próxima semana
   }
 
   const targetDate = new Date();
   targetDate.setDate(today.getDate() + daysUntilTarget);
-  targetDate.setHours(10, 0, 0, 0); // 10 AM
+  targetDate.setHours(hour, minute, 0, 0); // Usar la hora y minutos configurados
+
+  console.log(`Programando recordatorio semanal para el día ${dayOfWeek} a las ${hour}:${String(minute).padStart(2, '0')} (${targetDate.toLocaleString()})`);
 
   // Programar usando Service Worker
   if ("serviceWorker" in navigator) {
