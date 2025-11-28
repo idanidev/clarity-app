@@ -579,16 +579,32 @@ exports.sendWeeklyReminders = onSchedule(
         // Convertir a números para asegurar comparación correcta
         const dayMatch = Number(currentDayOfWeek) === Number(configuredDay);
         const hourMatch = Number(currentHour) === Number(configuredHour);
-        const minuteMatch = Number(currentMinute) === Number(configuredMinute);
+
+        // Permitir un rango de ±2 minutos para mayor flexibilidad
+        // Esto evita que se pierda la notificación si la función se ejecuta 1-2 minutos tarde
+        const configuredMinuteNum = Number(configuredMinute);
+        const currentMinuteNum = Number(currentMinute);
+        const minuteDiff = Math.abs(currentMinuteNum - configuredMinuteNum);
+        const minuteMatch = minuteDiff <= 2; // Permitir ±2 minutos de diferencia
 
         logger.info(`  👤 Usuario ${userId}: Configurado para día ${configuredDay} a las ${configuredHour}:${String(configuredMinute).padStart(2, "0")}`);
         logger.info(`  📊 Usuario ${userId}: Actual (Madrid) - día: ${currentDayOfWeek}, hora: ${currentHour}, minuto: ${currentMinute}`);
         logger.info(`  📊 Usuario ${userId}: Configurado - día: ${configuredDay}, hora: ${configuredHour}, minuto: ${configuredMinute}`);
-        logger.info(`  📊 Usuario ${userId}: Coincidencias - día: ${dayMatch}, hora: ${hourMatch}, minuto: ${minuteMatch}`);
+        logger.info(`  📊 Usuario ${userId}: Coincidencias - día: ${dayMatch}, hora: ${hourMatch}, minuto: ${minuteMatch} (diferencia: ${minuteDiff} min)`);
 
-        // Verificar si coincide con el día, hora y minutos configurados
+        // Verificar si coincide con el día, hora y minutos configurados (con rango de ±2 minutos)
         if (!dayMatch || !hourMatch || !minuteMatch) {
           logger.info(`  ⏭️  Usuario ${userId}: No coincide (actual: ${currentDayOfWeek} ${currentHour}:${String(currentMinute).padStart(2, "0")}, configurado: ${configuredDay} ${configuredHour}:${String(configuredMinute).padStart(2, "0")})`);
+          continue;
+        }
+
+        // Verificar si ya se envió una notificación hoy para evitar duplicados
+        const lastReminderSent = userData.lastWeeklyReminderSent;
+        const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+
+        if (lastReminderSent === today) {
+          logger.info(`  ⏭️  Usuario ${userId}: Ya se envió un recordatorio hoy (${today}). Omitiendo para evitar duplicados.`);
+          remindersSkipped++;
           continue;
         }
 
@@ -679,6 +695,19 @@ exports.sendWeeklyReminders = onSchedule(
 
           remindersSent += response.successCount;
 
+          // Marcar que se envió el recordatorio hoy para evitar duplicados
+          if (response.successCount > 0) {
+            try {
+              await db.collection("users").doc(userId).update({
+                lastWeeklyReminderSent: today,
+                updatedAt: FieldValue.serverTimestamp(),
+              });
+              logger.info(`  ✅ Marcado lastWeeklyReminderSent para usuario ${userId}: ${today}`);
+            } catch (error) {
+              logger.error(`  ❌ Error actualizando lastWeeklyReminderSent para usuario ${userId}:`, error);
+            }
+          }
+
           // Limpiar tokens inválidos
           if (response.responses) {
             const invalidTokens = [];
@@ -752,11 +781,30 @@ exports.sendTestNotification = onRequest(
       }
 
       const userData = userDoc.data();
-      const fcmTokens = userData.fcmTokens || [];
+      let fcmTokens = userData.fcmTokens || [];
 
       if (fcmTokens.length === 0) {
         res.status(400).json({ error: "El usuario no tiene tokens FCM. Asegúrate de haber concedido permisos de notificación." });
         return;
+      }
+
+      // Si hay múltiples tokens, usar solo el más reciente (último de la lista)
+      // y limpiar los duplicados en Firestore
+      if (fcmTokens.length > 1) {
+        logger.warn(`  ⚠️  Usuario ${userId} tiene ${fcmTokens.length} tokens FCM. Usando solo el más reciente y limpiando duplicados...`);
+        const latestToken = fcmTokens[fcmTokens.length - 1];
+        fcmTokens = [latestToken];
+
+        // Limpiar tokens duplicados en Firestore
+        try {
+          await db.collection("users").doc(userId).update({
+            fcmTokens: fcmTokens,
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+          logger.info(`  🧹 Tokens duplicados limpiados para usuario ${userId}. Ahora hay 1 token único.`);
+        } catch (error) {
+          logger.error(`  ❌ Error limpiando tokens duplicados para usuario ${userId}:`, error);
+        }
       }
 
       logger.info(`📤 Enviando notificación de prueba a ${fcmTokens.length} token(s) del usuario ${userId}`);
