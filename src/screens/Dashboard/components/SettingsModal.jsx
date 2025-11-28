@@ -18,6 +18,7 @@ const SettingsModal = ({
   onRequestPushPermission,
   onOpenBudgets,
   showNotification,
+  userId,
 }) => {
   const { t } = useTranslation();
   const { language, changeLanguage, availableLanguages } = useLanguage();
@@ -475,12 +476,44 @@ const SettingsModal = ({
               </div>
 
               {/* Botón guardar notificaciones */}
-              <button
-                onClick={handleSaveNotifications}
-                className="w-full px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg bg-purple-600 text-white text-sm sm:text-base font-medium hover:bg-purple-700 transition-all"
-              >
-                {t("common.save")}
-              </button>
+              <div className="space-y-2 sm:space-y-3">
+                <button
+                  onClick={handleSaveNotifications}
+                  className="w-full px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg bg-purple-600 text-white text-sm sm:text-base font-medium hover:bg-purple-700 transition-all"
+                >
+                  {t("common.save")}
+                </button>
+                {userId && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        if (!userId) {
+                          showNotification("No se pudo obtener el ID de usuario", "error");
+                          return;
+                        }
+                        showNotification("Enviando notificación de prueba...", "success");
+                        console.log("🧪 Enviando notificación de prueba para usuario:", userId);
+                        const response = await fetch(
+                          `https://europe-west1-clarity-gastos.cloudfunctions.net/sendTestNotification?userId=${userId}`
+                        );
+                        const data = await response.json();
+                        console.log("📬 Respuesta de la función de prueba:", data);
+                        if (data.success) {
+                          showNotification(`✅ Notificación de prueba enviada a ${data.sent} dispositivo(s). Revisa tu dispositivo.`, "success");
+                        } else {
+                          showNotification(`Error: ${data.error}`, "error");
+                        }
+                      } catch (error) {
+                        console.error("❌ Error enviando notificación de prueba:", error);
+                        showNotification("Error al enviar notificación de prueba: " + error.message, "error");
+                      }
+                    }}
+                    className="w-full px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg bg-blue-600 text-white text-sm sm:text-base font-medium hover:bg-blue-700 transition-all"
+                  >
+                    🧪 Probar Notificación Push
+                  </button>
+                )}
+              </div>
             </>
           )}
         </div>

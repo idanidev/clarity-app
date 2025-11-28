@@ -2057,6 +2057,7 @@ const Dashboard = ({ user }) => {
           onSaveNotificationSettings={handleSaveNotificationSettings}
           onRequestPushPermission={handleRequestPushPermission}
           showNotification={showNotification}
+          userId={user?.uid}
           onOpenBudgets={() => {
             setShowSettings(false);
             setShowBudgets(true);
