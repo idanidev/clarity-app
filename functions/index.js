@@ -509,12 +509,29 @@ exports.sendWeeklyReminders = onSchedule(
     logger.info("🔔 Iniciando envío de recordatorios semanales...");
 
     try {
+      // Obtener la hora actual en la zona horaria de Madrid
+      // Las Cloud Functions se ejecutan en UTC, pero necesitamos la hora de Madrid
       const now = new Date();
-      const currentDayOfWeek = now.getDay(); // 0 = Domingo, 6 = Sábado
-      const currentHour = now.getHours(); // 0-23
-      const currentMinute = now.getMinutes(); // 0-59
+      // Obtener el offset de Madrid (UTC+1 en invierno, UTC+2 en verano)
+      // Usar Intl.DateTimeFormat para obtener la hora correcta en Madrid
+      const madridFormatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: "Europe/Madrid",
+        hour: "numeric",
+        minute: "numeric",
+        hour12: false,
+        weekday: "long",
+      });
 
-      logger.info(`📅 Día: ${currentDayOfWeek} (0=Domingo), Hora: ${currentHour}:${String(currentMinute).padStart(2, "0")}`);
+      const madridParts = madridFormatter.formatToParts(now);
+      const currentHour = parseInt(madridParts.find((p) => p.type === "hour")?.value || "0", 10);
+      const currentMinute = parseInt(madridParts.find((p) => p.type === "minute")?.value || "0", 10);
+      const weekday = madridParts.find((p) => p.type === "weekday")?.value || "";
+
+      // Convertir día de la semana a número (0=Domingo, 6=Sábado)
+      const weekdayMap = { "Sunday": 0, "Monday": 1, "Tuesday": 2, "Wednesday": 3, "Thursday": 4, "Friday": 5, "Saturday": 6 };
+      const currentDayOfWeek = weekdayMap[weekday] ?? now.getDay();
+
+      logger.info(`📅 Día: ${currentDayOfWeek} (0=Domingo), Hora Madrid: ${currentHour}:${String(currentMinute).padStart(2, "0")} (UTC: ${now.getUTCHours()}:${String(now.getUTCMinutes()).padStart(2, "0")})`);
 
       // Obtener todos los usuarios
       const usersSnapshot = await db.collection("users").get();
@@ -540,10 +557,18 @@ exports.sendWeeklyReminders = onSchedule(
         const configuredHour = notificationSettings.weeklyReminder?.hour ?? 21;
         const configuredMinute = notificationSettings.weeklyReminder?.minute ?? 0;
 
+        // Convertir a números para asegurar comparación correcta
+        const dayMatch = Number(currentDayOfWeek) === Number(configuredDay);
+        const hourMatch = Number(currentHour) === Number(configuredHour);
+        const minuteMatch = Number(currentMinute) === Number(configuredMinute);
+
         logger.info(`  👤 Usuario ${userId}: Configurado para día ${configuredDay} a las ${configuredHour}:${String(configuredMinute).padStart(2, "0")}`);
+        logger.info(`  📊 Usuario ${userId}: Actual (Madrid) - día: ${currentDayOfWeek}, hora: ${currentHour}, minuto: ${currentMinute}`);
+        logger.info(`  📊 Usuario ${userId}: Configurado - día: ${configuredDay}, hora: ${configuredHour}, minuto: ${configuredMinute}`);
+        logger.info(`  📊 Usuario ${userId}: Coincidencias - día: ${dayMatch}, hora: ${hourMatch}, minuto: ${minuteMatch}`);
 
         // Verificar si coincide con el día, hora y minutos configurados
-        if (currentDayOfWeek !== configuredDay || currentHour !== configuredHour || currentMinute !== configuredMinute) {
+        if (!dayMatch || !hourMatch || !minuteMatch) {
           logger.info(`  ⏭️  Usuario ${userId}: No coincide (actual: ${currentDayOfWeek} ${currentHour}:${String(currentMinute).padStart(2, "0")}, configurado: ${configuredDay} ${configuredHour}:${String(configuredMinute).padStart(2, "0")})`);
           continue;
         }
