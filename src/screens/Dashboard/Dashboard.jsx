@@ -1295,7 +1295,6 @@ const Dashboard = ({ user }) => {
       
       // Asegurar que el Service Worker esté registrado y activo (solo una vez)
       let tokenRequested = false;
-      let listenerConfigured = false;
       
       const ensureServiceWorkerActive = async () => {
         // Evitar múltiples solicitudes de token
@@ -1357,26 +1356,21 @@ const Dashboard = ({ user }) => {
         }
       };
       
-      // Configurar listener para mensajes en primer plano (solo una vez)
-      let unsubscribe = null;
-      if (!listenerConfigured) {
-        listenerConfigured = true;
-        console.log("🔧 Configurando listener de notificaciones push...");
-        unsubscribe = setupForegroundMessageListener((payload) => {
-          console.log("📬 ========== CALLBACK EJECUTADO ==========");
-          console.log("📬 Payload recibido en callback:", payload);
-          const message = payload.notification?.body || payload.data?.message || "Tienes una nueva notificación";
-          console.log("📬 Mostrando notificación interna con mensaje:", message);
-          showNotification(message, "success");
-          console.log("📬 Notificación interna mostrada");
-        });
-        
-        if (unsubscribe) {
-          console.log("✅ Listener de notificaciones push configurado correctamente");
-        } else {
-          console.warn("⚠️ No se pudo configurar el listener de notificaciones push");
-          listenerConfigured = false; // Permitir reintento si falla
-        }
+      // Configurar listener para mensajes en primer plano
+      console.log("🔧 Configurando listener de notificaciones push...");
+      const unsubscribe = setupForegroundMessageListener((payload) => {
+        console.log("📬 ========== CALLBACK EJECUTADO ==========");
+        console.log("📬 Payload recibido en callback:", payload);
+        const message = payload.notification?.body || payload.data?.message || "Tienes una nueva notificación";
+        console.log("📬 Mostrando notificación interna con mensaje:", message);
+        showNotification(message, "success");
+        console.log("📬 Notificación interna mostrada");
+      });
+      
+      if (unsubscribe) {
+        console.log("✅ Listener de notificaciones push configurado correctamente");
+      } else {
+        console.warn("⚠️ No se pudo configurar el listener de notificaciones push");
       }
       
       // Ejecutar solo una vez después de un pequeño delay
@@ -1389,13 +1383,12 @@ const Dashboard = ({ user }) => {
         if (unsubscribe) {
           console.log("🧹 Limpiando listener de notificaciones push...");
           unsubscribe();
-          listenerConfigured = false;
         }
       };
     } else {
       console.warn("VAPID key no configurada. Las notificaciones push no funcionarán hasta que la configures.");
     }
-  }, [user]);
+  }, [user, showNotification]);
 
   // Handler para solicitar permisos desde SettingsModal
   const handleRequestPushPermission = useCallback(async () => {
