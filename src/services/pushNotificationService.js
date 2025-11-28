@@ -122,8 +122,9 @@ export const saveFCMToken = async (userId, token) => {
       
       // Solo añadir si no existe ya
       if (!tokens.includes(token)) {
-        // Limitar a máximo 5 tokens para evitar acumulación excesiva
-        const updatedTokens = [...tokens, token].slice(-5);
+        // Limitar a máximo 3 tokens (solo los más recientes y válidos)
+        // Mantener el token actual y los 2 más recientes
+        const updatedTokens = [...tokens, token].slice(-3);
         await updateDoc(userDocRef, {
           fcmTokens: updatedTokens,
           updatedAt: new Date().toISOString(),
@@ -175,46 +176,29 @@ export const setupForegroundMessageListener = (callback) => {
   console.log("✅ Configurando listener de mensajes en primer plano...");
   
   const unsubscribe = onMessagingMessage(messaging, (payload) => {
-    console.log("🔔 Mensaje recibido en primer plano:", payload);
+    console.log("🔔 ========== MENSAJE RECIBIDO EN PRIMER PLANO ==========");
+    console.log("🔔 Payload completo:", JSON.stringify(payload, null, 2));
+    console.log("🔔 Título:", payload.notification?.title);
+    console.log("🔔 Mensaje:", payload.notification?.body || payload.data?.message);
+    console.log("🔔 Tipo:", payload.data?.type);
     
     // Primero ejecutar el callback para mostrar la notificación interna
     if (callback) {
-      callback(payload);
+      console.log("✅ Ejecutando callback para mostrar notificación interna...");
+      try {
+        callback(payload);
+        console.log("✅ Callback ejecutado correctamente");
+      } catch (error) {
+        console.error("❌ Error ejecutando callback:", error);
+      }
+    } else {
+      console.warn("⚠️ No hay callback configurado para mostrar notificación interna");
     }
     
-    // Mostrar notificación del sistema si el usuario no la bloqueó
-    // En iOS, estas notificaciones aparecerán como banners (tiras)
-    // No se pueden hacer persistentes desde el código web
-    if (Notification.permission === "granted") {
-      console.log("📱 Mostrando notificación del sistema...");
-      const notificationTitle = payload.notification?.title || "Clarity";
-      const notificationOptions = {
-        body: payload.notification?.body || payload.data?.message || "Tienes una nueva notificación",
-        icon: "/icon-192.png",
-        badge: "/icon-192.png",
-        tag: payload.data?.tag || "clarity-notification",
-        // requireInteraction no funciona en iOS, pero lo dejamos para otros navegadores
-        requireInteraction: payload.data?.persistent === 'true' || false,
-        // Datos adicionales
-        data: {
-          ...payload.data,
-          url: payload.data?.url || '/',
-        },
-        // Vibrar si está disponible (no funciona en iOS)
-        vibrate: [200, 100, 200],
-      };
-      
-      const notification = new Notification(notificationTitle, notificationOptions);
-      
-      // Manejar clic en la notificación
-      notification.onclick = (event) => {
-        event.preventDefault();
-        const url = payload.data?.url || '/';
-        window.focus();
-        window.location.href = url;
-        notification.close();
-      };
-    }
+    // NO mostrar notificación del sistema cuando la app está en primer plano
+    // Solo mostrar la notificación interna (que ya se mostró con el callback)
+    // El Service Worker se encargará de mostrar notificaciones cuando la app esté en background
+    console.log("ℹ️ App en primer plano - Solo mostrando notificación interna, no notificación del sistema");
   });
   
   console.log("✅ Listener de mensajes en primer plano configurado correctamente");

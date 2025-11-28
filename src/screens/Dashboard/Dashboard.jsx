@@ -1363,11 +1363,12 @@ const Dashboard = ({ user }) => {
         listenerConfigured = true;
         console.log("🔧 Configurando listener de notificaciones push...");
         unsubscribe = setupForegroundMessageListener((payload) => {
-          console.log("📬 Notificación recibida en primer plano:", payload);
-          showNotification(
-            payload.notification?.body || payload.data?.message || "Tienes una nueva notificación",
-            "success"
-          );
+          console.log("📬 ========== CALLBACK EJECUTADO ==========");
+          console.log("📬 Payload recibido en callback:", payload);
+          const message = payload.notification?.body || payload.data?.message || "Tienes una nueva notificación";
+          console.log("📬 Mostrando notificación interna con mensaje:", message);
+          showNotification(message, "success");
+          console.log("📬 Notificación interna mostrada");
         });
         
         if (unsubscribe) {
