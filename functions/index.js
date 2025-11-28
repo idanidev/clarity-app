@@ -654,3 +654,94 @@ exports.sendWeeklyReminders = onSchedule(
     }
   }
 );
+
+/**
+ * Cloud Function de prueba para enviar notificaciones push manualmente
+ * Se puede invocar desde Firebase Console o mediante HTTP
+ * Uso: https://europe-west1-clarity-gastos.cloudfunctions.net/sendTestNotification?userId=TU_USER_ID
+ */
+const { onRequest } = require("firebase-functions/v2/https");
+exports.sendTestNotification = onRequest(
+  {
+    cors: true,
+    region: "europe-west1",
+    memory: "256MiB",
+    timeoutSeconds: 300,
+    invoker: "public",
+  },
+  async (req, res) => {
+    logger.info("🧪 Enviando notificación de prueba...");
+
+    try {
+      const userId = req.query.userId || req.body.userId;
+
+      if (!userId) {
+        res.status(400).json({ error: "userId es requerido. Uso: ?userId=TU_USER_ID" });
+        return;
+      }
+
+      // Obtener datos del usuario
+      const userDoc = await db.collection("users").doc(userId).get();
+
+      if (!userDoc.exists) {
+        res.status(404).json({ error: "Usuario no encontrado" });
+        return;
+      }
+
+      const userData = userDoc.data();
+      const fcmTokens = userData.fcmTokens || [];
+
+      if (fcmTokens.length === 0) {
+        res.status(400).json({ error: "El usuario no tiene tokens FCM. Asegúrate de haber concedido permisos de notificación." });
+        return;
+      }
+
+      logger.info(`📤 Enviando notificación de prueba a ${fcmTokens.length} token(s) del usuario ${userId}`);
+
+      // Enviar notificación de prueba
+      const messages = fcmTokens.map((token) => ({
+        token: token,
+        notification: {
+          title: "🧪 Clarity - Notificación de Prueba",
+          body: "¡Esta es una notificación de prueba! Si ves esto, las notificaciones push están funcionando correctamente.",
+        },
+        data: {
+          type: "test",
+          persistent: "false",
+          url: "/",
+          tag: "test-notification",
+        },
+        webpush: {
+          notification: {
+            requireInteraction: false,
+            badge: "/icon-192.png",
+            icon: "/icon-192.png",
+          },
+        },
+      }));
+
+      const response = await messaging.sendEach(messages);
+
+      logger.info(`✅ Notificación de prueba enviada: ${response.successCount} exitosos de ${messages.length}`);
+
+      if (response.failureCount > 0) {
+        logger.warn(`⚠️  ${response.failureCount} mensaje(s) fallaron`);
+        response.responses?.forEach((resp, idx) => {
+          if (!resp.success) {
+            logger.error(`    ❌ Error en token ${idx}: ${resp.error?.code} - ${resp.error?.message}`);
+          }
+        });
+      }
+
+      res.json({
+        success: true,
+        sent: response.successCount,
+        failed: response.failureCount,
+        message: `Notificación de prueba enviada a ${response.successCount} dispositivo(s)`,
+      });
+    } catch (error) {
+      logger.error("❌ Error enviando notificación de prueba:", error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+);
