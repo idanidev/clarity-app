@@ -580,12 +580,14 @@ exports.sendWeeklyReminders = onSchedule(
         const dayMatch = Number(currentDayOfWeek) === Number(configuredDay);
         const hourMatch = Number(currentHour) === Number(configuredHour);
 
-        // Permitir un rango de ±2 minutos para mayor flexibilidad
-        // Esto evita que se pierda la notificación si la función se ejecuta 1-2 minutos tarde
+        // Permitir un rango de ±5 minutos para mayor flexibilidad
+        // Esto evita que se pierda la notificación si la función se ejecuta unos minutos tarde
         const configuredMinuteNum = Number(configuredMinute);
         const currentMinuteNum = Number(currentMinute);
         const minuteDiff = Math.abs(currentMinuteNum - configuredMinuteNum);
-        const minuteMatch = minuteDiff <= 2; // Permitir ±2 minutos de diferencia
+        // Si la hora coincide, permitir hasta ±5 minutos de diferencia
+        // Si la hora no coincide pero estamos en el mismo minuto, también permitirlo
+        const minuteMatch = hourMatch ? (minuteDiff <= 5) : (currentMinuteNum === configuredMinuteNum);
 
         logger.info(`  👤 Usuario ${userId}: Configurado para día ${configuredDay} a las ${configuredHour}:${String(configuredMinute).padStart(2, "0")}`);
         logger.info(`  📊 Usuario ${userId}: Actual (Madrid) - día: ${currentDayOfWeek}, hora: ${currentHour}, minuto: ${currentMinute}`);
@@ -599,10 +601,13 @@ exports.sendWeeklyReminders = onSchedule(
         }
 
         // Verificar si ya se envió una notificación hoy para evitar duplicados
+        // Solo verificar si es el mismo día de la semana configurado
         const lastReminderSent = userData.lastWeeklyReminderSent;
         const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
 
-        if (lastReminderSent === today) {
+        // Solo bloquear si ya se envió hoy Y es el mismo día de la semana configurado
+        // Esto permite que se envíe si cambiaste el día de la semana
+        if (lastReminderSent === today && dayMatch) {
           logger.info(`  ⏭️  Usuario ${userId}: Ya se envió un recordatorio hoy (${today}). Omitiendo para evitar duplicados.`);
           remindersSkipped++;
           continue;
