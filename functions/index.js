@@ -499,7 +499,7 @@ exports.sendDailyReminders = onSchedule(
  */
 exports.sendWeeklyReminders = onSchedule(
   {
-    schedule: "*/5 * * * *", // Cada 5 minutos (más eficiente que cada minuto)
+    schedule: "* * * * *", // Cada minuto para máxima precisión
     timeZone: "Europe/Madrid",
     memory: "256MiB",
     timeoutSeconds: 300,
@@ -514,7 +514,7 @@ exports.sendWeeklyReminders = onSchedule(
       const currentHour = now.getHours(); // 0-23
       const currentMinute = now.getMinutes(); // 0-59
 
-      logger.info(`📅 Día de la semana: ${currentDayOfWeek} (0=Domingo, 6=Sábado), Hora: ${currentHour}:${String(currentMinute).padStart(2, "0")}`);
+      logger.info(`📅 Día: ${currentDayOfWeek} (0=Domingo), Hora: ${currentHour}:${String(currentMinute).padStart(2, "0")}`);
 
       // Obtener todos los usuarios
       const usersSnapshot = await db.collection("users").get();
@@ -536,18 +536,19 @@ exports.sendWeeklyReminders = onSchedule(
         }
 
         // Verificar si es el día configurado
-        const configuredDay = notificationSettings.weeklyReminder?.dayOfWeek || 0;
-        const configuredHour = notificationSettings.weeklyReminder?.hour !== undefined ?
-          notificationSettings.weeklyReminder.hour :
-          21; // Hora por defecto: 21:00
-        const configuredMinute = notificationSettings.weeklyReminder?.minute !== undefined ?
-          notificationSettings.weeklyReminder.minute :
-          0; // Minutos por defecto: 0
+        const configuredDay = notificationSettings.weeklyReminder?.dayOfWeek ?? 0;
+        const configuredHour = notificationSettings.weeklyReminder?.hour ?? 21;
+        const configuredMinute = notificationSettings.weeklyReminder?.minute ?? 0;
+
+        logger.info(`  👤 Usuario ${userId}: Configurado para día ${configuredDay} a las ${configuredHour}:${String(configuredMinute).padStart(2, "0")}`);
 
         // Verificar si coincide con el día, hora y minutos configurados
         if (currentDayOfWeek !== configuredDay || currentHour !== configuredHour || currentMinute !== configuredMinute) {
+          logger.info(`  ⏭️  Usuario ${userId}: No coincide (actual: ${currentDayOfWeek} ${currentHour}:${String(currentMinute).padStart(2, "0")}, configurado: ${configuredDay} ${configuredHour}:${String(configuredMinute).padStart(2, "0")})`);
           continue;
         }
+
+        logger.info(`  ✅ Usuario ${userId}: ¡Coincide! Enviando notificación...`);
 
         const message = notificationSettings.weeklyReminder?.message ||
                        "¡No olvides registrar tus gastos de esta semana en Clarity!";
@@ -600,8 +601,19 @@ exports.sendWeeklyReminders = onSchedule(
         }));
 
         try {
+          logger.info(`  📤 Enviando ${messages.length} mensaje(s) a usuario ${userId}...`);
           const response = await messaging.sendEach(messages);
-          logger.info(`  ✅ Recordatorio semanal enviado a usuario ${userId}: ${response.successCount} exitosos`);
+          logger.info(`  ✅ Recordatorio semanal enviado a usuario ${userId}: ${response.successCount} exitosos de ${messages.length} intentos`);
+
+          if (response.failureCount > 0) {
+            logger.warn(`  ⚠️  ${response.failureCount} mensaje(s) fallaron para usuario ${userId}`);
+            response.responses?.forEach((resp, idx) => {
+              if (!resp.success) {
+                logger.error(`    ❌ Error en token ${idx}: ${resp.error?.code} - ${resp.error?.message}`);
+              }
+            });
+          }
+
           remindersSent += response.successCount;
 
           // Limpiar tokens inválidos
