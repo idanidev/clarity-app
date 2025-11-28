@@ -402,12 +402,31 @@ exports.sendDailyReminders = onSchedule(
                        "No olvides registrar tus gastos de hoy";
 
         // Obtener tokens FCM del usuario
-        const fcmTokens = userData.fcmTokens || [];
+        let fcmTokens = userData.fcmTokens || [];
 
         if (fcmTokens.length === 0) {
           logger.info(`  ⏭️  Usuario ${userId} no tiene tokens FCM`);
           remindersSkipped++;
           continue;
+        }
+
+        // Si hay múltiples tokens, usar solo el más reciente (último de la lista)
+        // y limpiar los duplicados en Firestore
+        if (fcmTokens.length > 1) {
+          logger.warn(`  ⚠️  Usuario ${userId} tiene ${fcmTokens.length} tokens FCM. Usando solo el más reciente y limpiando duplicados...`);
+          const latestToken = fcmTokens[fcmTokens.length - 1];
+          fcmTokens = [latestToken];
+
+          // Limpiar tokens duplicados en Firestore
+          try {
+            await db.collection("users").doc(userId).update({
+              fcmTokens: fcmTokens,
+              updatedAt: FieldValue.serverTimestamp(),
+            });
+            logger.info(`  🧹 Tokens duplicados limpiados para usuario ${userId}. Ahora hay 1 token único.`);
+          } catch (error) {
+            logger.error(`  ❌ Error limpiando tokens duplicados para usuario ${userId}:`, error);
+          }
         }
 
         // Enviar notificación a cada token
@@ -579,12 +598,31 @@ exports.sendWeeklyReminders = onSchedule(
                        "¡No olvides registrar tus gastos de esta semana en Clarity!";
 
         // Obtener tokens FCM del usuario
-        const fcmTokens = userData.fcmTokens || [];
+        let fcmTokens = userData.fcmTokens || [];
 
         if (fcmTokens.length === 0) {
           logger.info(`  ⏭️  Usuario ${userId} no tiene tokens FCM`);
           remindersSkipped++;
           continue;
+        }
+
+        // Si hay múltiples tokens, usar solo el más reciente (último de la lista)
+        // y limpiar los duplicados en Firestore
+        if (fcmTokens.length > 1) {
+          logger.warn(`  ⚠️  Usuario ${userId} tiene ${fcmTokens.length} tokens FCM. Usando solo el más reciente y limpiando duplicados...`);
+          const latestToken = fcmTokens[fcmTokens.length - 1];
+          fcmTokens = [latestToken];
+
+          // Limpiar tokens duplicados en Firestore
+          try {
+            await db.collection("users").doc(userId).update({
+              fcmTokens: fcmTokens,
+              updatedAt: FieldValue.serverTimestamp(),
+            });
+            logger.info(`  🧹 Tokens duplicados limpiados para usuario ${userId}. Ahora hay 1 token único.`);
+          } catch (error) {
+            logger.error(`  ❌ Error limpiando tokens duplicados para usuario ${userId}:`, error);
+          }
         }
 
         // Enviar notificación

@@ -120,18 +120,20 @@ export const saveFCMToken = async (userId, token) => {
     if (userDoc.exists()) {
       const tokens = userDoc.data().fcmTokens || [];
       
-      // Solo mantener 1 token (el más reciente) para evitar notificaciones duplicadas
-      // Si el token es diferente, reemplazar el anterior
-      if (!tokens.includes(token)) {
-        // Reemplazar todos los tokens anteriores con solo el nuevo token
-        const updatedTokens = [token];
-        await updateDoc(userDocRef, {
-          fcmTokens: updatedTokens,
-          updatedAt: new Date().toISOString(),
-        });
-        console.log(`✅ Token FCM guardado en Firestore para usuario ${userId}. Token único actualizado.`);
+      // SIEMPRE reemplazar todos los tokens anteriores con solo el nuevo token
+      // Esto asegura que solo haya 1 token activo y elimina duplicados existentes
+      const updatedTokens = [token];
+      await updateDoc(userDocRef, {
+        fcmTokens: updatedTokens,
+        updatedAt: new Date().toISOString(),
+      });
+      
+      if (tokens.length > 1) {
+        console.log(`✅ Token FCM actualizado para usuario ${userId}. Se eliminaron ${tokens.length - 1} token(s) duplicado(s). Ahora hay 1 token único.`);
+      } else if (tokens.length === 1 && tokens[0] !== token) {
+        console.log(`✅ Token FCM actualizado para usuario ${userId}. Token reemplazado.`);
       } else {
-        console.log(`ℹ️ Token FCM ya existe para usuario ${userId}, no se duplica`);
+        console.log(`✅ Token FCM guardado en Firestore para usuario ${userId}. Token único actualizado.`);
       }
     } else {
       console.warn(`⚠️ Usuario ${userId} no existe en Firestore`);
