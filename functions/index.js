@@ -421,7 +421,7 @@ exports.sendDailyReminders = onSchedule(
             type: "daily-reminder",
             persistent: "true",
             url: "/",
-            tag: "daily-reminder",
+            tag: `daily-reminder-${userId}`, // Tag único por usuario para evitar duplicados
           },
           android: {
             priority: "high",
@@ -598,7 +598,7 @@ exports.sendWeeklyReminders = onSchedule(
             type: "weekly-reminder",
             persistent: "true",
             url: "/",
-            tag: "weekly-reminder",
+            tag: `weekly-reminder-${userId}`, // Tag único por usuario para evitar duplicados
           },
           android: {
             priority: "high",
