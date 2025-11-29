@@ -43,12 +43,21 @@ messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Título:', notificationTitle);
   console.log('[firebase-messaging-sw.js] Mensaje:', notificationBody);
   
+  // Determinar si es un recordatorio (debe quedarse en la bandeja)
+  const isReminder = payload.data?.type === 'reminder' || payload.data?.type === 'daily-reminder' || payload.data?.type === 'weekly-reminder';
+  
   const notificationOptions = {
     body: notificationBody,
     icon: '/icon-192.png',
     badge: '/icon-192.png',
     tag: payload.data?.tag || 'clarity-notification',
-    requireInteraction: false,
+    // Para recordatorios, intentar que se quede en la bandeja
+    // En iOS, esto hará que la notificación se quede en la bandeja de notificaciones
+    requireInteraction: isReminder || payload.data?.persistent === 'true',
+    // Vibrar si está disponible
+    vibrate: [200, 100, 200],
+    // Sonido personalizado si está disponible
+    sound: payload.data?.sound || undefined,
     data: {
       url: payload.data?.url || '/',
       ...payload.data,

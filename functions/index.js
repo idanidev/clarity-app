@@ -817,12 +817,17 @@ exports.sendTestNotification = onRequest(
           body: "¡Esta es una notificación de prueba! Si ves esto, las notificaciones push están funcionando correctamente.",
           url: "/",
           tag: "test-notification",
+          persistent: "true",
+          type: "reminder",
         },
         webpush: {
           notification: {
-            requireInteraction: false,
+            requireInteraction: true, // Para que se quede en la bandeja en iOS
             badge: "/icon-192.png",
             icon: "/icon-192.png",
+          },
+          fcmOptions: {
+            link: "/",
           },
         },
         apns: {
@@ -830,6 +835,11 @@ exports.sendTestNotification = onRequest(
             aps: {
               sound: "default",
               badge: 1,
+              contentAvailable: true,
+              alert: {
+                title: "🧪 Clarity - Notificación de Prueba",
+                body: "¡Esta es una notificación de prueba! Si ves esto, las notificaciones push están funcionando correctamente.",
+              },
             },
           },
         },
