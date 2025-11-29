@@ -114,19 +114,35 @@ export const requestNotificationPermission = async (userId) => {
  */
 export const saveFCMToken = async (userId, token) => {
   try {
+    if (!token || typeof token !== "string" || token.trim().length === 0) {
+      console.error("❌ Token FCM inválido:", token);
+      throw new Error("Token FCM inválido");
+    }
+    
+    console.log(`💾 [saveFCMToken] Guardando token para usuario ${userId}...`);
+    console.log(`💾 [saveFCMToken] Token (primeros 30 caracteres): ${token.substring(0, 30)}...`);
+    
     const userDocRef = doc(db, "users", userId);
     const userDoc = await getDoc(userDocRef);
     
     if (userDoc.exists()) {
       const tokens = userDoc.data().fcmTokens || [];
+      console.log(`💾 [saveFCMToken] Tokens existentes antes: ${tokens.length}`);
       
       // SIEMPRE reemplazar todos los tokens anteriores con solo el nuevo token
       // Esto asegura que solo haya 1 token activo y elimina duplicados existentes
       const updatedTokens = [token];
+      
+      console.log(`💾 [saveFCMToken] Actualizando tokens en Firestore...`);
       await updateDoc(userDocRef, {
         fcmTokens: updatedTokens,
         updatedAt: new Date().toISOString(),
       });
+      
+      // Verificar que se guardó correctamente
+      const verifyDoc = await getDoc(userDocRef);
+      const savedTokens = verifyDoc.data()?.fcmTokens || [];
+      console.log(`✅ [saveFCMToken] Tokens guardados en Firestore: ${savedTokens.length}`);
       
       if (tokens.length > 1) {
         console.log(`✅ Token FCM actualizado para usuario ${userId}. Se eliminaron ${tokens.length - 1} token(s) duplicado(s). Ahora hay 1 token único.`);

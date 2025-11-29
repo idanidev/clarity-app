@@ -411,6 +411,11 @@ const Dashboard = ({ user }) => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3000);
   }, []);
+  
+  // Mantener referencia actualizada al callback
+  useEffect(() => {
+    showNotificationRef.current = showNotification;
+  }, [showNotification]);
 
   const handleAddExpense = async (e) => {
     e.preventDefault();
@@ -942,6 +947,7 @@ const Dashboard = ({ user }) => {
   const budgetAlertsShownRef = useRef(new Set());
   const unsubscribeRef = useRef(null);
   const listenerConfiguredRef = useRef(false);
+  const showNotificationRef = useRef(showNotification);
 
   // Efecto para restaurar categorías y subcategorías perdidas de forma segura
   useEffect(() => {
@@ -1383,31 +1389,29 @@ const Dashboard = ({ user }) => {
         }
       };
       
-      // Configurar listener para mensajes en primer plano
-      // Reconfigurar cada vez que cambie showNotification para usar la versión actual
-      console.log("🔧 Configurando listener de notificaciones push...");
-      
-      // Limpiar listener anterior si existe
-      if (unsubscribeRef.current) {
-        console.log("🧹 Limpiando listener anterior...");
-        unsubscribeRef.current();
-        unsubscribeRef.current = null;
-      }
-      
-      // Configurar nuevo listener con el callback actual
-      unsubscribeRef.current = setupForegroundMessageListener((payload) => {
-        console.log("📬 ========== CALLBACK EJECUTADO ==========");
-        console.log("📬 Payload recibido en callback:", payload);
-        const message = payload.notification?.body || payload.data?.message || "Tienes una nueva notificación";
-        console.log("📬 Mostrando notificación interna con mensaje:", message);
-        showNotification(message, "success");
-        console.log("📬 Notificación interna mostrada");
-      });
-      
-      if (unsubscribeRef.current) {
-        console.log("✅ Listener de notificaciones push configurado correctamente");
-      } else {
-        console.warn("⚠️ No se pudo configurar el listener de notificaciones push");
+      // Configurar listener para mensajes en primer plano (solo una vez)
+      if (!listenerConfiguredRef.current) {
+        listenerConfiguredRef.current = true;
+        console.log("🔧 Configurando listener de notificaciones push...");
+        
+        unsubscribeRef.current = setupForegroundMessageListener((payload) => {
+          console.log("📬 ========== CALLBACK EJECUTADO ==========");
+          console.log("📬 Payload recibido en callback:", payload);
+          const message = payload.notification?.body || payload.data?.message || "Tienes una nueva notificación";
+          console.log("📬 Mostrando notificación interna con mensaje:", message);
+          // Usar la referencia actualizada al callback
+          if (showNotificationRef.current) {
+            showNotificationRef.current(message, "success");
+          }
+          console.log("📬 Notificación interna mostrada");
+        });
+        
+        if (unsubscribeRef.current) {
+          console.log("✅ Listener de notificaciones push configurado correctamente");
+        } else {
+          console.warn("⚠️ No se pudo configurar el listener de notificaciones push");
+          listenerConfiguredRef.current = false;
+        }
       }
       
       // Ejecutar solo una vez después de un pequeño delay
@@ -1427,7 +1431,7 @@ const Dashboard = ({ user }) => {
     } else {
       console.warn("VAPID key no configurada. Las notificaciones push no funcionarán hasta que la configures.");
     }
-  }, [user, showNotification]);
+  }, [user]);
 
   // Handler para solicitar permisos desde SettingsModal
   const handleRequestPushPermission = useCallback(async () => {

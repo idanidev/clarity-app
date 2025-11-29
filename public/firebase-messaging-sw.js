@@ -34,8 +34,10 @@ self.addEventListener('install', (event) => {
 
 // Handle background messages
 messaging.onBackgroundMessage((payload) => {
+  console.log('[firebase-messaging-sw.js] ========== MENSAJE RECIBIDO EN BACKGROUND ==========');
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
   console.log('[firebase-messaging-sw.js] App está cerrada o en background');
+  console.log('[firebase-messaging-sw.js] Payload completo:', JSON.stringify(payload, null, 2));
   
   const notificationTitle = payload.notification?.title || 'Clarity';
   
