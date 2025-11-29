@@ -38,6 +38,9 @@ messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
   console.log('[firebase-messaging-sw.js] App está cerrada o en background');
   console.log('[firebase-messaging-sw.js] Payload completo:', JSON.stringify(payload, null, 2));
+  console.log('[firebase-messaging-sw.js] Título:', payload.notification?.title);
+  console.log('[firebase-messaging-sw.js] Mensaje:', payload.notification?.body || payload.data?.message);
+  console.log('[firebase-messaging-sw.js] Tipo:', payload.data?.type);
   
   const notificationTitle = payload.notification?.title || 'Clarity';
   
@@ -49,13 +52,13 @@ messaging.onBackgroundMessage((payload) => {
     icon: '/icon-192.png',
     badge: '/icon-192.png',
     tag: payload.data?.tag || 'clarity-notification',
-    // Para recordatorios, intentar que se quede en la bandeja
-    // En iOS, esto hará que la notificación se quede en la bandeja de notificaciones
-    requireInteraction: isReminder || payload.data?.persistent === 'true',
+    // Para recordatorios y notificaciones de prueba, intentar que se quede en la bandeja
+    // En iOS, requireInteraction: true hace que la notificación se quede en la bandeja
+    requireInteraction: isReminder || payload.data?.persistent === 'true' || payload.data?.type === 'test',
     // Vibrar si está disponible
     vibrate: [200, 100, 200],
     // Sonido personalizado si está disponible
-    sound: payload.data?.sound || undefined,
+    sound: payload.data?.sound || 'default',
     // Datos adicionales para cuando se toque la notificación
     data: {
       ...payload.data,
@@ -71,6 +74,9 @@ messaging.onBackgroundMessage((payload) => {
     renotify: true,
     // Para iOS: usar silent: false para asegurar que se muestre
     silent: false,
+    // Para iOS: asegurar que la notificación se muestre incluso cuando la app está cerrada
+    dir: 'ltr',
+    lang: 'es',
   };
 
   console.log('[firebase-messaging-sw.js] Mostrando notificación:', notificationTitle, notificationOptions);

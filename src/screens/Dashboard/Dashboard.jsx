@@ -1310,6 +1310,13 @@ const Dashboard = ({ user }) => {
   // Inicializar notificaciones push cuando el usuario inicia sesión
   useEffect(() => {
     if (!user) {
+      // Limpiar listener y tokens si el usuario cierra sesión
+      if (unsubscribeRef.current) {
+        console.log("🧹 Limpiando listener de notificaciones push al cerrar sesión...");
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+        listenerConfiguredRef.current = false;
+      }
       return;
     }
 
