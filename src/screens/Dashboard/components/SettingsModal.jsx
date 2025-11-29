@@ -492,15 +492,34 @@ const SettingsModal = ({
                           return;
                         }
                         showNotification("Enviando notificación de prueba...", "success");
-                        console.log("🧪 Enviando notificación de prueba para usuario:", userId);
+                        console.log("🧪 ========== INICIANDO PRUEBA DE NOTIFICACIÓN ==========");
+                        console.log("🧪 userId:", userId);
+                        
                         const response = await fetch(
                           `https://europe-west1-clarity-gastos.cloudfunctions.net/sendTestNotification?userId=${userId}`
                         );
+                        
+                        console.log("📬 Status de respuesta:", response.status, response.statusText);
+                        
+                        if (!response.ok) {
+                          const errorData = await response.json();
+                          console.error("❌ Error en respuesta:", errorData);
+                          showNotification(`Error: ${errorData.error || response.statusText}`, "error");
+                          return;
+                        }
+                        
                         const data = await response.json();
-                        console.log("📬 Respuesta de la función de prueba:", data);
+                        console.log("📬 Respuesta completa de la función de prueba:", data);
+                        
                         if (data.success) {
-                          showNotification(`✅ Notificación de prueba enviada a ${data.sent} dispositivo(s). Revisa tu dispositivo.`, "success");
+                          console.log(`✅ Notificación enviada: ${data.sent} exitosos, ${data.failed} fallidos`);
+                          if (data.sent > 0) {
+                            showNotification(`✅ Notificación de prueba enviada a ${data.sent} dispositivo(s). Revisa tu dispositivo.`, "success");
+                          } else {
+                            showNotification(`⚠️ No se pudo enviar la notificación. Revisa los logs de Firebase Functions.`, "error");
+                          }
                         } else {
+                          console.error("❌ La función reportó error:", data.error);
                           showNotification(`Error: ${data.error}`, "error");
                         }
                       } catch (error) {

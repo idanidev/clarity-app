@@ -767,28 +767,38 @@ exports.sendTestNotification = onRequest(
     invoker: "public",
   },
   async (req, res) => {
-    logger.info("🧪 Enviando notificación de prueba...");
+    logger.info("🧪 ========== INICIANDO NOTIFICACIÓN DE PRUEBA ==========");
 
     try {
       const userId = req.query.userId || req.body.userId;
+      logger.info(`🧪 userId recibido: ${userId}`);
 
       if (!userId) {
+        logger.error("❌ userId no proporcionado");
         res.status(400).json({ error: "userId es requerido. Uso: ?userId=TU_USER_ID" });
         return;
       }
 
       // Obtener datos del usuario
+      logger.info(`🧪 Obteniendo datos del usuario ${userId}...`);
       const userDoc = await db.collection("users").doc(userId).get();
 
       if (!userDoc.exists) {
+        logger.error(`❌ Usuario ${userId} no encontrado en Firestore`);
         res.status(404).json({ error: "Usuario no encontrado" });
         return;
       }
 
       const userData = userDoc.data();
       const fcmTokens = userData.fcmTokens || [];
+      logger.info(`🧪 Tokens FCM encontrados: ${fcmTokens.length}`);
+
+      if (fcmTokens.length > 0) {
+        logger.info(`🧪 Primer token (primeros 30 caracteres): ${fcmTokens[0].substring(0, 30)}...`);
+      }
 
       if (fcmTokens.length === 0) {
+        logger.error(`❌ Usuario ${userId} no tiene tokens FCM guardados`);
         res.status(400).json({ error: "El usuario no tiene tokens FCM. Asegúrate de haber concedido permisos de notificación." });
         return;
       }
@@ -817,8 +827,12 @@ exports.sendTestNotification = onRequest(
         },
       }));
 
+      logger.info(`📤 Preparando ${messages.length} mensaje(s) para enviar...`);
+      logger.info(`📤 Primer mensaje (primeros 100 caracteres): ${JSON.stringify(messages[0]).substring(0, 100)}...`);
+
       const response = await messaging.sendEach(messages);
 
+      logger.info(`✅ ========== RESULTADO DEL ENVÍO ==========`);
       logger.info(`✅ Notificación de prueba enviada: ${response.successCount} exitosos de ${messages.length}`);
 
       if (response.failureCount > 0) {
@@ -826,8 +840,13 @@ exports.sendTestNotification = onRequest(
         response.responses?.forEach((resp, idx) => {
           if (!resp.success) {
             logger.error(`    ❌ Error en token ${idx}: ${resp.error?.code} - ${resp.error?.message}`);
+            logger.error(`    ❌ Token que falló (primeros 30 caracteres): ${messages[idx].token.substring(0, 30)}...`);
+          } else {
+            logger.info(`    ✅ Token ${idx} enviado correctamente`);
           }
         });
+      } else {
+        logger.info(`✅ Todos los mensajes se enviaron correctamente`);
       }
 
       res.json({
