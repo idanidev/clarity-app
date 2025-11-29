@@ -853,16 +853,43 @@ exports.sendTestNotification = onRequest(
       logger.info(`✅ ========== RESULTADO DEL ENVÍO ==========`);
       logger.info(`✅ Notificación de prueba enviada: ${response.successCount} exitosos de ${messages.length}`);
 
-      if (response.failureCount > 0) {
-        logger.warn(`⚠️  ${response.failureCount} mensaje(s) fallaron`);
-        response.responses?.forEach((resp, idx) => {
+      // Limpiar tokens inválidos
+      if (response.responses) {
+        const invalidTokens = [];
+        response.responses.forEach((resp, idx) => {
           if (!resp.success) {
             logger.error(`    ❌ Error en token ${idx}: ${resp.error?.code} - ${resp.error?.message}`);
             logger.error(`    ❌ Token que falló (primeros 30 caracteres): ${messages[idx].token.substring(0, 30)}...`);
+
+            // Detectar tokens inválidos
+            if (resp.error?.code === "messaging/invalid-registration-token" ||
+                resp.error?.code === "messaging/registration-token-not-registered") {
+              invalidTokens.push(messages[idx].token);
+            }
           } else {
             logger.info(`    ✅ Token ${idx} enviado correctamente`);
           }
         });
+
+        // Eliminar tokens inválidos de Firestore
+        if (invalidTokens.length > 0) {
+          logger.info(`🧹 Limpiando ${invalidTokens.length} token(s) inválido(s) para usuario ${userId}...`);
+          const validTokens = fcmTokens.filter((token) => !invalidTokens.includes(token));
+
+          try {
+            await db.collection("users").doc(userId).update({
+              fcmTokens: validTokens,
+              updatedAt: FieldValue.serverTimestamp(),
+            });
+            logger.info(`✅ Tokens inválidos eliminados. Tokens válidos restantes: ${validTokens.length}`);
+          } catch (error) {
+            logger.error(`❌ Error limpiando tokens inválidos:`, error);
+          }
+        }
+      }
+
+      if (response.failureCount > 0) {
+        logger.warn(`⚠️  ${response.failureCount} mensaje(s) fallaron`);
       } else {
         logger.info(`✅ Todos los mensajes se enviaron correctamente`);
       }
