@@ -52,34 +52,57 @@ const AddExpenseModal = ({
     let finalSubcategory = newExpense.subcategory;
     let needsUpdate = false;
     
-    // Si hay una categoría nueva escrita pero no creada, crearla primero
+    // Si hay una categoría nueva escrita pero no creada, verificar primero si ya existe
+    // NUNCA crear una categoría si ya existe
     if (showNewCategory && newCategoryName.trim()) {
       const categoryNameTrimmed = newCategoryName.trim();
       
-      // Verificar si ya existe (case-insensitive)
+      // Verificar si ya existe (case-insensitive) - SIEMPRE verificar primero
       const existingCategory = Object.keys(categories).find(
         (cat) => cat.toLowerCase() === categoryNameTrimmed.toLowerCase()
       );
       
       if (existingCategory) {
-        // Si ya existe, usar la existente
+        // Si ya existe, usar la existente y NO crear duplicado
         finalCategory = existingCategory;
         setShowNewCategory(false);
         setNewCategoryName("");
         needsUpdate = true;
-      } else if (onAddCategory) {
-        // Si no existe, crearla
-        try {
-          await onAddCategory(categoryNameTrimmed);
-          finalCategory = categoryNameTrimmed;
+      } else {
+        // Verificar también si la categoría ya está seleccionada (fue creada antes)
+        if (newExpense.category && newExpense.category.toLowerCase() === categoryNameTrimmed.toLowerCase()) {
+          // Ya está seleccionada, no crear de nuevo
+          finalCategory = newExpense.category;
           setShowNewCategory(false);
           setNewCategoryName("");
-          needsUpdate = true;
-          // Esperar un momento para que se actualice el estado
-          await new Promise(resolve => setTimeout(resolve, 200));
-        } catch (error) {
-          console.error("Error creando categoría:", error);
-          return; // No continuar si falla la creación
+        } else {
+          // SOLO crear si realmente no existe en categories
+          // Verificar una vez más antes de crear
+          const doubleCheck = Object.keys(categories).find(
+            (cat) => cat.toLowerCase() === categoryNameTrimmed.toLowerCase()
+          );
+          
+          if (doubleCheck) {
+            // Existe, usar la existente
+            finalCategory = doubleCheck;
+            setShowNewCategory(false);
+            setNewCategoryName("");
+            needsUpdate = true;
+          } else if (onAddCategory) {
+            // Si realmente no existe, crearla
+            try {
+              await onAddCategory(categoryNameTrimmed);
+              finalCategory = categoryNameTrimmed;
+              setShowNewCategory(false);
+              setNewCategoryName("");
+              needsUpdate = true;
+              // Esperar un momento para que se actualice el estado
+              await new Promise(resolve => setTimeout(resolve, 200));
+            } catch (error) {
+              console.error("Error creando categoría:", error);
+              return; // No continuar si falla la creación
+            }
+          }
         }
       }
     }
@@ -250,11 +273,27 @@ const AddExpenseModal = ({
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
-                        if (newCategoryName.trim() && onAddCategory) {
-                          onAddCategory(newCategoryName.trim()).then(() => {
+                        const categoryNameTrimmed = newCategoryName.trim();
+                        if (categoryNameTrimmed && onAddCategory) {
+                          // Verificar si ya existe antes de crear
+                          const existingCategory = Object.keys(categories).find(
+                            (cat) => cat.toLowerCase() === categoryNameTrimmed.toLowerCase()
+                          );
+                          if (!existingCategory) {
+                            onAddCategory(categoryNameTrimmed).then(() => {
+                              setNewCategoryName("");
+                              setShowNewCategory(false);
+                            });
+                          } else {
+                            // Si ya existe, solo seleccionarla
+                            onChange({
+                              ...newExpense,
+                              category: existingCategory,
+                              subcategory: "",
+                            });
                             setNewCategoryName("");
                             setShowNewCategory(false);
-                          });
+                          }
                         }
                       }
                     }}
@@ -266,10 +305,26 @@ const AddExpenseModal = ({
                     type="button"
                     onClick={async (e) => {
                       e.preventDefault();
-                      if (newCategoryName.trim() && onAddCategory) {
-                        await onAddCategory(newCategoryName.trim());
-                        setNewCategoryName("");
-                        setShowNewCategory(false);
+                      const categoryNameTrimmed = newCategoryName.trim();
+                      if (categoryNameTrimmed && onAddCategory) {
+                        // Verificar si ya existe antes de crear
+                        const existingCategory = Object.keys(categories).find(
+                          (cat) => cat.toLowerCase() === categoryNameTrimmed.toLowerCase()
+                        );
+                        if (!existingCategory) {
+                          await onAddCategory(categoryNameTrimmed);
+                          setNewCategoryName("");
+                          setShowNewCategory(false);
+                        } else {
+                          // Si ya existe, solo seleccionarla
+                          onChange({
+                            ...newExpense,
+                            category: existingCategory,
+                            subcategory: "",
+                          });
+                          setNewCategoryName("");
+                          setShowNewCategory(false);
+                        }
                       }
                     }}
                     disabled={!newCategoryName.trim()}

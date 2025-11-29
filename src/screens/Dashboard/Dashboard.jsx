@@ -973,10 +973,16 @@ const Dashboard = ({ user }) => {
         if (!expense?.category) return;
 
         if (!restoredCategories[expense.category]) {
+          // Asegurar que siempre sea un objeto con subcategories (array) y color
           restoredCategories[expense.category] = {
             subcategories: [],
             color: categoryColors[expense.category] || "#8B5CF6",
           };
+        }
+
+        // Asegurar que subcategories sea un array antes de hacer push
+        if (!Array.isArray(restoredCategories[expense.category].subcategories)) {
+          restoredCategories[expense.category].subcategories = [];
         }
 
         if (expense.subcategory && !restoredCategories[expense.category].subcategories.includes(expense.subcategory)) {
@@ -1017,7 +1023,16 @@ const Dashboard = ({ user }) => {
       console.warn("[Restauración automática] Categorías faltantes detectadas:", Array.from(missingCategories));
       isRestoringRef.current = true;
 
-      const restoredCategories = { ...categories };
+      // Asegurar que categories sea un objeto, nunca un array
+      let safeCategories = {};
+      if (categories && typeof categories === "object" && !Array.isArray(categories)) {
+        safeCategories = { ...categories };
+      } else if (Array.isArray(categories)) {
+        console.error("[Restauración automática] ERROR: categories es un array, ignorando y usando objeto vacío");
+        safeCategories = {};
+      }
+
+      const restoredCategories = { ...safeCategories };
       const categoryColors = {
         Alimentacion: "#8B5CF6",
         Transporte: "#3B82F6",
@@ -1034,8 +1049,9 @@ const Dashboard = ({ user }) => {
           new Set(categoryExpenses.map((e) => e?.subcategory).filter(Boolean))
         ).sort((a, b) => a.localeCompare(b));
 
+        // Asegurar que siempre sea un objeto con subcategories (array) y color
         restoredCategories[categoryName] = {
-          subcategories: subcategories,
+          subcategories: Array.isArray(subcategories) ? subcategories : [],
           color: categoryColors[categoryName] || "#8B5CF6",
         };
       });
@@ -1109,7 +1125,16 @@ const Dashboard = ({ user }) => {
     // Hay subcategorías faltantes, restaurarlas
     isRestoringRef.current = true;
 
-    const restoredCategories = { ...categories };
+    // Asegurar que categories sea un objeto, nunca un array
+    let safeCategories = {};
+    if (categories && typeof categories === "object" && !Array.isArray(categories)) {
+      safeCategories = { ...categories };
+    } else if (Array.isArray(categories)) {
+      console.error("[Restauración automática] ERROR: categories es un array, ignorando y usando objeto vacío");
+      safeCategories = {};
+    }
+
+    const restoredCategories = { ...safeCategories };
 
     categoriesToUpdate.forEach(([categoryName, subcategorySet]) => {
       const categoryColor = getCategoryColor(categories[categoryName]);
@@ -1358,25 +1383,31 @@ const Dashboard = ({ user }) => {
         }
       };
       
-      // Configurar listener para mensajes en primer plano (solo una vez)
-      if (!listenerConfiguredRef.current) {
-        listenerConfiguredRef.current = true;
-        console.log("🔧 Configurando listener de notificaciones push...");
-        unsubscribeRef.current = setupForegroundMessageListener((payload) => {
-          console.log("📬 ========== CALLBACK EJECUTADO ==========");
-          console.log("📬 Payload recibido en callback:", payload);
-          const message = payload.notification?.body || payload.data?.message || "Tienes una nueva notificación";
-          console.log("📬 Mostrando notificación interna con mensaje:", message);
-          showNotification(message, "success");
-          console.log("📬 Notificación interna mostrada");
-        });
-        
-        if (unsubscribeRef.current) {
-          console.log("✅ Listener de notificaciones push configurado correctamente");
-        } else {
-          console.warn("⚠️ No se pudo configurar el listener de notificaciones push");
-          listenerConfiguredRef.current = false;
-        }
+      // Configurar listener para mensajes en primer plano
+      // Reconfigurar cada vez que cambie showNotification para usar la versión actual
+      console.log("🔧 Configurando listener de notificaciones push...");
+      
+      // Limpiar listener anterior si existe
+      if (unsubscribeRef.current) {
+        console.log("🧹 Limpiando listener anterior...");
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+      }
+      
+      // Configurar nuevo listener con el callback actual
+      unsubscribeRef.current = setupForegroundMessageListener((payload) => {
+        console.log("📬 ========== CALLBACK EJECUTADO ==========");
+        console.log("📬 Payload recibido en callback:", payload);
+        const message = payload.notification?.body || payload.data?.message || "Tienes una nueva notificación";
+        console.log("📬 Mostrando notificación interna con mensaje:", message);
+        showNotification(message, "success");
+        console.log("📬 Notificación interna mostrada");
+      });
+      
+      if (unsubscribeRef.current) {
+        console.log("✅ Listener de notificaciones push configurado correctamente");
+      } else {
+        console.warn("⚠️ No se pudo configurar el listener de notificaciones push");
       }
       
       // Ejecutar solo una vez después de un pequeño delay
@@ -1396,7 +1427,7 @@ const Dashboard = ({ user }) => {
     } else {
       console.warn("VAPID key no configurada. Las notificaciones push no funcionarán hasta que la configures.");
     }
-  }, [user]);
+  }, [user, showNotification]);
 
   // Handler para solicitar permisos desde SettingsModal
   const handleRequestPushPermission = useCallback(async () => {

@@ -344,9 +344,22 @@ export const migrateCategoriesToNewFormat = (categories) => {
  */
 export const saveCategories = async (userId, categories, options = {}) => {
   try {
-    if (!categories || typeof categories !== "object") {
-      console.error("Invalid categories data provided to saveCategories");
+    // VALIDACIÓN CRÍTICA: NUNCA permitir arrays, solo objetos
+    if (!categories) {
+      console.error("Invalid categories data provided to saveCategories: null or undefined");
       throw new Error("Invalid categories data");
+    }
+    
+    // Si es un array, rechazarlo explícitamente
+    if (Array.isArray(categories)) {
+      console.error("ERROR CRÍTICO: Se intentó guardar categorías como array. Las categorías deben ser un objeto, nunca un array.");
+      throw new Error("Categories cannot be an array. Must be an object.");
+    }
+    
+    // Verificar que sea un objeto
+    if (typeof categories !== "object") {
+      console.error("Invalid categories data provided to saveCategories: not an object");
+      throw new Error("Invalid categories data: must be an object");
     }
 
     const { mergeMode = "smart" } = options; // "smart" | "replace" | "merge"
@@ -715,10 +728,20 @@ export const initializeUser = async (userId, userData) => {
     if (userDoc.exists()) {
       // Usuario existente: NO tocar las categorías si ya tiene
       const currentData = userDoc.data();
-      const existingCategories = currentData.categories;
+      let existingCategories = currentData.categories;
+      
+      // Si las categorías están en formato array (formato antiguo), migrarlas primero
+      if (Array.isArray(existingCategories)) {
+        console.warn(`[initializeUser] Usuario ${userId} tiene categorías en formato array (antiguo), migrando a formato objeto...`);
+        // Si es un array, convertirlo a objeto vacío (no podemos migrar arrays directamente aquí)
+        // La migración real se hará en getUserCategories
+        existingCategories = {};
+      }
+      
       const hasCategories = 
         existingCategories &&
         typeof existingCategories === "object" &&
+        !Array.isArray(existingCategories) &&
         Object.keys(existingCategories).length > 0;
 
       // Construir updateData sin incluir categories si el usuario ya las tiene
@@ -732,11 +755,13 @@ export const initializeUser = async (userId, userData) => {
       }
 
       // SOLO establecer categorías predeterminadas si el usuario NO tiene ninguna
-      if (!hasCategories) {
+      // Y NUNCA si las categorías existen (aunque estén en formato antiguo)
+      if (!hasCategories && !Array.isArray(currentData.categories)) {
         console.log(`[initializeUser] Usuario ${userId} no tiene categorías, estableciendo predeterminadas`);
         updateData.categories = defaultCategories;
       } else {
-        console.log(`[initializeUser] Usuario ${userId} ya tiene ${Object.keys(existingCategories).length} categorías, NO se tocan`);
+        const categoryCount = Array.isArray(existingCategories) ? existingCategories.length : Object.keys(existingCategories).length;
+        console.log(`[initializeUser] Usuario ${userId} ya tiene categorías (${categoryCount}), NO se tocan`);
         // EXPLÍCITAMENTE NO incluir categories en updateData
         // Esto garantiza que las categorías existentes nunca se sobrescriban
       }
