@@ -940,6 +940,8 @@ const Dashboard = ({ user }) => {
   
   // Ref para prevenir alertas duplicadas
   const budgetAlertsShownRef = useRef(new Set());
+  const unsubscribeRef = useRef(null);
+  const listenerConfiguredRef = useRef(false);
 
   // Efecto para restaurar categorías y subcategorías perdidas de forma segura
   useEffect(() => {
@@ -1356,21 +1358,25 @@ const Dashboard = ({ user }) => {
         }
       };
       
-      // Configurar listener para mensajes en primer plano
-      console.log("🔧 Configurando listener de notificaciones push...");
-      const unsubscribe = setupForegroundMessageListener((payload) => {
-        console.log("📬 ========== CALLBACK EJECUTADO ==========");
-        console.log("📬 Payload recibido en callback:", payload);
-        const message = payload.notification?.body || payload.data?.message || "Tienes una nueva notificación";
-        console.log("📬 Mostrando notificación interna con mensaje:", message);
-        showNotification(message, "success");
-        console.log("📬 Notificación interna mostrada");
-      });
-      
-      if (unsubscribe) {
-        console.log("✅ Listener de notificaciones push configurado correctamente");
-      } else {
-        console.warn("⚠️ No se pudo configurar el listener de notificaciones push");
+      // Configurar listener para mensajes en primer plano (solo una vez)
+      if (!listenerConfiguredRef.current) {
+        listenerConfiguredRef.current = true;
+        console.log("🔧 Configurando listener de notificaciones push...");
+        unsubscribeRef.current = setupForegroundMessageListener((payload) => {
+          console.log("📬 ========== CALLBACK EJECUTADO ==========");
+          console.log("📬 Payload recibido en callback:", payload);
+          const message = payload.notification?.body || payload.data?.message || "Tienes una nueva notificación";
+          console.log("📬 Mostrando notificación interna con mensaje:", message);
+          showNotification(message, "success");
+          console.log("📬 Notificación interna mostrada");
+        });
+        
+        if (unsubscribeRef.current) {
+          console.log("✅ Listener de notificaciones push configurado correctamente");
+        } else {
+          console.warn("⚠️ No se pudo configurar el listener de notificaciones push");
+          listenerConfiguredRef.current = false;
+        }
       }
       
       // Ejecutar solo una vez después de un pequeño delay
@@ -1380,15 +1386,17 @@ const Dashboard = ({ user }) => {
       
       return () => {
         clearTimeout(timeoutId);
-        if (unsubscribe) {
+        if (unsubscribeRef.current) {
           console.log("🧹 Limpiando listener de notificaciones push...");
-          unsubscribe();
+          unsubscribeRef.current();
+          unsubscribeRef.current = null;
+          listenerConfiguredRef.current = false;
         }
       };
     } else {
       console.warn("VAPID key no configurada. Las notificaciones push no funcionarán hasta que la configures.");
     }
-  }, [user, showNotification]);
+  }, [user]);
 
   // Handler para solicitar permisos desde SettingsModal
   const handleRequestPushPermission = useCallback(async () => {
