@@ -34,21 +34,36 @@ self.addEventListener('install', (event) => {
 
 // Handle background messages
 messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Received background message ', payload);
+  console.log('[firebase-messaging-sw.js] ========== MENSAJE RECIBIDO EN BACKGROUND ==========');
+  console.log('[firebase-messaging-sw.js] Payload:', payload);
   
-  const notificationTitle = payload.notification?.title || 'Clarity';
-  const notificationBody = payload.notification?.body || payload.data?.message || 'Tienes una nueva notificación';
+  const notificationTitle = payload.notification?.title || payload.data?.title || 'Clarity';
+  const notificationBody = payload.notification?.body || payload.data?.body || payload.data?.message || 'Tienes una nueva notificación';
+  
+  console.log('[firebase-messaging-sw.js] Título:', notificationTitle);
+  console.log('[firebase-messaging-sw.js] Mensaje:', notificationBody);
   
   const notificationOptions = {
     body: notificationBody,
     icon: '/icon-192.png',
     badge: '/icon-192.png',
+    tag: payload.data?.tag || 'clarity-notification',
+    requireInteraction: false,
     data: {
       url: payload.data?.url || '/',
+      ...payload.data,
     },
   };
 
-  return self.registration.showNotification(notificationTitle, notificationOptions);
+  console.log('[firebase-messaging-sw.js] Mostrando notificación con opciones:', notificationOptions);
+
+  return self.registration.showNotification(notificationTitle, notificationOptions)
+    .then(() => {
+      console.log('[firebase-messaging-sw.js] ✅ Notificación mostrada correctamente');
+    })
+    .catch((error) => {
+      console.error('[firebase-messaging-sw.js] ❌ Error mostrando notificación:', error);
+    });
 });
 
 // Handle notification clicks

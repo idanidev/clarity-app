@@ -813,7 +813,25 @@ exports.sendTestNotification = onRequest(
           body: "¡Esta es una notificación de prueba! Si ves esto, las notificaciones push están funcionando correctamente.",
         },
         data: {
+          title: "🧪 Clarity - Notificación de Prueba",
+          body: "¡Esta es una notificación de prueba! Si ves esto, las notificaciones push están funcionando correctamente.",
           url: "/",
+          tag: "test-notification",
+        },
+        webpush: {
+          notification: {
+            requireInteraction: false,
+            badge: "/icon-192.png",
+            icon: "/icon-192.png",
+          },
+        },
+        apns: {
+          payload: {
+            aps: {
+              sound: "default",
+              badge: 1,
+            },
+          },
         },
       }));
 
