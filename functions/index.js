@@ -432,15 +432,15 @@ exports.sendDailyReminders = onSchedule(
         // Enviar notificación a cada token
         const messages = fcmTokens.map((token) => ({
           token: token,
-          notification: {
-            title: "📝 Clarity - Recordatorio",
-            body: message,
-          },
+          // Importante: usamos SOLO `data` para evitar que el navegador muestre
+          // automáticamente una notificación duplicada.
           data: {
             type: "daily-reminder",
             persistent: "true",
             url: "/",
             tag: `daily-reminder-${userId}`, // Tag único por usuario para evitar duplicados
+            title: "📝 Clarity - Recordatorio",
+            message,
           },
           android: {
             priority: "high",
@@ -649,15 +649,14 @@ exports.sendWeeklyReminders = onSchedule(
         // Enviar notificación
         const messages = fcmTokens.map((token) => ({
           token: token,
-          notification: {
-            title: "📝 Clarity - Recordatorio Semanal",
-            body: message,
-          },
+          // Importante: usar SOLO `data` para evitar notificaciones duplicadas en web/PWA
           data: {
             type: "weekly-reminder",
             persistent: "true",
             url: "/",
             tag: `weekly-reminder-${userId}`, // Tag único por usuario para evitar duplicados
+            title: "📝 Clarity - Recordatorio Semanal",
+            message,
           },
           android: {
             priority: "high",
@@ -808,10 +807,7 @@ exports.sendTestNotification = onRequest(
       // Enviar notificación de prueba
       const messages = fcmTokens.map((token) => ({
         token: token,
-        notification: {
-          title: "🧪 Clarity - Notificación de Prueba",
-          body: "¡Esta es una notificación de prueba! Si ves esto, las notificaciones push están funcionando correctamente.",
-        },
+        // Importante: usamos SOLO `data` para evitar notificaciones duplicadas en web/PWA.
         data: {
           title: "🧪 Clarity - Notificación de Prueba",
           body: "¡Esta es una notificación de prueba! Si ves esto, las notificaciones push están funcionando correctamente.",

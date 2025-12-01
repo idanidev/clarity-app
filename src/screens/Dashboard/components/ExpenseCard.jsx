@@ -182,7 +182,7 @@ const ExpenseCard = memo(({ expense, onEdit, onDelete, darkMode, isMobile = fals
                 darkMode ? "text-purple-400" : "text-purple-600"
               }`} />
               {expense.name && (
-                <h4 className={`text-xs sm:text-sm font-semibold truncate ${
+                <h4 className={`text-sm sm:text-base font-semibold truncate ${
                   darkMode ? "text-white" : "text-gray-900"
                 }`}>
                   {expense.name}
@@ -192,7 +192,7 @@ const ExpenseCard = memo(({ expense, onEdit, onDelete, darkMode, isMobile = fals
                 <span className="text-gray-500 text-xs">•</span>
               )}
               {expense.subcategory && (
-                <span className={`text-xs font-medium ${
+                <span className={`text-sm sm:text-base font-medium ${
                   darkMode ? "text-purple-300" : "text-purple-600"
                 }`}>
                   {expense.subcategory}
@@ -208,15 +208,15 @@ const ExpenseCard = memo(({ expense, onEdit, onDelete, darkMode, isMobile = fals
             </div>
 
             {/* Date and payment method - más compacto */}
-            <div className="flex items-center gap-1 flex-wrap text-xs text-gray-400 mt-0.5">
-              <Calendar className="w-3 h-3 flex-shrink-0" />
+            <div className="flex items-center gap-1.5 flex-wrap text-[11px] sm:text-xs text-gray-400 mt-0.5">
+              <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
               <span className="whitespace-nowrap">
                 {new Date(expense.date).toLocaleDateString("es-ES", {
                   day: "numeric",
                   month: "short",
                 })}
               </span>
-              <span className={`text-xs px-1.5 py-0.5 rounded-full border flex-shrink-0 font-medium ${
+              <span className={`text-[11px] sm:text-xs px-1.5 py-0.5 rounded-full border flex-shrink-0 font-medium ${
                 darkMode 
                   ? `${paymentStyle.bg} ${paymentStyle.border} ${paymentStyle.text}`
                   : `${paymentStyle.bgLight} ${paymentStyle.borderLight} ${paymentStyle.textLight}`
@@ -224,7 +224,7 @@ const ExpenseCard = memo(({ expense, onEdit, onDelete, darkMode, isMobile = fals
                 {expense.paymentMethod || "Tarjeta"}
               </span>
               {(expense.recurring || expense.isRecurring) && (
-                <span className={`text-xs px-1.5 py-0.5 rounded-full border flex-shrink-0 font-medium ${
+                <span className={`text-[11px] sm:text-xs px-1.5 py-0.5 rounded-full border flex-shrink-0 font-medium ${
                   darkMode
                     ? "bg-purple-500/20 border-purple-400/30 text-purple-200"
                     : "bg-purple-100 border-purple-300 text-purple-700"

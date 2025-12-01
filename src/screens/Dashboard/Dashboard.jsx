@@ -1404,8 +1404,34 @@ const Dashboard = ({ user }) => {
         unsubscribeRef.current = setupForegroundMessageListener((payload) => {
           console.log("📬 ========== CALLBACK EJECUTADO ==========");
           console.log("📬 Payload recibido en callback:", payload);
-          const message = payload.notification?.body || payload.data?.message || "Tienes una nueva notificación";
-          console.log("📬 Mostrando notificación interna con mensaje:", message);
+
+          const type = payload?.data?.type || "unknown";
+          const message =
+            payload.notification?.body ||
+            payload.data?.message ||
+            "Tienes una nueva notificación";
+
+          // Para notificaciones push del servidor (recordatorios diarios/semanales o prueba),
+          // dejamos que solo se muestre la notificación del sistema (iOS/Android) para evitar duplicados.
+          const isServerReminder =
+            type === "reminder" ||
+            type === "daily-reminder" ||
+            type === "weekly-reminder" ||
+            type === "test";
+
+          if (isServerReminder) {
+            console.log(
+              "📬 Notificación de servidor recibida en primer plano (type=%s). No se muestra banner interno para evitar duplicados.",
+              type
+            );
+            return;
+          }
+
+          console.log(
+            "📬 Mostrando notificación interna con mensaje:",
+            message
+          );
+
           // Usar la referencia actualizada al callback
           if (showNotificationRef.current) {
             showNotificationRef.current(message, "success");
