@@ -997,7 +997,8 @@ const MainContent = memo(({
                             : "bg-white hover:bg-purple-50/50 border border-purple-200/50 shadow-sm"
                         } px-3 py-2.5 sm:px-4 sm:py-3.5 flex items-center justify-between gap-2 transition-all hover:shadow-md`}
                         style={{
-                          borderLeftWidth: "4px",
+                          // Hacer la línea de color de categoría más visible
+                          borderLeftWidth: "6px",
                           borderLeftColor: categoryColor,
                         }}
                       >
@@ -1035,8 +1036,10 @@ const MainContent = memo(({
 
                       {/* Gastos expandidos - con mejor espaciado */}
                       {isExpanded && (
-                        <div className="mt-2 sm:mt-3 ml-2 sm:ml-4 space-y-1.5 sm:space-y-2 transition-all duration-300 border-l-2 pl-2 sm:pl-3"
-                          style={{ borderColor: `${categoryColor}40` }}
+                        <div
+                          className="mt-2 sm:mt-3 ml-2 sm:ml-4 space-y-1.5 sm:space-y-2 transition-all duration-300 border-l-4 pl-3 sm:pl-4"
+                          // Línea de color interior más gruesa y con más opacidad
+                          style={{ borderColor: `${categoryColor}A0` }}
                         >
                           {Object.entries(filteredSubcategories).map(
                             ([subcategory, exps]) => (
