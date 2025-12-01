@@ -325,6 +325,45 @@ const SettingsModal = ({
 
           {activeTab === "notifications" && (
             <>
+              {/* Notificaciones Push (activar permisos) */}
+              <div
+                className={`p-3 sm:p-4 rounded-lg sm:rounded-xl ${
+                  darkMode ? "bg-gray-700" : "bg-purple-50"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                    <Bell
+                      className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${
+                        darkMode ? "text-purple-400" : "text-purple-600"
+                      }`}
+                    />
+                    <div className="min-w-0">
+                      <p className={`text-sm sm:text-base font-medium ${textClass}`}>
+                        Activar notificaciones push
+                      </p>
+                      <p className={`text-xs sm:text-sm ${textSecondaryClass}`}>
+                        Pulsa este botón para conceder permisos en iOS y registrar este dispositivo para recibir recordatorios.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onRequestPushPermission) {
+                        onRequestPushPermission();
+                      }
+                    }}
+                    className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-purple-600 text-white text-xs sm:text-sm font-medium hover:bg-purple-700 transition-all flex-shrink-0"
+                  >
+                    Activar
+                  </button>
+                </div>
+                <p className={`text-xs sm:text-sm ${textSecondaryClass}`}>
+                  Si ya concediste permisos, este botón puede reintentar el registro del dispositivo si algo falló.
+                </p>
+              </div>
+
               {/* Recordatorio Semanal */}
               <div
                 className={`p-3 sm:p-4 rounded-lg sm:rounded-xl ${
