@@ -10,6 +10,7 @@ import {
   getCategoryColor,
   getCategorySubcategories,
   getChangelogSeenVersion,
+  getOnboardingStatus,
   getRecurringExpenses,
   getUserBudgets,
   getUserCategories,
@@ -20,6 +21,7 @@ import {
   getUserTheme,
   initializeUser,
   markChangelogAsSeen,
+  markOnboardingAsCompleted,
   saveBudgets,
   saveCategories,
   saveGoals,
@@ -63,7 +65,6 @@ import AchievementsSection from "../../components/AchievementsSection";
 import LongTermGoalsSection from "../../components/LongTermGoalsSection";
 // Lazy loading para componentes pesados
 const AddExpenseModal = lazy(() => import("./components/AddExpenseModal"));
-const BudgetsModal = lazy(() => import("./components/BudgetsModal"));
 const CategoriesModal = lazy(() => import("./components/CategoriesModal"));
 const ChangelogModal = lazy(() => import("./components/ChangelogModal"));
 const DeleteConfirmationDialog = lazy(() => import("./components/DeleteConfirmationDialog"));
@@ -72,6 +73,7 @@ const GoalsModal = lazy(() => import("./components/GoalsModal"));
 const RecurringExpensesModal = lazy(() => import("./components/RecurringExpensesModal"));
 const SettingsModal = lazy(() => import("./components/SettingsModal"));
 const TipsModal = lazy(() => import("./components/TipsModal"));
+const OnboardingModal = lazy(() => import("./components/OnboardingModal"));
 
 // Componentes que se usan siempre, sin lazy loading
 import Header from "./components/Header";
@@ -96,7 +98,6 @@ const Dashboard = ({ user }) => {
   const [activeView, setActiveView] = useState("table");
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [showBudgets, setShowBudgets] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
@@ -108,12 +109,13 @@ const Dashboard = ({ user }) => {
   const [showRecurring, setShowRecurring] = useState(false);
   const [showTips, setShowTips] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [editingRecurring, setEditingRecurring] = useState(null);
   const [recurringExpenses, setRecurringExpenses] = useState([]);
   const [changelogSeenVersion, setChangelogSeenVersion] = useState(null);
   
   // Versión actual del changelog - incrementar cuando hay nuevos cambios
-  const CURRENT_CHANGELOG_VERSION = "2.0.1";
+  const CURRENT_CHANGELOG_VERSION = "2.1.0";
   const [newRecurring, setNewRecurring] = useState({
     name: "",
     amount: "",
@@ -222,7 +224,7 @@ const Dashboard = ({ user }) => {
           email: user.email,
         });
 
-        const [userCategories, userBudgets, userTheme, userLanguage, changelogSeen, userIncome, userGoals, userNotificationSettings] = await Promise.all([
+        const [userCategories, userBudgets, userTheme, userLanguage, changelogSeen, userIncome, userGoals, userNotificationSettings, onboardingStatus] = await Promise.all([
           getUserCategories(user.uid),
           getUserBudgets(user.uid),
           getUserTheme(user.uid),
@@ -231,6 +233,7 @@ const Dashboard = ({ user }) => {
           getUserIncome(user.uid),
           getUserGoals(user.uid),
           getUserNotificationSettings(user.uid),
+          getOnboardingStatus(user.uid),
         ]);
 
         if (!isMounted) {
@@ -241,7 +244,9 @@ const Dashboard = ({ user }) => {
         setBudgets(userBudgets || {});
         setDarkMode(userTheme === "dark");
         setChangelogSeenVersion(changelogSeen);
-        setIncome(userIncome || 0);
+        // Solo establecer ingresos si el usuario los ha configurado (no null)
+        setIncome(userIncome !== null && userIncome !== undefined ? userIncome : 0);
+        // Solo establecer objetivos si el usuario los ha configurado (no null)
         setGoals(userGoals || { totalSavingsGoal: 0, categoryGoals: {} });
         setNotificationSettings(userNotificationSettings || {
           budgetAlerts: { enabled: true, at80: true, at90: true, at100: true },
@@ -256,8 +261,13 @@ const Dashboard = ({ user }) => {
           initializeLanguage(userLanguage);
         }
         
-        // Mostrar changelog si el usuario no ha visto esta versión
-        if (changelogSeen !== CURRENT_CHANGELOG_VERSION) {
+        // Mostrar tutorial de onboarding si el usuario aún no lo ha completado
+        if (!onboardingStatus?.completed) {
+          setShowOnboarding(true);
+        }
+
+        // Mostrar changelog solo a usuarios que ya han completado el onboarding
+        if (onboardingStatus?.completed && changelogSeen !== CURRENT_CHANGELOG_VERSION) {
           setShowChangelog(true);
         }
 
@@ -445,14 +455,17 @@ const Dashboard = ({ user }) => {
       showNotification("Gasto añadido correctamente");
     } catch (error) {
       showNotification("Error al añadir el gasto", "error");
+    } finally {
+      setIsSavingExpense(false);
     }
   };
 
   const handleUpdateExpense = async (e) => {
     e.preventDefault();
-    if (!user || !editingExpense) return;
+    if (!user || !editingExpense || isUpdatingExpense) return;
 
     try {
+      setIsUpdatingExpense(true);
       await updateExpenseDB(user.uid, editingExpense.id, {
         name: editingExpense.name,
         amount: parseFloat(editingExpense.amount),
@@ -467,6 +480,8 @@ const Dashboard = ({ user }) => {
       showNotification("Gasto actualizado correctamente");
     } catch (error) {
       showNotification("Error al actualizar el gasto", "error");
+    } finally {
+      setIsUpdatingExpense(false);
     }
   };
 
@@ -1502,7 +1517,23 @@ const Dashboard = ({ user }) => {
 
   // Efecto para actualizar historial mensual y badges automáticamente
   useEffect(() => {
-    if (!user || !goals || income === 0) {
+    // No hacer nada si:
+    // - No hay usuario
+    // - No hay objetivos configurados (goals es null o está vacío)
+    // - No hay ingresos configurados (income es null, undefined o 0)
+    if (!user || !goals || income === null || income === undefined || income === 0) {
+      return;
+    }
+
+    // Si el usuario no tiene ningún objetivo configurado todavía,
+    // no guardamos nada automáticamente para evitar crear objetivos "vacíos"
+    const hasAnyGoalConfigured =
+      (goals.monthlySavingsGoal && goals.monthlySavingsGoal > 0) ||
+      (goals.totalSavingsGoal && goals.totalSavingsGoal > 0) ||
+      (goals.categoryGoals && Object.keys(goals.categoryGoals).length > 0) ||
+      (goals.longTermGoals && goals.longTermGoals.length > 0);
+
+    if (!hasAnyGoalConfigured) {
       return;
     }
 
@@ -1510,13 +1541,24 @@ const Dashboard = ({ user }) => {
     const today = new Date();
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth() + 1;
+    const currentDay = today.getDate();
+    const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
     const currentMonthKey = `${currentYear}-${String(currentMonth).padStart(2, "0")}`;
     
     // Obtener entrada actual del historial
     const currentHistoryEntry = goals.monthlyHistory?.[currentMonthKey];
     const monthlySavings = income - currentMonthExpenses;
     const monthlyGoal = goals.monthlySavingsGoal || goals.totalSavingsGoal || 0;
-    const completed = monthlyGoal > 0 && monthlySavings >= monthlyGoal;
+    
+    // Objetivo esperado según el día del mes (proporcional)
+    const expectedSavingsByNow = monthlyGoal > 0
+      ? (monthlyGoal * currentDay) / daysInMonth
+      : 0;
+    
+    // Considerar objetivo completado solo si estamos al final de mes
+    // y se ha alcanzado o superado el objetivo total
+    const isEndOfMonth = currentDay >= daysInMonth - 1;
+    const completed = monthlyGoal > 0 && isEndOfMonth && monthlySavings >= monthlyGoal;
     
     // Solo actualizar si el valor cambió o no existe
     const shouldUpdate = !currentHistoryEntry || 
@@ -1593,11 +1635,6 @@ const Dashboard = ({ user }) => {
     trackOpenModal("categories");
   }, []);
 
-  const handleOpenBudgets = useCallback(() => {
-    setShowBudgets(true);
-    setShowManagement(false);
-    trackOpenModal("budgets");
-  }, []);
 
   const handleOpenGoals = useCallback(() => {
     setShowGoals(true);
@@ -1633,12 +1670,29 @@ const Dashboard = ({ user }) => {
     }
   }, [user]);
 
+  const handleCompleteOnboarding = useCallback(async () => {
+    if (user) {
+      try {
+        await markOnboardingAsCompleted(user.uid);
+        setShowOnboarding(false);
+      } catch (error) {
+        console.error("Error marking onboarding as completed:", error);
+      }
+    }
+  }, [user]);
+
   const handleSaveIncome = useCallback(async (newIncome) => {
     if (!user) return;
     try {
-      await saveIncome(user.uid, newIncome);
-      setIncome(newIncome);
-      showNotification("Ingresos actualizados correctamente");
+      // Si es null, undefined o 0, guardar null (no configurado)
+      const incomeToSave = newIncome === null || newIncome === undefined || newIncome === 0 ? null : newIncome;
+      await saveIncome(user.uid, incomeToSave);
+      setIncome(incomeToSave !== null ? incomeToSave : 0); // Para el estado local, usar 0 si es null
+      if (incomeToSave === null) {
+        showNotification("Ingresos eliminados. Recibirás un recordatorio al final del mes para ingresos variables.");
+      } else {
+        showNotification("Ingresos actualizados correctamente");
+      }
     } catch (error) {
       console.error("Error saving income:", error);
       showNotification("Error al guardar los ingresos", "error");
@@ -1866,7 +1920,6 @@ const Dashboard = ({ user }) => {
         textClass={textClass}
         textSecondaryClass={textSecondaryClass}
         userEmail={user.email}
-        showBudgets={showBudgets}
         showCategories={showCategories}
         showSettings={showSettings}
         showRecurring={showRecurring}
@@ -1889,7 +1942,6 @@ const Dashboard = ({ user }) => {
         textClass={textClass}
         onClose={() => setShowMenu(false)}
         onShowCategories={handleOpenCategories}
-        onShowBudgets={handleOpenBudgets}
         onShowRecurring={handleOpenRecurring}
         onShowSettings={handleOpenSettings}
         onShowTips={handleOpenTips}
@@ -2053,27 +2105,6 @@ const Dashboard = ({ user }) => {
         />
       </Suspense>
 
-      <Suspense fallback={showBudgets ? <ModalLoader /> : null}>
-        <BudgetsModal
-          visible={showBudgets}
-          darkMode={darkMode}
-          cardClass={cardClass}
-          textClass={textClass}
-          textSecondaryClass={textSecondaryClass}
-          inputClass={inputClass}
-          categories={categories}
-          budgets={budgets}
-          budgetCategory={budgetCategory}
-          onBudgetCategoryChange={setBudgetCategory}
-          budgetAmount={budgetAmount}
-          onBudgetAmountChange={setBudgetAmount}
-          onAddBudget={handleAddBudget}
-          categoryTotals={categoryTotals}
-          onRequestDelete={handleRequestDelete}
-          onClose={() => setShowBudgets(false)}
-        />
-      </Suspense>
-
       <Suspense fallback={showGoals ? <ModalLoader /> : null}>
         <GoalsModal
           visible={showGoals}
@@ -2144,10 +2175,6 @@ const Dashboard = ({ user }) => {
           onRequestPushPermission={handleRequestPushPermission}
           showNotification={showNotification}
           userId={user?.uid}
-          onOpenBudgets={() => {
-            setShowSettings(false);
-            setShowBudgets(true);
-          }}
         />
       </Suspense>
 
@@ -2172,6 +2199,15 @@ const Dashboard = ({ user }) => {
           onClose={handleCloseChangelog}
           lastSeenVersion={changelogSeenVersion}
           currentVersion={CURRENT_CHANGELOG_VERSION}
+        />
+      </Suspense>
+
+      <Suspense fallback={showOnboarding ? <ModalLoader /> : null}>
+        <OnboardingModal
+          visible={showOnboarding}
+          darkMode={darkMode}
+          onClose={() => setShowOnboarding(false)}
+          onComplete={handleCompleteOnboarding}
         />
       </Suspense>
 

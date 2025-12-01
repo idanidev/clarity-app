@@ -20,6 +20,7 @@ const AddExpenseModal = ({
   const [newCategoryName, setNewCategoryName] = useState("");
   const [showNewSubcategory, setShowNewSubcategory] = useState(false);
   const [newSubcategoryName, setNewSubcategoryName] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Limpiar estados cuando se cierra el modal
   useEffect(() => {
@@ -47,7 +48,11 @@ const AddExpenseModal = ({
   // Manejar el submit del formulario con validación de categorías/subcategorías nuevas
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
+    // Evitar envíos múltiples si el usuario pulsa varias veces
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
     let finalCategory = newExpense.category;
     let finalSubcategory = newExpense.subcategory;
     let needsUpdate = false;
@@ -174,8 +179,12 @@ const AddExpenseModal = ({
       await new Promise(resolve => setTimeout(resolve, 150));
     }
     
-    // Enviar el formulario
-    onSubmit(e);
+    try {
+      // Enviar el formulario
+      await onSubmit(e);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

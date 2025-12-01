@@ -27,7 +27,7 @@ import {
   Home,
   Wallet,
 } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { getCategoryColor } from "../../../services/firestoreService";
 import { getLongTermGoalProgress } from "../../../services/goalsService";
 import { useTranslation } from "../../../contexts/LanguageContext";
@@ -1417,6 +1417,233 @@ const MainContent = memo(({
                       </div>
                     );
                   })}
+              </div>
+
+              {/* Calendario Mensual con Gastos */}
+              <div className={`${darkMode ? "bg-gray-800/50" : "bg-white/50"} rounded-xl md:rounded-2xl border ${darkMode ? "border-gray-700" : "border-purple-200"} p-4 md:p-6`}>
+                {(() => {
+                  // Determinar qué mes mostrar según el filtro
+                  const today = new Date();
+                  let displayYear, displayMonth;
+                  
+                  if (filterPeriodType === "month" && selectedMonth) {
+                    // Usar el mes seleccionado en el filtro
+                    const [yearNum, monthNum] = selectedMonth.split("-").map(Number);
+                    displayYear = yearNum;
+                    displayMonth = monthNum - 1; // Los meses en JS van de 0-11
+                  } else {
+                    // Si no hay filtro de mes, mostrar el mes actual
+                    displayYear = today.getFullYear();
+                    displayMonth = today.getMonth();
+                  }
+                  
+                  const monthNames = [
+                    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+                  ];
+                  
+                  const daysInMonth = new Date(displayYear, displayMonth + 1, 0).getDate();
+                  const firstDayOfMonth = new Date(displayYear, displayMonth, 1).getDay();
+                  
+                  // Ajustar para que lunes sea 0
+                  const firstDay = (firstDayOfMonth + 6) % 7;
+                  
+                  const expensesByDay = {};
+                  filteredExpenses.forEach((expense) => {
+                    // Parsear fecha del gasto (formato YYYY-MM-DD)
+                    const [expYear, expMonth, expDay] = expense.date.split("-").map(Number);
+                    if (expYear === displayYear && expMonth === displayMonth + 1) {
+                      const day = expDay;
+                      if (!expensesByDay[day]) {
+                        expensesByDay[day] = 0;
+                      }
+                      expensesByDay[day] += expense.amount;
+                    }
+                  });
+
+                  const weekDays = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+                  const maxExpense = Math.max(...Object.values(expensesByDay), 0);
+                  
+                  // Verificar si el mes mostrado es el mes actual
+                  const isCurrentMonth = displayYear === today.getFullYear() && displayMonth === today.getMonth();
+                  
+                  return (
+                    <>
+                      <h3 className={`text-lg md:text-xl font-bold ${textClass} mb-4`}>
+                        Calendario de Gastos - {monthNames[displayMonth]} {displayYear}
+                      </h3>
+
+                      <div className="space-y-2">
+                        {/* Días de la semana */}
+                        <div className="grid grid-cols-7 gap-1 md:gap-2 mb-2">
+                          {weekDays.map((day) => (
+                            <div key={day} className={`text-center text-xs md:text-sm font-semibold ${textSecondaryClass}`}>
+                              {day}
+                            </div>
+                          ))}
+                        </div>
+                        
+                        {/* Calendario */}
+                        <div className="grid grid-cols-7 gap-1 md:gap-2">
+                          {/* Días vacíos al inicio */}
+                          {Array.from({ length: firstDay }).map((_, i) => (
+                            <div key={`empty-${i}`} className="aspect-square"></div>
+                          ))}
+                          
+                          {/* Días del mes */}
+                          {Array.from({ length: daysInMonth }, (_, i) => {
+                            const day = i + 1;
+                            const dayExpense = expensesByDay[day] || 0;
+                            // Solo marcar como "hoy" si estamos viendo el mes actual Y es el día de hoy
+                            const isToday = isCurrentMonth && day === today.getDate();
+                            const intensity = maxExpense > 0 ? Math.min((dayExpense / maxExpense) * 100, 100) : 0;
+                          
+                          return (
+                            <div
+                              key={day}
+                              className={`aspect-square rounded-lg md:rounded-xl flex flex-col items-center justify-center p-1 transition-all ${
+                                isToday
+                                  ? darkMode
+                                    ? "ring-2 ring-purple-500"
+                                    : "ring-2 ring-purple-600"
+                                  : ""
+                              } ${
+                                dayExpense > 0
+                                  ? darkMode
+                                    ? "bg-purple-600/30 border border-purple-500/50"
+                                    : "bg-purple-100 border border-purple-300"
+                                  : darkMode
+                                  ? "bg-gray-700/30 border border-gray-600/30"
+                                  : "bg-gray-100/50 border border-gray-200"
+                              }`}
+                              style={{
+                                backgroundColor: dayExpense > 0
+                                  ? darkMode
+                                    ? `rgba(147, 51, 234, ${0.2 + intensity / 200})`
+                                    : `rgba(196, 181, 253, ${0.3 + intensity / 300})`
+                                  : undefined,
+                              }}
+                              title={dayExpense > 0 ? `€${dayExpense.toFixed(2)}` : ""}
+                            >
+                              <span className={`text-xs md:text-sm font-medium ${isToday ? "font-bold" : ""} ${textClass}`}>
+                                {day}
+                              </span>
+                              {dayExpense > 0 && (
+                                <span className={`text-[9px] md:text-xs font-semibold mt-0.5 ${
+                                  darkMode ? "text-purple-300" : "text-purple-700"
+                                }`}>
+                                  -{dayExpense.toFixed(0)}€
+                                </span>
+                              )}
+                            </div>
+                          );
+                          })}
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+
+              {/* Gráfico Semanal */}
+              <div className={`${darkMode ? "bg-gray-800/50" : "bg-white/50"} rounded-xl md:rounded-2xl border ${darkMode ? "border-gray-700" : "border-purple-200"} p-4 md:p-6`}>
+                <h3 className={`text-lg md:text-xl font-bold ${textClass} mb-4`}>
+                  Gastos de la Semana
+                </h3>
+                {(() => {
+                  // Calcular gastos por día de la semana actual
+                  // Usar fecha local para evitar problemas de zona horaria
+                  const today = new Date();
+                  const currentDay = today.getDay();
+                  // Ajustar para que lunes sea 0
+                  const daysFromMonday = (currentDay + 6) % 7;
+                  
+                  // Calcular lunes de esta semana en fecha local
+                  const monday = new Date(today);
+                  monday.setDate(today.getDate() - daysFromMonday);
+                  monday.setHours(0, 0, 0, 0);
+                  
+                  const weekDays = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+                  const weekData = weekDays.map((dayName, index) => {
+                    const dayDate = new Date(monday);
+                    dayDate.setDate(monday.getDate() + index);
+                    // Formatear fecha como YYYY-MM-DD en hora local (no UTC)
+                    const year = dayDate.getFullYear();
+                    const month = String(dayDate.getMonth() + 1).padStart(2, "0");
+                    const day = String(dayDate.getDate()).padStart(2, "0");
+                    const dayStr = `${year}-${month}-${day}`;
+                    
+                    const dayExpenses = filteredExpenses.filter((exp) => exp.date === dayStr);
+                    const total = dayExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+                    
+                    return {
+                      day: dayName,
+                      date: dayDate.getDate(),
+                      amount: total,
+                    };
+                  });
+
+                  const maxAmount = Math.max(...weekData.map((d) => d.amount), 1);
+
+                  return (
+                    <div className="space-y-4">
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={weekData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? "#374151" : "#e5e7eb"} opacity={0.3} />
+                          <XAxis
+                            dataKey="day"
+                            tick={{ fill: darkMode ? "#9ca3af" : "#6b7280", fontSize: 12 }}
+                            stroke={darkMode ? "#4b5563" : "#d1d5db"}
+                          />
+                          <YAxis
+                            tick={{ fill: darkMode ? "#9ca3af" : "#6b7280", fontSize: 12 }}
+                            stroke={darkMode ? "#4b5563" : "#d1d5db"}
+                            tickFormatter={(value) => `€${value}`}
+                          />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: darkMode ? "#1f2937" : "#ffffff",
+                              border: darkMode ? "1px solid #374151" : "1px solid #e5e7eb",
+                              borderRadius: "8px",
+                            }}
+                            formatter={(value) => [`€${value.toFixed(2)}`, "Gasto"]}
+                            labelFormatter={(label) => `Día: ${label}`}
+                          />
+                          <Bar
+                            dataKey="amount"
+                            fill={darkMode ? "#9333ea" : "#8b5cf6"}
+                            radius={[8, 8, 0, 0]}
+                          >
+                            {weekData.map((entry, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={
+                                  entry.amount > 0
+                                    ? darkMode
+                                      ? `rgba(147, 51, 234, ${0.4 + (entry.amount / maxAmount) * 0.6})`
+                                      : `rgba(139, 92, 246, ${0.5 + (entry.amount / maxAmount) * 0.5})`
+                                    : darkMode
+                                    ? "#374151"
+                                    : "#e5e7eb"
+                                }
+                              />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                      
+                      {/* Resumen de la semana */}
+                      <div className="flex items-center justify-between pt-2 border-t border-gray-300 dark:border-gray-600">
+                        <span className={`text-sm font-medium ${textSecondaryClass}`}>
+                          Total de la semana:
+                        </span>
+                        <span className={`text-lg font-bold ${textClass}`}>
+                          €{weekData.reduce((sum, d) => sum + d.amount, 0).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}

@@ -599,16 +599,29 @@ exports.sendWeeklyReminders = onSchedule(
         }
 
         // Verificar si ya se envió una notificación hoy para evitar duplicados
-        // Solo verificar si es el mismo día de la semana configurado
+        // Solo bloquear si ya se envió hoy Y la hora/minuto configurados son los mismos
+        // Esto permite que se envíe si cambiaste la hora o minuto del recordatorio
         const lastReminderSent = userData.lastWeeklyReminderSent;
+        const lastReminderHour = userData.lastWeeklyReminderHour;
+        const lastReminderMinute = userData.lastWeeklyReminderMinute;
         const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
 
-        // Solo bloquear si ya se envió hoy Y es el mismo día de la semana configurado
-        // Esto permite que se envíe si cambiaste el día de la semana
-        if (lastReminderSent === today && dayMatch) {
-          logger.info(`  ⏭️  Usuario ${userId}: Ya se envió un recordatorio hoy (${today}). Omitiendo para evitar duplicados.`);
+        logger.info(`  🔍 Usuario ${userId}: Verificando último recordatorio - Fecha: ${lastReminderSent || "nunca"}, Hora: ${lastReminderHour ?? "N/A"}, Minuto: ${lastReminderMinute ?? "N/A"}`);
+
+        // Solo bloquear si:
+        // 1. Ya se envió hoy (mismo día)
+        // 2. Es el mismo día de la semana
+        // 3. La hora/minuto configurados coinciden con los del último envío
+        // Si alguno de estos campos no existe, permitir el envío
+        const sameTime = lastReminderHour !== undefined && lastReminderMinute !== undefined &&
+                         lastReminderHour === configuredHour && lastReminderMinute === configuredMinute;
+
+        if (lastReminderSent === today && dayMatch && sameTime) {
+          logger.info(`  ⏭️  Usuario ${userId}: Ya se envió un recordatorio hoy (${today}) a las ${lastReminderHour}:${String(lastReminderMinute).padStart(2, "0")}. Omitiendo para evitar duplicados.`);
           remindersSkipped++;
           continue;
+        } else if (lastReminderSent === today && dayMatch && !sameTime) {
+          logger.info(`  ✅ Usuario ${userId}: Ya se envió hoy pero con hora diferente (última: ${lastReminderHour ?? "N/A"}:${String(lastReminderMinute ?? "N/A").padStart(2, "0")}, nueva: ${configuredHour}:${String(configuredMinute).padStart(2, "0")}). Permitir envío.`);
         }
 
         logger.info(`  ✅ Usuario ${userId}: ¡Coincide! Enviando notificación...`);
@@ -694,13 +707,16 @@ exports.sendWeeklyReminders = onSchedule(
           remindersSent += response.successCount;
 
           // Marcar que se envió el recordatorio hoy para evitar duplicados
+          // Guardamos también la hora/minuto para permitir reenvío si el usuario cambia la hora
           if (response.successCount > 0) {
             try {
               await db.collection("users").doc(userId).update({
                 lastWeeklyReminderSent: today,
+                lastWeeklyReminderHour: configuredHour,
+                lastWeeklyReminderMinute: configuredMinute,
                 updatedAt: FieldValue.serverTimestamp(),
               });
-              logger.info(`  ✅ Marcado lastWeeklyReminderSent para usuario ${userId}: ${today}`);
+              logger.info(`  ✅ Marcado lastWeeklyReminderSent para usuario ${userId}: ${today} a las ${configuredHour}:${String(configuredMinute).padStart(2, "0")}`);
             } catch (error) {
               logger.error(`  ❌ Error actualizando lastWeeklyReminderSent para usuario ${userId}:`, error);
             }
@@ -890,3 +906,195 @@ exports.sendTestNotification = onRequest(
     }
   }
 );
+
+/**
+ * Cloud Function que se ejecuta el último día de cada mes a las 20:00
+ * Notifica a usuarios con ingresos variables (income es null) para que actualicen sus ingresos
+ */
+exports.sendMonthlyIncomeReminder = onSchedule(
+  {
+    schedule: "0 20 1-31 * *", // Todos los días del mes a las 20:00 para verificar si hay que enviar
+    timeZone: "Europe/Madrid",
+    memory: "256MiB",
+    timeoutSeconds: 300,
+    invoker: "public",
+  },
+  async (event) => {
+    logger.info("💰 Iniciando recordatorio de ingresos mensuales...");
+
+    try {
+      const now = new Date();
+      const madridFormatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: "Europe/Madrid",
+        day: "numeric",
+        month: "numeric",
+        year: "numeric",
+      });
+
+      const madridParts = madridFormatter.formatToParts(now);
+      const currentDay = parseInt(madridParts.find((p) => p.type === "day")?.value || "0", 10);
+      const currentMonth = parseInt(madridParts.find((p) => p.type === "month")?.value || "0", 10);
+      const currentYear = parseInt(madridParts.find((p) => p.type === "year")?.value || "0", 10);
+
+      logger.info(`📅 Día actual: ${currentDay}, Mes: ${currentMonth}, Año: ${currentYear}`);
+
+      const usersSnapshot = await db.collection("users").get();
+      let remindersSent = 0;
+      let remindersSkipped = 0;
+
+      logger.info(`👥 Procesando ${usersSnapshot.size} usuarios...`);
+
+      for (const userDoc of usersSnapshot.docs) {
+        const userId = userDoc.id;
+        const userData = userDoc.data();
+
+        const notificationSettings = userData.notificationSettings;
+
+        // Solo enviar a usuarios que tienen notificaciones push habilitadas
+        if (!notificationSettings?.pushNotifications?.enabled) {
+          remindersSkipped++;
+          continue;
+        }
+
+        // Verificar si el recordatorio de ingresos mensual está habilitado
+        const monthlyIncomeReminder = notificationSettings?.monthlyIncomeReminder;
+        if (!monthlyIncomeReminder?.enabled) {
+          logger.info(`  ⏭️  Usuario ${userId}: Recordatorio de ingresos mensual deshabilitado. Omitiendo.`);
+          remindersSkipped++;
+          continue;
+        }
+
+        // Verificar si es el día configurado para enviar el recordatorio
+        const configuredDay = monthlyIncomeReminder?.dayOfMonth ?? 28;
+        if (currentDay !== configuredDay) {
+          logger.info(`  ⏭️  Usuario ${userId}: Día actual (${currentDay}) no coincide con día configurado (${configuredDay}). Omitiendo.`);
+          remindersSkipped++;
+          continue;
+        }
+
+        // Comprobar ingresos del usuario
+        const userIncome = userData.income;
+        const hasNoIncome = userIncome === null || userIncome === undefined;
+
+        // Recordar como máximo una vez al mes
+        const currentMonthKey = `${currentYear}-${String(currentMonth).padStart(2, "0")}`;
+        const lastIncomeReminderSent = userData.lastIncomeReminderSent;
+
+        if (lastIncomeReminderSent === currentMonthKey) {
+          logger.info(`  ⏭️  Usuario ${userId}: Ya se envió recordatorio de ingresos este mes. Omitiendo.`);
+          remindersSkipped++;
+          continue;
+        }
+
+        let fcmTokens = userData.fcmTokens || [];
+        if (fcmTokens.length === 0) {
+          logger.info(`  ⏭️  Usuario ${userId} no tiene tokens FCM`);
+          remindersSkipped++;
+          continue;
+        }
+
+        // Usar solo el token más reciente
+        if (fcmTokens.length > 1) {
+          const latestToken = fcmTokens[fcmTokens.length - 1];
+          fcmTokens = [latestToken];
+        }
+
+        const message = hasNoIncome ?
+          "📊 ¡Final de mes! No olvides registrar tus ingresos de este mes en Clarity para hacer un seguimiento preciso." :
+          "📊 ¡Final de mes! Si tus ingresos han variado este mes, actualízalos en Clarity para mantener tus objetivos al día.";
+
+        const messages = fcmTokens.map((token) => ({
+          token: token,
+          data: {
+            type: "income-reminder",
+            persistent: "true",
+            url: "/",
+            tag: `income-reminder-${userId}-${currentMonthKey}`,
+            title: "💰 Clarity - Recordatorio de Ingresos",
+            message,
+          },
+          android: {
+            priority: "high",
+            notification: {
+              sound: "default",
+              channelId: "reminders",
+            },
+          },
+          apns: {
+            payload: {
+              aps: {
+                sound: "default",
+                badge: 1,
+                contentAvailable: true,
+              },
+            },
+          },
+          webpush: {
+            fcmOptions: {
+              link: "/",
+            },
+          },
+        }));
+
+        try {
+          logger.info(`  📤 Enviando recordatorio de ingresos a usuario ${userId}...`);
+          const response = await messaging.sendEach(messages);
+          logger.info(`  ✅ Recordatorio enviado a usuario ${userId}: ${response.successCount} exitosos de ${messages.length} intentos`);
+
+          if (response.failureCount > 0) {
+            logger.warn(`  ⚠️  ${response.failureCount} mensaje(s) fallaron para usuario ${userId}`);
+          }
+
+          remindersSent += response.successCount;
+
+          if (response.successCount > 0) {
+            try {
+              await db.collection("users").doc(userId).update({
+                lastIncomeReminderSent: currentMonthKey,
+                updatedAt: FieldValue.serverTimestamp(),
+              });
+              logger.info(`  ✅ Marcado lastIncomeReminderSent para usuario ${userId}: ${currentMonthKey}`);
+            } catch (error) {
+              logger.error(`  ❌ Error actualizando lastIncomeReminderSent para usuario ${userId}:`, error);
+            }
+          }
+
+          // Limpiar tokens inválidos
+          if (response.responses) {
+            const invalidTokens = [];
+            response.responses.forEach((resp, idx) => {
+              if (!resp.success && (resp.error?.code === "messaging/invalid-registration-token" ||
+                                    resp.error?.code === "messaging/registration-token-not-registered")) {
+                invalidTokens.push(messages[idx].token);
+              }
+            });
+
+            if (invalidTokens.length > 0) {
+              logger.info(`  🧹 Limpiando ${invalidTokens.length} tokens inválidos para usuario ${userId}`);
+              const validTokens = fcmTokens.filter((token) => !invalidTokens.includes(token));
+              await db.collection("users").doc(userId).update({
+                fcmTokens: validTokens,
+                updatedAt: FieldValue.serverTimestamp(),
+              });
+            }
+          }
+        } catch (error) {
+          logger.error(`  ❌ Error enviando recordatorio de ingresos a usuario ${userId}:`, error);
+        }
+      }
+
+      logger.info("\n" + "=".repeat(50));
+      logger.info("📊 RESUMEN DE RECORDATORIOS DE INGRESOS:");
+      logger.info(`  ✅ Recordatorios enviados: ${remindersSent}`);
+      logger.info(`  ⏭️  Usuarios omitidos: ${remindersSkipped}`);
+      logger.info(`  👥 Usuarios procesados: ${usersSnapshot.size}`);
+      logger.info("=".repeat(50));
+
+      return { success: true, sent: remindersSent, skipped: remindersSkipped };
+    } catch (error) {
+      logger.error("❌ Error en sendMonthlyIncomeReminder:", error);
+      throw error;
+    }
+  }
+);
+

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   CheckCircle,
   LayoutDashboard,
@@ -8,6 +9,16 @@ import {
   BarChart3,
   Filter,
   MousePointerClick,
+  Move,
+  Calendar,
+  TrendingUp,
+  DollarSign,
+  Bell,
+  Edit2,
+  Trash2,
+  ArrowLeft,
+  ShoppingBag,
+  CreditCard,
 } from "lucide-react";
 
 /**
@@ -32,6 +43,191 @@ const compareVersions = (v1, v2) => {
   return 0;
 };
 
+// Componente de demostración de deslizamiento - Réplica exacta del ExpenseCard
+const SwipeDemo = ({ darkMode, textClass, textSecondaryClass }) => {
+  const [animationState, setAnimationState] = useState("none"); // "none" | "left" | "right"
+
+  const startAnimation = (direction) => {
+    setAnimationState(direction);
+    setTimeout(() => setAnimationState("none"), 2500);
+  };
+
+  // Datos del ejemplo de gasto
+  const exampleExpense = {
+    name: "Amazon",
+    subcategory: "Electronica",
+    category: "Compras",
+    amount: 29.99,
+    date: new Date().toISOString(),
+    paymentMethod: "Tarjeta",
+  };
+
+  const paymentStyle = {
+    bg: darkMode ? "bg-blue-500/20" : "bg-blue-100",
+    border: darkMode ? "border-blue-400/30" : "border-blue-300",
+    text: darkMode ? "text-blue-200" : "text-blue-700",
+  };
+
+  return (
+    <div className={`mt-4 sm:mt-6 p-3 sm:p-4 rounded-xl overflow-hidden ${
+      darkMode ? "bg-gray-800/50 border border-gray-700" : "bg-purple-50/50 border border-purple-200"
+    }`}>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+        <p className={`text-xs sm:text-sm font-semibold ${textClass}`}>
+          💡 Prueba la funcionalidad:
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={() => startAnimation("right")}
+            className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+              darkMode 
+                ? "bg-blue-600 hover:bg-blue-700 text-white" 
+                : "bg-blue-600 hover:bg-blue-700 text-white"
+            }`}
+          >
+            ← Editar
+          </button>
+          <button
+            onClick={() => startAnimation("left")}
+            className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+              darkMode 
+                ? "bg-red-600 hover:bg-red-700 text-white" 
+                : "bg-red-600 hover:bg-red-700 text-white"
+            }`}
+          >
+            Eliminar →
+          </button>
+        </div>
+      </div>
+      
+      <div className="relative overflow-hidden rounded-lg sm:rounded-xl w-full">
+        {/* Botón de editar (izquierda, aparece al deslizar a la derecha) */}
+        <div
+          className={`absolute left-0 top-0 bottom-0 w-14 sm:w-18 md:w-24 flex items-center justify-center transition-transform duration-500 z-10 ${
+            animationState === "right" ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          <button className="w-full h-full bg-blue-600 flex items-center justify-center shadow-lg">
+            <div className="flex flex-col items-center gap-0.5 sm:gap-1">
+              <Edit2 className="w-4 h-4 sm:w-5 sm:h-5 md:w-7 md:h-7 text-white" />
+              <span className="text-[8px] sm:text-[9px] md:text-xs text-white font-medium leading-tight">Editar</span>
+            </div>
+          </button>
+        </div>
+
+        {/* Botón de eliminar (derecha, aparece al deslizar a la izquierda) */}
+        <div
+          className={`absolute right-0 top-0 bottom-0 w-14 sm:w-18 md:w-24 flex items-center justify-center transition-transform duration-500 z-10 ${
+            animationState === "left" ? "translate-x-0" : "translate-x-full"
+          }`}
+        >
+          <button className="w-full h-full bg-red-600 flex items-center justify-center shadow-lg">
+            <div className="flex flex-col items-center gap-0.5 sm:gap-1">
+              <Trash2 className="w-4 h-4 sm:w-5 sm:h-5 md:w-7 md:h-7 text-white" />
+              <span className="text-[8px] sm:text-[9px] md:text-xs text-white font-medium leading-tight">Eliminar</span>
+            </div>
+          </button>
+        </div>
+
+        {/* Tarjeta de ejemplo de gasto - Réplica exacta del ExpenseCard */}
+        <div
+          className={`relative transition-transform duration-500 ${
+            animationState === "left" 
+              ? "-translate-x-14 sm:-translate-x-18 md:-translate-x-24" 
+              : animationState === "right"
+              ? "translate-x-14 sm:translate-x-18 md:translate-x-24"
+              : "translate-x-0"
+          } rounded-lg sm:rounded-xl p-2 sm:p-2.5 md:p-3 ${
+            darkMode 
+              ? "bg-gray-800/40 border border-gray-700/50" 
+              : "bg-white border border-purple-100/80 shadow-sm"
+          } ${animationState !== "none" ? "bg-purple-500/10 border-purple-500/30 shadow-lg" : ""} w-full`}
+        >
+          <div className="flex justify-between items-center gap-1.5 sm:gap-2">
+            <div className="flex-1 min-w-0 pr-1 sm:pr-2">
+              {/* Nombre del gasto y subcategoría */}
+              <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
+                <ShoppingBag className={`w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 flex-shrink-0 ${
+                  darkMode ? "text-purple-400" : "text-purple-600"
+                }`} />
+                {exampleExpense.name && (
+                  <h4 className={`text-xs sm:text-sm md:text-base font-semibold truncate ${
+                    darkMode ? "text-white" : "text-gray-900"
+                  }`}>
+                    {exampleExpense.name}
+                  </h4>
+                )}
+                {exampleExpense.subcategory && (
+                  <>
+                    <span className="text-gray-500 text-[10px] sm:text-xs">•</span>
+                    <span className={`text-xs sm:text-sm md:text-base font-medium truncate ${
+                      darkMode ? "text-purple-300" : "text-purple-600"
+                    }`}>
+                      {exampleExpense.subcategory}
+                    </span>
+                  </>
+                )}
+              </div>
+
+              {/* Date and payment method */}
+              <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap text-[10px] sm:text-[11px] md:text-xs text-gray-400 mt-0.5">
+                <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
+                <span className="whitespace-nowrap">
+                  {new Date(exampleExpense.date).toLocaleDateString("es-ES", {
+                    day: "numeric",
+                    month: "short",
+                  })}
+                </span>
+                <span className={`text-[10px] sm:text-[11px] md:text-xs px-1 sm:px-1.5 py-0.5 rounded-full border flex-shrink-0 font-medium ${
+                  darkMode 
+                    ? `${paymentStyle.bg} ${paymentStyle.border} ${paymentStyle.text}`
+                    : `${paymentStyle.bg} ${paymentStyle.border} ${paymentStyle.text}`
+                }`}>
+                  {exampleExpense.paymentMethod}
+                </span>
+              </div>
+            </div>
+
+            {/* Amount */}
+            <div className="flex flex-col items-end flex-shrink-0">
+              <p className={`text-xs sm:text-sm md:text-base font-bold whitespace-nowrap ${
+                darkMode ? "text-white" : "text-gray-900"
+              }`}>
+                €{exampleExpense.amount.toFixed(2)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Flechas indicadoras - Responsive y dentro del contenedor */}
+        {animationState === "none" && (
+          <>
+            {/* Flecha izquierda para editar */}
+            <div className="absolute left-1 sm:left-2 md:left-3 top-1/2 -translate-y-1/2 pointer-events-none z-20">
+              <div className="flex flex-col items-center gap-0.5 sm:gap-1 animate-pulse">
+                <ArrowLeft className={`w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 rotate-180 ${darkMode ? "text-blue-400" : "text-blue-600"}`} />
+                <span className={`text-[8px] sm:text-[9px] md:text-[10px] font-semibold ${darkMode ? "text-blue-300" : "text-blue-700"}`}>
+                  Editar
+                </span>
+              </div>
+            </div>
+            
+            {/* Flecha derecha para eliminar */}
+            <div className="absolute right-1 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 pointer-events-none z-20">
+              <div className="flex flex-col items-center gap-0.5 sm:gap-1 animate-pulse">
+                <ArrowLeft className={`w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 ${darkMode ? "text-red-400" : "text-red-600"}`} />
+                <span className={`text-[8px] sm:text-[9px] md:text-[10px] font-semibold ${darkMode ? "text-red-300" : "text-red-700"}`}>
+                  Eliminar
+                </span>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const ChangelogModal = ({ visible, darkMode, cardClass, textClass, textSecondaryClass, onClose, lastSeenVersion, currentVersion }) => {
   if (!visible) {
     return null;
@@ -39,6 +235,52 @@ const ChangelogModal = ({ visible, darkMode, cardClass, textClass, textSecondary
 
   // Todos los cambios con sus versiones
   const allChanges = [
+    {
+      version: "2.1.0",
+      icon: Move,
+      title: "Editar y borrar deslizando en móvil",
+      description:
+        "¡Ahora puedes editar o eliminar gastos directamente desde la lista! En móvil, desliza un gasto hacia la izquierda para ver las opciones de editar y borrar. Es rápido e intuitivo.",
+      hasDemo: true,
+      color: "text-purple-600",
+      bgColor: "bg-purple-100",
+    },
+    {
+      version: "2.1.0",
+      icon: Calendar,
+      title: "Calendario de gastos en gráficos",
+      description:
+        "Visualiza tus gastos día a día en un calendario mensual interactivo. Cada día muestra el total gastado con colores que indican la intensidad del gasto. El calendario respeta tus filtros de mes, así que puedes ver cualquier mes que quieras.",
+      color: "text-blue-600",
+      bgColor: "bg-blue-100",
+    },
+    {
+      version: "2.1.0",
+      icon: TrendingUp,
+      title: "Gráfico semanal de gastos",
+      description:
+        "Nuevo gráfico de barras que muestra tus gastos día a día de la semana actual. Perfecto para ver en qué días gastas más y mantener el control de tus finanzas semanales.",
+      color: "text-green-600",
+      bgColor: "bg-green-100",
+    },
+    {
+      version: "2.1.0",
+      icon: DollarSign,
+      title: "Ingresos mejorados",
+      description:
+        "Ahora puedes dejar el campo de ingresos vacío si tus ingresos varían cada mes. Además, recibirás un recordatorio automático al final de cada mes para actualizar tus ingresos si no son fijos.",
+      color: "text-indigo-600",
+      bgColor: "bg-indigo-100",
+    },
+    {
+      version: "2.1.0",
+      icon: Bell,
+      title: "Recordatorios de ingresos variables",
+      description:
+        "Si tus ingresos cambian cada mes, Clarity te recordará automáticamente al final del mes para que actualices tus ingresos y mantengas tus objetivos al día.",
+      color: "text-pink-600",
+      bgColor: "bg-pink-100",
+    },
     {
       version: "2.0.1",
       icon: BarChart3,
@@ -238,9 +480,21 @@ const ChangelogModal = ({ visible, darkMode, cardClass, textClass, textSecondary
                                 <h4 className={`text-lg font-semibold ${textClass} mb-2`}>
                                   {change.title}
                                 </h4>
-                                <p className={`text-sm ${textSecondaryClass}`}>
+                                <p className={`text-sm ${textSecondaryClass} mb-2`}>
                                   {change.description}
                                 </p>
+                                {change.hasDemo && (
+                                  <SwipeDemo darkMode={darkMode} textClass={textClass} textSecondaryClass={textSecondaryClass} />
+                                )}
+                                {change.example && !change.hasDemo && (
+                                  <div className={`mt-3 p-3 rounded-lg ${
+                                    darkMode ? "bg-purple-900/30 border border-purple-700/50" : "bg-purple-50 border border-purple-200"
+                                  }`}>
+                                    <p className={`text-sm font-medium ${darkMode ? "text-purple-300" : "text-purple-700"}`}>
+                                      {change.example}
+                                    </p>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>

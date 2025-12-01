@@ -17,7 +17,6 @@ const MobileMenu = memo(({
   textClass,
   onClose,
   onShowCategories,
-  onShowBudgets,
   onShowRecurring,
   onShowSettings,
   onShowTips,
@@ -76,18 +75,6 @@ const MobileMenu = memo(({
               }`}
             />
             <span className={`font-medium ${textClass}`}>{t("dashboard.categories")}</span>
-          </button>
-
-          <button
-            onClick={() => handleAction(onShowBudgets)}
-            className={`w-full flex items-center gap-3 p-4 rounded-xl ${buttonBase} transition-all`}
-          >
-            <Target
-              className={`w-5 h-5 ${
-                darkMode ? "text-purple-400" : "text-purple-600"
-              }`}
-            />
-            <span className={`font-medium ${textClass}`}>{t("dashboard.budgets")}</span>
           </button>
 
           <button

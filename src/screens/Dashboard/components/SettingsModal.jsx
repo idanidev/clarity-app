@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Bell, DollarSign, Globe, Moon, Sun, X, TestTube, Calendar } from "lucide-react";
 import { useLanguage, useTranslation } from "../../../contexts/LanguageContext";
 import { showTestNotification, areNotificationsEnabled } from "../../../services/pushNotificationService";
@@ -16,19 +16,34 @@ const SettingsModal = ({
   notificationSettings,
   onSaveNotificationSettings,
   onRequestPushPermission,
-  onOpenBudgets,
   showNotification,
   userId,
 }) => {
   const { t } = useTranslation();
   const { language, changeLanguage, availableLanguages } = useLanguage();
-  const [localIncome, setLocalIncome] = useState(income || 0);
+  const [localIncome, setLocalIncome] = useState(() => {
+    // Si income es null, undefined o 0, mostrar campo vacío
+    if (income === null || income === undefined || income === 0) {
+      return "";
+    }
+    return income;
+  });
+
+  // Actualizar localIncome cuando cambie income desde fuera
+  useEffect(() => {
+    if (income === null || income === undefined || income === 0) {
+      setLocalIncome("");
+    } else {
+      setLocalIncome(income);
+    }
+  }, [income]);
   const [localNotificationSettings, setLocalNotificationSettings] = useState(() => {
     const defaultSettings = {
       budgetAlerts: { enabled: true, at80: true, at90: true, at100: true },
       recurringReminders: { enabled: true },
       customReminders: { enabled: true, message: "No olvides registrar tus gastos", hour: 20, minute: 0 },
       weeklyReminder: { enabled: true, dayOfWeek: 0, hour: 21, minute: 0, message: "¡No olvides registrar tus gastos de esta semana en Clarity!" },
+      monthlyIncomeReminder: { enabled: true, dayOfMonth: 28 },
       pushNotifications: { enabled: false },
     };
     
@@ -51,11 +66,20 @@ const SettingsModal = ({
           minute: notificationSettings.weeklyReminder.minute ?? 0,
         };
       }
+      // Asegurar que monthlyIncomeReminder tenga dayOfMonth
+      if (notificationSettings.monthlyIncomeReminder) {
+        defaultSettings.monthlyIncomeReminder = {
+          ...defaultSettings.monthlyIncomeReminder,
+          ...notificationSettings.monthlyIncomeReminder,
+          dayOfMonth: notificationSettings.monthlyIncomeReminder.dayOfMonth ?? 28,
+        };
+      }
       return {
         ...defaultSettings,
         ...notificationSettings,
         customReminders: defaultSettings.customReminders,
         weeklyReminder: defaultSettings.weeklyReminder,
+        monthlyIncomeReminder: defaultSettings.monthlyIncomeReminder,
       };
     }
     
@@ -68,7 +92,9 @@ const SettingsModal = ({
   }
 
   const handleSaveIncome = () => {
-    onSaveIncome(localIncome);
+    // Si está vacío o es 0, guardar null (no configurado)
+    const incomeToSave = localIncome === "" || localIncome === 0 || localIncome === "0" ? null : parseFloat(localIncome);
+    onSaveIncome(incomeToSave);
   };
 
   const handleSaveNotifications = () => {
@@ -169,8 +195,9 @@ const SettingsModal = ({
                     value={localIncome}
                     onChange={(e) => {
                       const value = e.target.value;
-                      if (value === "" || parseFloat(value) >= 0) {
-                        setLocalIncome(parseFloat(value) || 0);
+                      // Permitir string vacío o valores numéricos válidos
+                      if (value === "" || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0)) {
+                        setLocalIncome(value === "" ? "" : parseFloat(value));
                       }
                     }}
                     className={`flex-1 px-3 sm:px-4 py-2 text-base rounded-lg border ${
@@ -178,44 +205,13 @@ const SettingsModal = ({
                         ? "bg-gray-800 border-gray-600 text-gray-100"
                         : "bg-white border-purple-200 text-purple-900"
                     } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
-                    placeholder="0.00"
+                    placeholder="Ingresa tus ingresos mensuales"
                   />
                   <button
                     onClick={handleSaveIncome}
                     className="px-4 sm:px-6 py-2 rounded-lg bg-purple-600 text-white text-sm sm:text-base font-medium hover:bg-purple-700 transition-all whitespace-nowrap"
                   >
                     {t("common.save")}
-                  </button>
-                </div>
-              </div>
-
-              {/* Presupuestos */}
-              <div
-                className={`p-3 sm:p-4 rounded-lg sm:rounded-xl ${
-                  darkMode ? "bg-gray-700" : "bg-purple-50"
-                }`}
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                      darkMode ? "bg-purple-900/50" : "bg-purple-100"
-                    }`}>
-                      <span className="text-base sm:text-lg">💰</span>
-                    </div>
-                    <div className="min-w-0">
-                      <p className={`text-sm sm:text-base font-medium ${textClass}`}>
-                        {t("dashboard.budgets")}
-                      </p>
-                      <p className={`text-xs sm:text-sm ${textSecondaryClass}`}>
-                        {t("settings.budgetsDescription")}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={onOpenBudgets}
-                    className="px-4 py-2 rounded-lg bg-purple-600 text-white text-sm sm:text-base font-medium hover:bg-purple-700 transition-all whitespace-nowrap"
-                  >
-                    {t("settings.manageBudgets")}
                   </button>
                 </div>
               </div>
@@ -514,6 +510,96 @@ const SettingsModal = ({
                 )}
               </div>
 
+              {/* Recordatorio de Ingresos Mensual */}
+              <div
+                className={`p-3 sm:p-4 rounded-lg sm:rounded-xl ${
+                  darkMode ? "bg-gray-700" : "bg-purple-50"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                    <DollarSign
+                      className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${
+                        darkMode ? "text-purple-400" : "text-purple-600"
+                      }`}
+                    />
+                    <div className="min-w-0">
+                      <p className={`text-sm sm:text-base font-medium ${textClass}`}>
+                        Recordatorio de ingresos mensual
+                      </p>
+                      <p className={`text-xs sm:text-sm ${textSecondaryClass}`}>
+                        Recibe un recordatorio para actualizar tus ingresos si varían cada mes
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setLocalNotificationSettings({
+                        ...localNotificationSettings,
+                        monthlyIncomeReminder: {
+                          ...localNotificationSettings.monthlyIncomeReminder,
+                          enabled: !localNotificationSettings.monthlyIncomeReminder?.enabled,
+                        },
+                      });
+                    }}
+                    className={`relative w-12 h-6 sm:w-14 sm:h-7 rounded-full transition-colors flex-shrink-0 ${
+                      localNotificationSettings.monthlyIncomeReminder?.enabled
+                        ? "bg-purple-600"
+                        : "bg-gray-300"
+                    }`}
+                  >
+                    <div
+                      className={`absolute top-0.5 sm:top-1 left-0.5 sm:left-1 w-5 h-5 bg-white rounded-full transition-transform ${
+                        localNotificationSettings.monthlyIncomeReminder?.enabled
+                          ? "translate-x-6 sm:translate-x-7"
+                          : ""
+                      }`}
+                    ></div>
+                  </button>
+                </div>
+                {localNotificationSettings.monthlyIncomeReminder?.enabled && (
+                  <div className="mt-3 sm:mt-4 pl-0 sm:pl-8 space-y-2 sm:space-y-3">
+                    <div>
+                      <label className={`block text-xs sm:text-sm font-medium ${textClass} mb-1.5 sm:mb-2`}>
+                        Día del mes
+                      </label>
+                      <select
+                        value={localNotificationSettings.monthlyIncomeReminder?.dayOfMonth ?? 28}
+                        onChange={(e) => {
+                          setLocalNotificationSettings({
+                            ...localNotificationSettings,
+                            monthlyIncomeReminder: {
+                              ...localNotificationSettings.monthlyIncomeReminder,
+                              dayOfMonth: parseInt(e.target.value),
+                            },
+                          });
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
+                        className={`w-full px-3 sm:px-4 py-2 text-base rounded-lg border ${
+                          darkMode
+                            ? "bg-gray-800 border-gray-600 text-gray-100"
+                            : "bg-white border-purple-200 text-purple-900"
+                        } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
+                      >
+                        {Array.from({ length: 31 }, (_, i) => {
+                          const day = i + 1;
+                          return (
+                            <option key={day} value={day}>
+                              Día {day}
+                            </option>
+                          );
+                        })}
+                      </select>
+                      <p className={`text-xs ${textSecondaryClass} mt-1`}>
+                        Se enviará el recordatorio el día seleccionado de cada mes a las 20:00
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Botón guardar notificaciones */}
               <div className="space-y-2 sm:space-y-3">
                 <button
@@ -522,55 +608,6 @@ const SettingsModal = ({
                 >
                   {t("common.save")}
                 </button>
-                {userId && (
-                  <button
-                    onClick={async () => {
-                      try {
-                        if (!userId) {
-                          showNotification("No se pudo obtener el ID de usuario", "error");
-                          return;
-                        }
-                        showNotification("Enviando notificación de prueba...", "success");
-                        console.log("🧪 ========== INICIANDO PRUEBA DE NOTIFICACIÓN ==========");
-                        console.log("🧪 userId:", userId);
-                        
-                        const response = await fetch(
-                          `https://europe-west1-clarity-gastos.cloudfunctions.net/sendTestNotification?userId=${userId}`
-                        );
-                        
-                        console.log("📬 Status de respuesta:", response.status, response.statusText);
-                        
-                        if (!response.ok) {
-                          const errorData = await response.json();
-                          console.error("❌ Error en respuesta:", errorData);
-                          showNotification(`Error: ${errorData.error || response.statusText}`, "error");
-                          return;
-                        }
-                        
-                        const data = await response.json();
-                        console.log("📬 Respuesta completa de la función de prueba:", data);
-                        
-                        if (data.success) {
-                          console.log(`✅ Notificación enviada: ${data.sent} exitosos, ${data.failed} fallidos`);
-                          if (data.sent > 0) {
-                            showNotification(`✅ Notificación de prueba enviada a ${data.sent} dispositivo(s). Revisa tu dispositivo.`, "success");
-                          } else {
-                            showNotification(`⚠️ No se pudo enviar la notificación. Revisa los logs de Firebase Functions.`, "error");
-                          }
-                        } else {
-                          console.error("❌ La función reportó error:", data.error);
-                          showNotification(`Error: ${data.error}`, "error");
-                        }
-                      } catch (error) {
-                        console.error("❌ Error enviando notificación de prueba:", error);
-                        showNotification("Error al enviar notificación de prueba: " + error.message, "error");
-                      }
-                    }}
-                    className="w-full px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg bg-blue-600 text-white text-sm sm:text-base font-medium hover:bg-blue-700 transition-all"
-                  >
-                    🧪 Probar Notificación Push
-                  </button>
-                )}
               </div>
             </>
           )}

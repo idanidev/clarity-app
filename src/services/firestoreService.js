@@ -527,26 +527,78 @@ export const saveCategories = async (userId, categories, options = {}) => {
   }
 };
 
+// Migrar categorías duplicadas (por ejemplo, versiones con y sin emoji)
+const mergeDuplicateDefaultCategories = (categories) => {
+  if (!categories || typeof categories !== "object") return categories;
+
+  const duplicatesMap = {
+    Alimentacion: "Alimentacion🫄",
+    "Coche/Moto": "Coche/Moto 🏍️🏎️",
+    Compras: "Compras🛍️",
+    Educacion: "Educacion 🤖📚",
+    Ocio: "Ocio 🍻",
+    Salud: "Salud 🏋️‍♀️",
+    Vivienda: "Vivienda🏡",
+  };
+
+  const updated = { ...categories };
+
+  Object.entries(duplicatesMap).forEach(([baseName, emojiName]) => {
+    const baseCat = updated[baseName];
+    const emojiCat = updated[emojiName];
+
+    if (baseCat && emojiCat) {
+      // Fusionar subcategorías (únicas, ordenadas)
+      const baseSubs = Array.isArray(baseCat.subcategories) ? baseCat.subcategories : [];
+      const emojiSubs = Array.isArray(emojiCat.subcategories) ? emojiCat.subcategories : [];
+      const mergedSubs = Array.from(new Set([...baseSubs, ...emojiSubs])).sort((a, b) =>
+        a.localeCompare(b)
+      );
+
+      updated[emojiName] = {
+        ...emojiCat,
+        subcategories: mergedSubs,
+      };
+
+      // Eliminar la categoría base duplicada
+      delete updated[baseName];
+    }
+  });
+
+  return updated;
+};
+
 export const getUserCategories = async (userId) => {
   try {
     const userDocRef = doc(db, "users", userId);
     const userDoc = await getDoc(userDocRef);
 
     if (userDoc.exists()) {
-      const categories = userDoc.data().categories || null;
+      const data = userDoc.data();
+      const categories = data.categories || null;
       if (!categories) return null;
       
       // Si las categorías ya están en el formato nuevo (tienen color), devolverlas tal cual
       // Solo migrar si están en formato antiguo (arrays)
       const needsMigration = Object.values(categories).some(cat => Array.isArray(cat));
       
-      if (needsMigration) {
-        // Solo migrar si es necesario (formato antiguo)
-        return migrateCategoriesToNewFormat(categories);
-      } else {
-        // Ya están en formato nuevo, devolverlas sin modificar
-        return categories;
+      const finalCategories = needsMigration
+        ? migrateCategoriesToNewFormat(categories)
+        : categories;
+
+      // Paso adicional: fusionar categorías duplicadas (con y sin emoji) una sola vez
+      const mergedCategories = mergeDuplicateDefaultCategories(finalCategories);
+
+      // Si hubo cambios, actualizar Firestore para no repetir la migración
+      const changed = JSON.stringify(mergedCategories) !== JSON.stringify(finalCategories);
+      if (changed) {
+        await updateDoc(userDocRef, {
+          categories: mergedCategories,
+          updatedAt: new Date().toISOString(),
+        });
       }
+
+      return mergedCategories;
     }
     return null;
   } catch (error) {
@@ -668,6 +720,39 @@ export const markChangelogAsSeen = async (userId, version) => {
   }
 };
 
+export const markOnboardingAsCompleted = async (userId) => {
+  try {
+    const userDocRef = doc(db, "users", userId);
+    await updateDoc(userDocRef, {
+      onboardingCompleted: true,
+      onboardingCompletedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error marking onboarding as completed:", error);
+    throw error;
+  }
+};
+
+export const getOnboardingStatus = async (userId) => {
+  try {
+    const userDocRef = doc(db, "users", userId);
+    const userDoc = await getDoc(userDocRef);
+
+    if (userDoc.exists()) {
+      const data = userDoc.data();
+      return {
+        completed: data.onboardingCompleted || false,
+        completedAt: data.onboardingCompletedAt || null,
+      };
+    }
+    return { completed: false, completedAt: null };
+  } catch (error) {
+    console.error("Error getting onboarding status:", error);
+    return { completed: false, completedAt: null };
+  }
+};
+
 export const getChangelogSeenVersion = async (userId) => {
   try {
     const userDocRef = doc(db, "users", userId);
@@ -726,25 +811,11 @@ export const initializeUser = async (userId, userData) => {
     };
 
     if (userDoc.exists()) {
-      // Usuario existente: NO tocar las categorías si ya tiene
+      // Usuario existente: NUNCA tocar las categorías, incluso si están vacías o en formato antiguo
       const currentData = userDoc.data();
-      let existingCategories = currentData.categories;
+      const existingCategories = currentData.categories;
       
-      // Si las categorías están en formato array (formato antiguo), migrarlas primero
-      if (Array.isArray(existingCategories)) {
-        console.warn(`[initializeUser] Usuario ${userId} tiene categorías en formato array (antiguo), migrando a formato objeto...`);
-        // Si es un array, convertirlo a objeto vacío (no podemos migrar arrays directamente aquí)
-        // La migración real se hará en getUserCategories
-        existingCategories = {};
-      }
-      
-      const hasCategories = 
-        existingCategories &&
-        typeof existingCategories === "object" &&
-        !Array.isArray(existingCategories) &&
-        Object.keys(existingCategories).length > 0;
-
-      // Construir updateData sin incluir categories si el usuario ya las tiene
+      // Construir updateData sin incluir categories NUNCA para usuarios existentes
       const updateData = {
         updatedAt: new Date().toISOString(),
       };
@@ -754,17 +825,23 @@ export const initializeUser = async (userId, userData) => {
         updateData.email = userData.email;
       }
 
-      // SOLO establecer categorías predeterminadas si el usuario NO tiene ninguna
-      // Y NUNCA si las categorías existen (aunque estén en formato antiguo)
-      if (!hasCategories && !Array.isArray(currentData.categories)) {
-        console.log(`[initializeUser] Usuario ${userId} no tiene categorías, estableciendo predeterminadas`);
-        updateData.categories = defaultCategories;
-      } else {
+      // NUNCA establecer categorías predeterminadas para usuarios existentes
+      // Si el usuario no tiene categorías, es porque las eliminó o nunca las configuró
+      // Las categorías predeterminadas SOLO se crean para usuarios nuevos (línea 874)
+      const hasCategories = 
+        existingCategories !== null &&
+        existingCategories !== undefined &&
+        (Array.isArray(existingCategories) || 
+         (typeof existingCategories === "object" && Object.keys(existingCategories).length > 0));
+      
+      if (hasCategories) {
         const categoryCount = Array.isArray(existingCategories) ? existingCategories.length : Object.keys(existingCategories).length;
         console.log(`[initializeUser] Usuario ${userId} ya tiene categorías (${categoryCount}), NO se tocan`);
-        // EXPLÍCITAMENTE NO incluir categories en updateData
-        // Esto garantiza que las categorías existentes nunca se sobrescriban
+      } else {
+        console.log(`[initializeUser] Usuario ${userId} no tiene categorías, pero NO se crearán predeterminadas (usuario existente)`);
       }
+      // EXPLÍCITAMENTE NO incluir categories en updateData para usuarios existentes
+      // Esto garantiza que las categorías existentes nunca se sobrescriban
 
       // Solo establecer valores por defecto si no existen
       if (currentData.budgets === undefined || currentData.budgets === null) {
@@ -802,10 +879,20 @@ export const initializeUser = async (userId, userData) => {
 
 export const saveIncome = async (userId, income) => {
   try {
+    // Si income es null o undefined, guardar null (no configurado)
+    if (income === null || income === undefined) {
+      const userDocRef = doc(db, "users", userId);
+      await updateDoc(userDocRef, {
+        income: null,
+        updatedAt: new Date().toISOString(),
+      });
+      return;
+    }
+
     // Validar que el ingreso no sea negativo
-    const incomeValue = parseFloat(income) || 0;
-    if (incomeValue < 0) {
-      throw new Error("El ingreso no puede ser negativo");
+    const incomeValue = parseFloat(income);
+    if (isNaN(incomeValue) || incomeValue < 0) {
+      throw new Error("El ingreso debe ser un número positivo");
     }
     
     const userDocRef = doc(db, "users", userId);
@@ -825,9 +912,16 @@ export const getUserIncome = async (userId) => {
     const userDoc = await getDoc(userDocRef);
 
     if (userDoc.exists()) {
-      return userDoc.data().income || 0;
+      const income = userDoc.data().income;
+      // Si no existe el campo income o es 0, devolver null (usuario no ha configurado ingresos)
+      // Solo devolver 0 si explícitamente está guardado como 0
+      if (income === undefined || income === null) {
+        return null;
+      }
+      return income;
     }
-    return 0;
+    // Usuario nuevo, no tiene ingresos configurados
+    return null;
   } catch (error) {
     console.error("Error getting income:", error);
     throw error;
@@ -909,10 +1003,15 @@ export const getUserGoals = async (userId) => {
     const userDoc = await getDoc(userDocRef);
 
     if (userDoc.exists()) {
-      const goals = userDoc.data().goals || null;
+      const goals = userDoc.data().goals;
+      
+      // Si no existe el campo goals, devolver null (usuario no ha configurado objetivos)
+      if (!goals) {
+        return null;
+      }
       
       // Migrar estructura antigua a nueva si es necesario
-      if (goals && goals.totalSavingsGoal !== undefined) {
+      if (goals.totalSavingsGoal !== undefined) {
         return {
           // Mantener compatibilidad con estructura anterior
           monthlySavingsGoal: goals.totalSavingsGoal || goals.monthlySavingsGoal || 0,
@@ -930,35 +1029,21 @@ export const getUserGoals = async (userId) => {
         };
       }
       
-      return goals || {
-        monthlySavingsGoal: 0,
-        totalSavingsGoal: 0, // Compatibilidad
-        categoryGoals: {},
-        longTermGoals: [],
-        achievements: {
-          totalCompleted: 0,
-          streakMonths: 0,
-          badges: [],
-        },
-        monthlyHistory: {},
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+      // Si existe pero está vacío, devolver null
+      const hasAnyGoal = 
+        (goals.monthlySavingsGoal && goals.monthlySavingsGoal > 0) ||
+        (goals.totalSavingsGoal && goals.totalSavingsGoal > 0) ||
+        (goals.categoryGoals && Object.keys(goals.categoryGoals).length > 0) ||
+        (goals.longTermGoals && goals.longTermGoals.length > 0);
+      
+      if (!hasAnyGoal) {
+        return null;
+      }
+      
+      return goals;
     }
-    return {
-      monthlySavingsGoal: 0,
-      totalSavingsGoal: 0, // Compatibilidad
-      categoryGoals: {},
-      longTermGoals: [],
-      achievements: {
-        totalCompleted: 0,
-        streakMonths: 0,
-        badges: [],
-      },
-      monthlyHistory: {},
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    // Usuario nuevo, no tiene objetivos configurados
+    return null;
   } catch (error) {
     console.error("Error getting goals:", error);
     throw error;
@@ -1009,6 +1094,10 @@ export const getUserNotificationSettings = async (userId) => {
           dayOfWeek: 0, // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
           message: "¡No olvides registrar tus gastos de esta semana en Clarity!",
         },
+        monthlyIncomeReminder: {
+          enabled: true,
+          dayOfMonth: 28, // Día del mes para enviar el recordatorio
+        },
         pushNotifications: {
           enabled: false,
         },
@@ -1034,6 +1123,13 @@ export const getUserNotificationSettings = async (userId) => {
         enabled: true,
         dayOfWeek: 0, // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
         message: "¡No olvides registrar tus gastos de esta semana en Clarity!",
+      },
+      monthlyIncomeReminder: {
+        enabled: true,
+        dayOfMonth: 28, // Día del mes para enviar el recordatorio
+      },
+      pushNotifications: {
+        enabled: false,
       },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
