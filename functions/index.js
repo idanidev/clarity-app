@@ -514,9 +514,10 @@ exports.sendDailyReminders = onSchedule(
  */
 exports.sendWeeklyReminders = onSchedule(
   {
-    // Ejecutar cada 5 minutos es suficiente: comprobamos la hora y minuto exactos
-    // y además usamos lastWeeklyReminderSent para evitar duplicados.
-    schedule: "*/5 * * * *", // Cada 5 minutos
+    // Ejecutar cada 5 minutos pero solo durante horas activas (8:00-22:00)
+    // Esto permite probar con cualquier minuto ahora, y en el futuro cuando solo haya hora funcionará igual
+    // Reducimos carga ejecutando solo en horas activas (no en madrugada)
+    schedule: "*/5 8-22 * * *", // Cada 5 minutos, solo entre las 8:00 y 22:59
     timeZone: "Europe/Madrid",
     memory: "256MiB",
     timeoutSeconds: 300,
@@ -578,19 +579,18 @@ exports.sendWeeklyReminders = onSchedule(
         const dayMatch = Number(currentDayOfWeek) === Number(configuredDay);
         const hourMatch = Number(currentHour) === Number(configuredHour);
 
-        // Permitir un rango de ±5 minutos para mayor flexibilidad
-        // Esto evita que se pierda la notificación si la función se ejecuta unos minutos tarde
+        // Permitir un rango de ±2 minutos para mayor flexibilidad
+        // Esto permite probar con cualquier minuto ahora, y en el futuro cuando solo haya hora (minuto 0) funcionará igual
         const configuredMinuteNum = Number(configuredMinute);
         const currentMinuteNum = Number(currentMinute);
         const minuteDiff = Math.abs(currentMinuteNum - configuredMinuteNum);
-        // Si la hora coincide, permitir hasta ±5 minutos de diferencia
-        // Si la hora no coincide pero estamos en el mismo minuto, también permitirlo
-        const minuteMatch = hourMatch ? (minuteDiff <= 5) : (currentMinuteNum === configuredMinuteNum);
+        // Si la hora coincide, permitir hasta ±2 minutos de diferencia
+        const minuteMatch = hourMatch && minuteDiff <= 2;
 
         logger.info(`  👤 Usuario ${userId}: Configurado para día ${configuredDay} a las ${configuredHour}:${String(configuredMinute).padStart(2, "0")}`);
         logger.info(`  📊 Usuario ${userId}: Actual (Madrid) - día: ${currentDayOfWeek}, hora: ${currentHour}, minuto: ${currentMinute}`);
         logger.info(`  📊 Usuario ${userId}: Configurado - día: ${configuredDay}, hora: ${configuredHour}, minuto: ${configuredMinute}`);
-        logger.info(`  📊 Usuario ${userId}: Coincidencias - día: ${dayMatch}, hora: ${hourMatch}, minuto: ${minuteMatch} (diferencia: ${minuteDiff} min)`);
+        logger.info(`  📊 Usuario ${userId}: Coincidencias - día: ${dayMatch}, hora: ${hourMatch}, minuto: ${minuteMatch}`);
 
         // Verificar si coincide con el día, hora y minutos configurados (con rango de ±2 minutos)
         if (!dayMatch || !hourMatch || !minuteMatch) {
