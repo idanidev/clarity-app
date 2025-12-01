@@ -455,16 +455,12 @@ exports.sendDailyReminders = onSchedule(
                 sound: "default",
                 badge: 1,
                 contentAvailable: true,
+                // NO incluir 'alert' aquí - el Service Worker se encargará de mostrar la notificación
               },
             },
           },
-          webpush: {
-            notification: {
-              requireInteraction: true,
-              badge: "/icon-192.png",
-              icon: "/icon-192.png",
-            },
-          },
+          // NO incluir webpush.notification - el Service Worker se encargará de mostrar la notificación
+          // Esto evita que el navegador muestre automáticamente una notificación duplicada
         }));
 
         try {
@@ -673,16 +669,12 @@ exports.sendWeeklyReminders = onSchedule(
                 sound: "default",
                 badge: 1,
                 contentAvailable: true,
+                // NO incluir 'alert' aquí - el Service Worker se encargará de mostrar la notificación
               },
             },
           },
-          webpush: {
-            notification: {
-              requireInteraction: true,
-              badge: "/icon-192.png",
-              icon: "/icon-192.png",
-            },
-          },
+          // NO incluir webpush.notification - el Service Worker se encargará de mostrar la notificación
+          // Esto evita que el navegador muestre automáticamente una notificación duplicada
         }));
 
         try {
@@ -818,12 +810,9 @@ exports.sendTestNotification = onRequest(
           persistent: "true",
           type: "reminder",
         },
+        // NO incluir webpush.notification - el Service Worker se encargará de mostrar la notificación
+        // Esto evita que el navegador muestre automáticamente una notificación duplicada
         webpush: {
-          notification: {
-            requireInteraction: true, // Para que se quede en la bandeja en iOS
-            badge: "/icon-192.png",
-            icon: "/icon-192.png",
-          },
           fcmOptions: {
             link: "/",
           },
@@ -834,10 +823,7 @@ exports.sendTestNotification = onRequest(
               sound: "default",
               badge: 1,
               contentAvailable: true,
-              alert: {
-                title: "🧪 Clarity - Notificación de Prueba",
-                body: "¡Esta es una notificación de prueba! Si ves esto, las notificaciones push están funcionando correctamente.",
-              },
+              // NO incluir 'alert' aquí - el Service Worker se encargará de mostrar la notificación
             },
           },
         },

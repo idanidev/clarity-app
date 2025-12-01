@@ -1476,13 +1476,29 @@ const Dashboard = ({ user }) => {
     try {
       const token = await requestNotificationPermission(user.uid);
       if (token) {
+        // Marcar pushNotifications.enabled = true en la configuración guardada
+        const updatedSettings = {
+          ...notificationSettings,
+          pushNotifications: {
+            ...(notificationSettings.pushNotifications || {}),
+            enabled: true,
+          },
+        };
+
+        try {
+          await saveNotificationSettings(user.uid, updatedSettings);
+          setNotificationSettings(updatedSettings);
+        } catch (error) {
+          console.error("Error guardando pushNotifications tras activar permisos:", error);
+        }
+
         showNotification("Notificaciones push activadas correctamente", "success");
       }
     } catch (error) {
       console.error("Error solicitando permisos push:", error);
       showNotification("Error al activar notificaciones push", "error");
     }
-  }, [user, messaging, showNotification]);
+  }, [user, messaging, notificationSettings, showNotification]);
 
   // Efecto para actualizar historial mensual y badges automáticamente
   useEffect(() => {
