@@ -518,7 +518,9 @@ exports.sendDailyReminders = onSchedule(
  */
 exports.sendWeeklyReminders = onSchedule(
   {
-    schedule: "* * * * *", // Cada minuto para máxima precisión
+    // Ejecutar cada 5 minutos es suficiente: comprobamos la hora y minuto exactos
+    // y además usamos lastWeeklyReminderSent para evitar duplicados.
+    schedule: "*/5 * * * *", // Cada 5 minutos
     timeZone: "Europe/Madrid",
     memory: "256MiB",
     timeoutSeconds: 300,
