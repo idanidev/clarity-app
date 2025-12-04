@@ -972,9 +972,16 @@ exports.sendMonthlyIncomeReminder = onSchedule(
           continue;
         }
 
-        // Comprobar ingresos del usuario
+        // Comprobar ingresos del usuario - Solo enviar si NO tiene ingresos configurados
         const userIncome = userData.income;
-        const hasNoIncome = userIncome === null || userIncome === undefined;
+        const hasNoIncome = userIncome === null || userIncome === undefined || userIncome === 0;
+
+        // Solo enviar recordatorio si NO tiene ingresos configurados
+        if (!hasNoIncome) {
+          logger.info(`  ⏭️  Usuario ${userId}: Ya tiene ingresos configurados (€${userIncome}). Omitiendo recordatorio.`);
+          remindersSkipped++;
+          continue;
+        }
 
         // Recordar como máximo una vez al mes
         const currentMonthKey = `${currentYear}-${String(currentMonth).padStart(2, "0")}`;
@@ -999,9 +1006,7 @@ exports.sendMonthlyIncomeReminder = onSchedule(
           fcmTokens = [latestToken];
         }
 
-        const message = hasNoIncome ?
-          "📊 ¡Final de mes! No olvides registrar tus ingresos de este mes en Clarity para hacer un seguimiento preciso." :
-          "📊 ¡Final de mes! Si tus ingresos han variado este mes, actualízalos en Clarity para mantener tus objetivos al día.";
+        const message = "📊 ¡No olvides registrar tus ingresos de este mes en Clarity! Ve a Ajustes → General para configurarlos y hacer un seguimiento preciso de tus ahorros.";
 
         const messages = fcmTokens.map((token) => ({
           token: token,

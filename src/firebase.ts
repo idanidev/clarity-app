@@ -24,12 +24,31 @@ export const auth: Auth = getAuth(app);
 export const db: Firestore = getFirestore(app);
 
 // Analytics solo en el cliente
-export const analytics: Analytics | null = typeof window !== 'undefined' ? getAnalytics(app) : null;
+export const analytics: Analytics | null = 
+  typeof window !== 'undefined'
+    ? (() => {
+        try {
+          return getAnalytics(app);
+        } catch (error) {
+          console.warn('Firebase Analytics no disponible:', error);
+          return null;
+        }
+      })()
+    : null;
 
 // Messaging solo en el cliente y si está disponible
 export const messaging: Messaging | null = 
-  typeof window !== 'undefined' && 'serviceWorker' in navigator
-    ? getMessaging(app)
+  typeof window !== 'undefined' && 
+  'serviceWorker' in navigator &&
+  typeof navigator !== 'undefined'
+    ? (() => {
+        try {
+          return getMessaging(app);
+        } catch (error) {
+          console.warn('Firebase Messaging no disponible:', error);
+          return null;
+        }
+      })()
     : null;
 
 // Provider de Google
