@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import Auth from "./components/Auth";
+import Auth from "./screens/Auth/Auth";
 import { auth } from "./firebase";
 import Dashboard from "./screens/Dashboard/Dashboard";
 import { LanguageProvider, useTranslation } from "./contexts/LanguageContext";

@@ -1803,8 +1803,7 @@ const Dashboard = ({ user }) => {
     setSelectedMonth(new Date().toISOString().slice(0, 7));
     setSelectedYear(new Date().getFullYear().toString());
     setSelectedCategory("all");
-    showNotification("Filtros limpiados");
-  }, [showNotification]);
+  }, []);
 
   const handleViewChange = useCallback((view) => {
     setActiveView(view);

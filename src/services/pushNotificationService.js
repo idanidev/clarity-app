@@ -1,5 +1,6 @@
 // src/services/pushNotificationService.js
-import { messaging, getMessagingToken, onMessagingMessage } from "../firebase";
+import { messaging } from "../firebase";
+import { getToken, onMessage } from "firebase/messaging";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
 
@@ -78,7 +79,7 @@ export const requestNotificationPermission = async (userId) => {
     
     // Obtener el token FCM
     console.log("🔑 Obteniendo token FCM...");
-    const currentToken = await getMessagingToken(messaging, {
+    const currentToken = await getToken(messaging, {
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration: serviceWorkerRegistration,
     });
@@ -193,7 +194,7 @@ export const setupForegroundMessageListener = (callback) => {
 
   console.log("✅ Configurando listener de mensajes en primer plano...");
   
-  const unsubscribe = onMessagingMessage(messaging, (payload) => {
+  const unsubscribe = onMessage(messaging, (payload) => {
     console.log("🔔 ========== MENSAJE RECIBIDO EN PRIMER PLANO ==========");
     console.log("🔔 Payload completo:", JSON.stringify(payload, null, 2));
     console.log("🔔 Título:", payload.notification?.title);

@@ -107,7 +107,7 @@ const SettingsModal = ({
       onMouseDown={onClose}
     >
       <div
-        className={`${cardClass} rounded-xl sm:rounded-2xl p-0 max-w-2xl w-full border shadow-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto`}
+        className={`${cardClass} rounded-xl sm:rounded-2xl p-0 max-w-2xl w-full border shadow-2xl max-h-[95vh] sm:max-h-[90vh] flex flex-col`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div
@@ -163,7 +163,7 @@ const SettingsModal = ({
           </button>
         </div>
 
-        <div className="px-4 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
           {activeTab === "general" && (
             <>
               {/* Ingresos */}
@@ -207,12 +207,6 @@ const SettingsModal = ({
                     } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
                     placeholder="Ingresa tus ingresos mensuales"
                   />
-                  <button
-                    onClick={handleSaveIncome}
-                    className="px-4 sm:px-6 py-2 rounded-lg bg-purple-600 text-white text-sm sm:text-base font-medium hover:bg-purple-700 transition-all whitespace-nowrap"
-                  >
-                    {t("common.save")}
-                  </button>
                 </div>
               </div>
 
@@ -600,16 +594,30 @@ const SettingsModal = ({
                 )}
               </div>
 
-              {/* Botón guardar notificaciones */}
-              <div className="space-y-2 sm:space-y-3">
-                <button
-                  onClick={handleSaveNotifications}
-                  className="w-full px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg bg-purple-600 text-white text-sm sm:text-base font-medium hover:bg-purple-700 transition-all"
-                >
-                  {t("common.save")}
-                </button>
-              </div>
             </>
+          )}
+        </div>
+
+        {/* Botón guardar sticky en la parte inferior */}
+        <div className={`sticky bottom-0 px-4 sm:px-6 py-4 border-t ${
+          darkMode
+            ? "bg-gray-800/95 border-gray-700"
+            : "bg-white/95 border-purple-100"
+        } backdrop-blur`}>
+          {activeTab === "general" ? (
+            <button
+              onClick={handleSaveIncome}
+              className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-lg bg-purple-600 text-white text-base sm:text-base font-medium hover:bg-purple-700 active:bg-purple-800 transition-all shadow-lg"
+            >
+              {t("common.save")}
+            </button>
+          ) : (
+            <button
+              onClick={handleSaveNotifications}
+              className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-lg bg-purple-600 text-white text-base sm:text-base font-medium hover:bg-purple-700 active:bg-purple-800 transition-all shadow-lg"
+            >
+              {t("common.save")}
+            </button>
           )}
         </div>
       </div>
