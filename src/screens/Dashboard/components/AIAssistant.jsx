@@ -45,6 +45,7 @@ const AIAssistant = memo(({
   goals = null,
   recurringExpenses = [],
   addExpense,
+  isActive = true, // Indica si la vista está activa
 }) => {
   const { t } = useTranslation();
   const [messages, setMessages] = useState([]);
@@ -84,14 +85,85 @@ const AIAssistant = memo(({
     }
   }, [messages, isLoading, keyboardHeight]);
 
-  // Auto-focus en el input cuando se monta el componente
+  // Auto-focus mejorado para PWA y diferentes navegadores
   useEffect(() => {
-    // Pequeño delay para asegurar que el input esté renderizado
-    const timer = setTimeout(() => {
-      inputRef.current?.focus();
-    }, 100);
+    if (!isActive) return; // Solo hacer focus si la vista está activa
+
+    const focusInput = () => {
+      const input = inputRef.current;
+      if (!input) return;
+
+      // Estrategia 1: Focus directo (funciona en Chrome, Firefox)
+      try {
+        input.focus();
+      } catch (e) {
+        console.log('Focus directo falló:', e);
+      }
+
+      // Estrategia 2: Click programático (mejor para Safari iOS)
+      // Safari iOS a veces requiere un click real para permitir el focus
+      setTimeout(() => {
+        try {
+          input.click();
+          input.focus();
+        } catch (e) {
+          console.log('Click + focus falló:', e);
+        }
+      }, 50);
+
+      // Estrategia 3: Focus con scrollIntoView (ayuda en algunos casos)
+      setTimeout(() => {
+        try {
+          input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          input.focus();
+        } catch (e) {
+          console.log('ScrollIntoView + focus falló:', e);
+        }
+      }, 150);
+
+      // Estrategia 4: Para Safari iOS en PWA, a veces necesitamos esperar más
+      // y usar requestAnimationFrame
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          try {
+            input.focus();
+            // Forzar el teclado en iOS (si es posible)
+            if (input.setSelectionRange) {
+              input.setSelectionRange(0, 0);
+            }
+          } catch (e) {
+            console.log('Focus final falló:', e);
+          }
+        }, 200);
+      });
+    };
+
+    // Delay inicial para asegurar que el DOM está listo
+    const timer = setTimeout(focusInput, 100);
+    
+    // También intentar cuando la vista se vuelve visible (útil para PWA)
+    if (document.visibilityState === 'visible') {
+      setTimeout(focusInput, 300);
+    }
+
     return () => clearTimeout(timer);
-  }, []);
+  }, [isActive]); // Ejecutar cuando isActive cambia
+
+  // Detectar cuando la ventana/PWA se vuelve visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isActive) {
+        setTimeout(() => {
+          inputRef.current?.focus();
+        }, 200);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isActive]);
 
 
   // Preparar contexto del usuario para la IA
@@ -871,6 +943,7 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
             <input
               ref={inputRef}
               type="text"
+              autoFocus // Fallback HTML nativo
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={handleKeyPress}

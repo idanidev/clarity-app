@@ -6,6 +6,7 @@ const VoiceExpenseButton = memo(({
   categories,
   addExpense,
   showNotification,
+  hasFilterButton = true, // Indica si hay botón de filtro visible
 }) => {
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -543,7 +544,7 @@ Responde SOLO con el JSON, sin texto adicional.`;
       <button
         onClick={toggleListening}
         disabled={isProcessing}
-        className={`fixed bottom-40 right-4 z-40 md:hidden p-4 rounded-full shadow-2xl backdrop-blur-xl border transition-all active:scale-95 ${
+        className={`fixed right-4 z-40 md:hidden p-4 rounded-full shadow-2xl backdrop-blur-xl border transition-all active:scale-95 ${
           isProcessing
             ? darkMode
               ? "bg-purple-600/25 border-purple-500/40 text-white"
@@ -556,7 +557,11 @@ Responde SOLO con el JSON, sin texto adicional.`;
             ? "bg-gray-800/25 backdrop-blur-xl border-gray-700/40 text-gray-300"
             : "bg-white/25 backdrop-blur-xl border-white/40 text-purple-600"
         } ${isProcessing ? 'cursor-wait' : ''}`}
-        style={{ bottom: 'calc(9.5rem + env(safe-area-inset-bottom))' }}
+        style={{ 
+          bottom: hasFilterButton 
+            ? 'calc(9.5rem + env(safe-area-inset-bottom))' // Con filtro: más arriba
+            : 'calc(5.5rem + env(safe-area-inset-bottom))' // Sin filtro: posición del filtro
+        }}
         title={isProcessing ? "Añadiendo gasto..." : isListening ? "Detener grabación" : "Añadir gasto por voz"}
       >
         {isProcessing ? (
@@ -632,9 +637,11 @@ Responde SOLO con el JSON, sin texto adicional.`;
       {/* Indicador discreto de procesamiento */}
       {isProcessing && (
         <div 
-          className="fixed bottom-40 right-16 z-40 md:hidden px-3 py-1.5 rounded-full backdrop-blur-xl border shadow-lg text-xs font-medium transition-all"
+          className="fixed right-16 z-40 md:hidden px-3 py-1.5 rounded-full backdrop-blur-xl border shadow-lg text-xs font-medium transition-all"
           style={{ 
-            bottom: 'calc(9.5rem + env(safe-area-inset-bottom))',
+            bottom: hasFilterButton 
+              ? 'calc(9.5rem + env(safe-area-inset-bottom))' // Con filtro: más arriba
+              : 'calc(5.5rem + env(safe-area-inset-bottom))', // Sin filtro: posición del filtro
             ...(darkMode 
               ? { backgroundColor: 'rgba(107, 114, 128, 0.6)', borderColor: 'rgba(75, 85, 99, 0.4)', color: '#f3f4f6' }
               : { backgroundColor: 'rgba(255, 255, 255, 0.6)', borderColor: 'rgba(255, 255, 255, 0.4)', color: '#7c3aed' }
