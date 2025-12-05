@@ -211,6 +211,106 @@ const VoiceExpenseButton = memo(({
     return null;
   };
 
+  // Categorizar gasto usando IA (prompt mejorado)
+  const categorizeWithAI = async (transcription) => {
+    try {
+      const categoryNames = Object.keys(categories);
+      if (categoryNames.length === 0) return null;
+
+      // Preparar categorías con subcategorías para el prompt
+      const categoriasUsuario = categoryNames.map(cat => {
+        const catData = categories[cat];
+        return {
+          nombre: cat,
+          subcategorias: catData?.subcategories || []
+        };
+      });
+
+      const voicePrompt = `Eres un experto en categorizar gastos a partir de descripciones de voz.
+
+CATEGORÍAS DISPONIBLES:
+${JSON.stringify(categoriasUsuario, null, 2)}
+
+TEXTO TRANSCRITO:
+"${transcription}"
+
+TAREA:
+Extrae la siguiente información:
+1. Monto (convertir "veinte euros" → 20, "dos con cincuenta" → 2.50)
+2. Categoría (de la lista disponible, usar la más cercana)
+3. Subcategoría (si se menciona o se puede inferir)
+4. Descripción limpia (quitar muletillas, ruido)
+5. Método de pago (si se menciona: tarjeta, efectivo, transferencia)
+
+FORMATO DE RESPUESTA (JSON estricto):
+{
+  "amount": number,
+  "category": "string",
+  "subcategory": "string",
+  "description": "string",
+  "paymentMethod": "tarjeta|efectivo|transferencia",
+  "confidence": 0-100
+}
+
+REGLAS:
+- Si no estás seguro de la categoría, usa "confidence" bajo
+- Normaliza nombres: "super" → "Supermercado", "gasolinera" → "Transporte"
+- Si menciona múltiples gastos, solo el primero
+- Si no hay categoría clara, usa "${categoryNames[0] || 'Otros'}" con confidence bajo
+- Usa EXACTAMENTE los nombres de categoría de la lista (case-sensitive)
+
+Responde SOLO con el JSON, sin texto adicional.`;
+
+      const isDevelopment = import.meta.env.DEV;
+      const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
+      const API_URL = isDevelopment 
+        ? "/api/ai"
+        : `https://europe-west1-${projectId}.cloudfunctions.net/aiProxy`;
+      const API_MODEL = "deepseek-chat";
+
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: API_MODEL,
+          max_tokens: 200,
+          messages: [
+            {
+              role: "system",
+              content: voicePrompt
+            },
+            {
+              role: "user",
+              content: transcription
+            }
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('Error en API de categorización:', response.status);
+        return null;
+      }
+
+      const data = await response.json();
+      const aiResponse = data.choices?.[0]?.message?.content || '';
+      
+      // Extraer JSON de la respuesta
+      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return parsed;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error categorizando con IA:', error);
+      return null;
+    }
+  };
+
   // Procesar transcripción y añadir gasto si se detecta
   const processTranscript = useCallback(async (text) => {
     console.log('🔍 processTranscript llamado con:', text);
@@ -219,66 +319,109 @@ const VoiceExpenseButton = memo(({
       return;
     }
 
-    const directExpense = detectExpenseDirectly(text);
-    console.log('🔍 Gasto detectado:', directExpense);
-    if (directExpense) {
-      setIsProcessing(true);
+    setIsProcessing(true);
+
+    try {
+      const categoryNames = Object.keys(categories);
+      if (categoryNames.length === 0) {
+        showNotification?.('No hay categorías configuradas. Crea al menos una categoría primero.', 'error');
+        setIsProcessing(false);
+        return;
+      }
+
+      // Primero intentar detección directa (rápida)
+      let expenseData = null;
+      const directExpense = detectExpenseDirectly(text);
       
-      try {
-        const categoryNames = Object.keys(categories);
-        if (categoryNames.length === 0) {
-          showNotification?.('No hay categorías configuradas. Crea al menos una categoría primero.', 'error');
-          setIsProcessing(false);
-          return;
-        }
-
+      if (directExpense) {
+        console.log('✅ Gasto detectado directamente:', directExpense);
         const matchedCategory = findBestCategory(null, directExpense.description);
-        if (!matchedCategory) {
-          showNotification?.('No se pudo encontrar una categoría apropiada.', 'error');
-          setIsProcessing(false);
-          return;
-        }
-
-        // Buscar subcategoría
-        let matchedSubcategory = '';
-        if (categories[matchedCategory]) {
-          const subcategories = categories[matchedCategory].subcategories || [];
-          if (subcategories.length > 0) {
-            const desc = directExpense.description.toLowerCase();
-            const subMatch = subcategories.find(sub => 
-              sub.toLowerCase().includes(desc) || desc.includes(sub.toLowerCase())
-            );
-            if (subMatch) {
-              matchedSubcategory = subMatch;
+        
+        if (matchedCategory && categories[matchedCategory]) {
+          let matchedSubcategory = '';
+          const categoryData = categories[matchedCategory];
+          if (categoryData && categoryData.subcategories && Array.isArray(categoryData.subcategories)) {
+            const subcategories = categoryData.subcategories;
+            if (subcategories.length > 0) {
+              const desc = directExpense.description.toLowerCase();
+              const subMatch = subcategories.find(sub => {
+                if (!sub || typeof sub !== 'string') return false;
+                const subLower = sub.toLowerCase();
+                return subLower.includes(desc) || desc.includes(subLower);
+              });
+              if (subMatch) {
+                matchedSubcategory = subMatch;
+              }
             }
           }
+
+          expenseData = {
+            name: directExpense.description,
+            amount: directExpense.amount,
+            category: matchedCategory,
+            subcategory: matchedSubcategory,
+            date: directExpense.date || new Date().toISOString().slice(0, 10),
+            paymentMethod: 'Tarjeta',
+            isRecurring: false,
+            recurringId: null,
+          };
         }
+      }
 
-        const expenseData = {
-          name: directExpense.description,
-          amount: directExpense.amount,
-          category: matchedCategory,
-          subcategory: matchedSubcategory,
-          date: directExpense.date || new Date().toISOString().slice(0, 10),
-          paymentMethod: 'Tarjeta',
-          isRecurring: false,
-          recurringId: null,
-        };
+      // Si la detección directa falló o tiene poca confianza, usar IA
+      if (!expenseData) {
+        console.log('🤖 Usando IA para categorizar...');
+        const aiResult = await categorizeWithAI(text);
+        
+        if (aiResult && aiResult.amount && aiResult.category && aiResult.confidence >= 50) {
+          // Validar que la categoría existe
+          const validCategory = categoryNames.find(cat => cat === aiResult.category);
+          if (validCategory && categories[validCategory]) {
+            let matchedSubcategory = '';
+            const categoryData = categories[validCategory];
+            if (categoryData && categoryData.subcategories && Array.isArray(categoryData.subcategories)) {
+              const subcategories = categoryData.subcategories;
+              if (aiResult.subcategory) {
+                const subMatch = subcategories.find(sub => 
+                  sub && typeof sub === 'string' && sub.toLowerCase() === aiResult.subcategory.toLowerCase()
+                );
+                if (subMatch) {
+                  matchedSubcategory = subMatch;
+                }
+              }
+            }
 
+            expenseData = {
+              name: aiResult.description || text.substring(0, 50),
+              amount: parseFloat(aiResult.amount),
+              category: validCategory,
+              subcategory: matchedSubcategory,
+              date: new Date().toISOString().slice(0, 10),
+              paymentMethod: aiResult.paymentMethod || 'Tarjeta',
+              isRecurring: false,
+              recurringId: null,
+            };
+          }
+        }
+      }
+
+      if (expenseData) {
         await addExpense(expenseData);
         setTranscript('');
-        showNotification?.(`✅ Gasto añadido: ${directExpense.amount}€ en ${matchedCategory}${matchedSubcategory ? ` - ${matchedSubcategory}` : ''}`, 'success');
+        showNotification?.(`✅ Gasto añadido: ${expenseData.amount}€ en ${expenseData.category}${expenseData.subcategory ? ` - ${expenseData.subcategory}` : ''}`, 'success');
         
         // Detener reconocimiento después de añadir el gasto
         if (recognitionRef.current) {
           recognitionRef.current.stop();
         }
-      } catch (error) {
-        console.error('Error añadiendo gasto:', error);
-        showNotification?.('Error al añadir el gasto. Intenta de nuevo.', 'error');
-      } finally {
-        setIsProcessing(false);
+      } else {
+        showNotification?.('No se pudo detectar un gasto válido. Intenta ser más específico.', 'error');
       }
+    } catch (error) {
+      console.error('Error procesando transcripción:', error);
+      showNotification?.('Error al procesar el gasto. Intenta de nuevo.', 'error');
+    } finally {
+      setIsProcessing(false);
     }
   }, [addExpense, categories, showNotification]);
 

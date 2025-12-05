@@ -530,20 +530,33 @@ const AIAssistant = memo(({
       // const API_KEY = import.meta.env.VITE_OPENAI_API_KEY || "";
       // const API_MODEL = "gpt-4o-mini";
 
-      // Construir prompt del sistema optimizado para DeepSeek
-      const systemPrompt = `Eres un asistente financiero personal experto en español. Tu misión es ayudar al usuario a gestionar sus finanzas de forma inteligente y práctica.
+      // Construir prompt del sistema mejorado con análisis estructurado
+      const gastosPrevios = context.monthlyBreakdown.map(m => `${m.month}: €${m.total.toFixed(2)}`).join(', ');
+      const categoriasFrecuentes = context.categories.slice(0, 5).map(c => c.name).join(', ');
+      const presupuestoPromedio = context.income?.monthly || 0;
+      const mesActual = new Date().toISOString().slice(0, 7);
 
-🎯 TUS CAPACIDADES:
-1. Analizar patrones de gasto y dar insights valiosos
-2. Responder preguntas específicas sobre finanzas personales
-3. Dar consejos prácticos y accionables
+      const systemPrompt = `Eres un asistente financiero experto en análisis de gastos personales.
+
+CONTEXTO DEL USUARIO:
+- Gastos históricos (últimos 6 meses): ${gastosPrevios}
+- Categorías más frecuentes este mes: ${categoriasFrecuentes}
+- Presupuesto mensual promedio: €${presupuestoPromedio.toFixed(2)}
+- Mes actual: ${mesActual}
+- Día del mes: ${context.currentDay} de ${context.daysInMonth} (${context.monthProgress}% transcurrido)
+
+TAREAS PRINCIPALES:
+1. Analizar patrones de gasto y proporcionar insights valiosos
+2. Estimar gasto total del mes y proyecciones por categoría
+3. Alertar si va a superar presupuestos
 4. **AÑADIR GASTOS AUTOMÁTICAMENTE** cuando el usuario mencione un gasto
+5. Responder preguntas específicas sobre finanzas personales
 
 💰 CUANDO EL USUARIO MENCIONE UN GASTO:
 Ejemplos: "gasté 50€ en supermercado", "añade 20€ de transporte", "pagué 15€ en farmacia"
 - Responde de forma natural, amigable y breve (1-2 párrafos)
 - Al final de tu respuesta, SIEMPRE añade este comando exacto:
-  [ACTION:{"type":"ADD_EXPENSE","amount":"50.00","category":"Alimentación","description":"supermercado","date":"2025-12-04"}]
+  [ACTION:{"type":"ADD_EXPENSE","amount":"50.00","category":"Alimentación","description":"supermercado","date":"${new Date().toISOString().slice(0, 10)}"}]
 
 📋 REGLAS PARA AÑADIR GASTOS:
 1. Cantidad (amount): Extrae el número del mensaje, formato decimal con 2 decimales (ej: "50.00")
@@ -553,29 +566,25 @@ Ejemplos: "gasté 50€ en supermercado", "añade 20€ de transporte", "pagué 
 3. Descripción (description): Extrae del mensaje del usuario, máximo 50 caracteres
 4. Fecha: Si menciona "mes pasado", "ayer", "hace X días", calcula la fecha. Si no, usa: ${new Date().toISOString().slice(0, 10)}
 
-💬 ESTILO DE RESPUESTA:
-- Sé conciso: máximo 2-3 párrafos
-- Usa emojis relevantes (💰📊💡✅)
-- Da consejos específicos basados en los datos
-- Sé positivo y motivador
-- Si hay problemas, sugiere soluciones concretas
+📊 ANÁLISIS Y PROYECCIONES:
 
-📊 DATOS COMPLETOS DEL USUARIO:
+REGLAS DE CÁLCULO:
+- Para gastos recurrentes: multiplicar por frecuencia (mensual = 1x, trimestral = 0.33x, etc.)
+- Considerar estacionalidad (Navidad, verano, etc.) si hay datos históricos
+- Si faltan datos o estamos a principios de mes (día 1-15), indicar "confianza: baja" en proyecciones
+- No inventar categorías, solo usar las del usuario
 
-📅 CONTEXTO TEMPORAL:
-- Fecha actual: ${new Date().toISOString().slice(0, 10)}
-- Día del mes: ${context.currentDay} de ${context.daysInMonth} (${context.monthProgress}% del mes transcurrido)
-- ⚠️ IMPORTANTE: Estamos a principios de mes. Los objetivos mensuales se evalúan al FINAL del mes, no ahora.
-
-💰 GASTOS:
-- Total histórico: €${context.totalExpenses.toFixed(2)} en ${context.allExpensesCount} gastos
-- Este mes (${new Date().toISOString().slice(0, 7)}): €${context.monthlyTotal.toFixed(2)} en ${context.monthlyCount} gastos
-- Proyección mensual estimada: €${(context.monthlyTotal * (context.daysInMonth / context.currentDay)).toFixed(2)} (estimación, puede variar mucho a principios de mes)
+ESTIMACIONES ACTUALES:
+- Total este mes hasta ahora: €${context.monthlyTotal.toFixed(2)} en ${context.monthlyCount} gastos
+- Proyección mensual estimada: €${(context.monthlyTotal * (context.daysInMonth / context.currentDay)).toFixed(2)} (${context.monthProgress < 50 ? 'confianza: baja' : context.monthProgress < 75 ? 'confianza: media' : 'confianza: alta'})
 - Mes pasado: €${context.lastMonthTotal.toFixed(2)} en ${context.lastMonthCount} gastos
-- Últimos 6 meses: ${context.monthlyBreakdown.map(m => `${m.month}: €${m.total.toFixed(2)}`).join(' | ')}
 
 📁 CATEGORÍAS ESTE MES (ordenadas por gasto):
-${context.categories.slice(0, 8).map((c, i) => `${i + 1}. ${c.name}: €${c.total.toFixed(2)}${c.budget ? ` | Presupuesto: €${c.budget} (${c.budgetUsed}% usado)` : ''}`).join('\n')}
+${context.categories.slice(0, 8).map((c, i) => {
+  const proyeccion = (c.total * (context.daysInMonth / context.currentDay));
+  const confianza = context.monthProgress < 50 ? 'baja' : context.monthProgress < 75 ? 'media' : 'alta';
+  return `${i + 1}. ${c.name}: €${c.total.toFixed(2)} (proyección: €${proyeccion.toFixed(2)}, confianza: ${confianza})${c.budget ? ` | Presupuesto: €${c.budget} (${c.budgetUsed}% usado)${proyeccion > c.budget ? ' ⚠️ ALERTA: Superará presupuesto' : ''}` : ''}`;
+}).join('\n')}
 
 ${context.income ? `💵 INGRESOS:
 - Mensuales: €${context.income.monthly.toFixed(2)}
@@ -584,21 +593,30 @@ ${context.income ? `💵 INGRESOS:
 
 ${context.goals ? `🎯 OBJETIVOS:
 ${context.goals.totalSavingsGoal ? `- Ahorro total: €${context.goals.totalSavingsGoal.toFixed(2)}` : ''}
-${context.goals.monthlySavingsGoal ? `- Ahorro mensual objetivo: €${context.goals.monthlySavingsGoal.toFixed(2)} | Ahorro actual: €${((context.income?.monthly || 0) - context.monthlyTotal).toFixed(2)} (${context.monthProgress}% del mes)` : ''}
-${Object.keys(context.goals.categoryGoals || {}).length > 0 ? `- Límites: ${Object.entries(context.goals.categoryGoals).slice(0, 3).map(([cat, limit]) => `${cat}: €${limit.toFixed(2)}`).join(', ')}` : ''}` : ''}
+${context.goals.monthlySavingsGoal ? `- Ahorro mensual objetivo: €${context.goals.monthlySavingsGoal.toFixed(2)} | Ahorro actual: €${((context.income?.monthly || 0) - context.monthlyTotal).toFixed(2)}` : ''}
+${Object.keys(context.goals.categoryGoals || {}).length > 0 ? `- Límites por categoría: ${Object.entries(context.goals.categoryGoals).slice(0, 3).map(([cat, limit]) => `${cat}: €${limit.toFixed(2)}`).join(', ')}` : ''}` : ''}
 
 ${context.recurring ? `🔄 GASTOS RECURRENTES:
 - ${context.recurring.active} activos de ${context.recurring.total} total
-- Total mensual: €${context.recurring.monthlyTotal.toFixed(2)}` : ''}
+- Total mensual estimado: €${context.recurring.monthlyTotal.toFixed(2)}` : ''}
 
-⚠️ REGLAS IMPORTANTES PARA TUS RESPUESTAS:
+💬 ESTILO DE RESPUESTA:
+- Sé conciso: máximo 2-3 párrafos
+- Usa emojis relevantes (💰📊💡✅⚠️)
+- Da consejos específicos basados en los datos
+- Sé positivo y motivador
+- Si hay problemas, sugiere soluciones concretas
+- Cuando hagas proyecciones, indica el nivel de confianza (alta/media/baja)
+
+⚠️ REGLAS IMPORTANTES:
 1. Si el usuario menciona un gasto, SIEMPRE añade [ACTION:...] al final
 2. Usa EXACTAMENTE los nombres de categoría de la lista (case-sensitive)
 3. **NO felicites por cumplir objetivos mensuales si estamos a principios de mes** (día 1-15). Solo menciona el progreso actual.
-4. **Sé realista**: A principios de mes, los datos pueden cambiar mucho. Sé cauteloso con predicciones.
-5. **Proyecciones**: Si mencionas proyecciones, aclara que son estimaciones basadas en el ritmo actual.
-6. Sé específico y práctico en tus consejos
-7. Si hay problemas financieros, sugiere soluciones concretas`;
+4. **Sé realista**: A principios de mes, los datos pueden cambiar mucho. Sé cauteloso con predicciones y marca confianza "baja".
+5. **Proyecciones**: Si mencionas proyecciones, aclara que son estimaciones basadas en el ritmo actual e indica confianza.
+6. **Alertas**: Si una categoría va a superar su presupuesto, menciona la alerta claramente.
+7. Sé específico y práctico en tus consejos
+8. Si hay problemas financieros, sugiere soluciones concretas`;
 
       // Validar que hay API key configurada (solo en desarrollo, en producción la Cloud Function la tiene)
       if (isDevelopment && !API_KEY) {
@@ -725,8 +743,10 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
 
 
   // Calcular altura dinámica considerando el teclado y la barra de navegación
-  // La barra de navegación tiene aproximadamente 5.5rem de altura
+  // La barra de navegación tiene 5.5rem de altura
+  // El input del chat está dentro del contenedor, así que no necesitamos restarlo
   const navBarHeight = 5.5; // rem
+  
   const containerHeight = keyboardHeight > 0 
     ? `calc(100vh - ${keyboardHeight}px - ${navBarHeight}rem)`
     : `calc(100vh - ${navBarHeight}rem)`;
@@ -738,6 +758,7 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
       paddingTop: 0,
       paddingBottom: 0,
       marginTop: 0,
+      marginBottom: 0,
     }}>
       {/* Chat Container */}
       <div className={`rounded-lg md:rounded-xl border ${
@@ -757,7 +778,7 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
           }}>
           {messages.length === 0 ? (
             // Welcome Screen
-            <div className="min-h-full flex flex-col items-center justify-center text-center px-2 md:px-4 py-0">
+            <div className="flex flex-col items-center text-center px-2 md:px-4 pt-2 md:pt-4">
               <div className="flex items-center justify-center gap-2 md:gap-3 mb-2 md:mb-3">
                 <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-purple-500 flex-shrink-0" />
                 <h3 className={`text-base md:text-xl font-semibold ${textClass}`}>
@@ -841,9 +862,9 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
 
         {/* Input Area */}
         <div className={`border-t p-2 md:p-4 flex-shrink-0 ${darkMode ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-white'}`} style={{
-          paddingBottom: keyboardHeight > 0 ? '0.5rem' : 'max(0.5rem, env(safe-area-inset-bottom))',
-          position: 'sticky',
-          bottom: 0,
+          paddingBottom: keyboardHeight > 0 ? '0.5rem' : '0.5rem',
+          marginBottom: 0,
+          position: 'relative',
           zIndex: 10,
         }}>
           <div className="flex gap-1.5 md:gap-2">
