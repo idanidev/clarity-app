@@ -4,7 +4,7 @@ import {
   BarChart3,
   ChevronDown,
   ChevronUp,
-  Clock,
+  Bot,
   Filter,
   Pencil,
   Plus,
@@ -32,6 +32,7 @@ import { getCategoryColor } from "../../../services/firestoreService";
 import { getLongTermGoalProgress } from "../../../services/goalsService";
 import { useTranslation } from "../../../contexts/LanguageContext";
 import ExpenseCard from "./ExpenseCard";
+import AIAssistant from "./AIAssistant";
 
 const MainContent = memo(({
   cardClass,
@@ -68,6 +69,8 @@ const MainContent = memo(({
   goals,
   income,
   onOpenGoals,
+  onAddExpenseFromAI,
+  allExpenses,
 }) => {
   const { t } = useTranslation();
   const [isMobile, setIsMobile] = useState(false);
@@ -286,7 +289,7 @@ const MainContent = memo(({
                     darkMode ? "bg-pink-600/20" : "bg-pink-100/50"
                   }`}
                 >
-                  <Clock className={`w-3 h-3 md:w-5 md:h-5 ${textSecondaryClass}`} />
+                  <BarChart3 className={`w-3 h-3 md:w-5 md:h-5 ${textSecondaryClass}`} />
                 </div>
                 <span className={`text-[9px] md:text-xs font-semibold mb-0.5 md:mb-1.5 uppercase tracking-wide ${textSecondaryClass}`}>
                   {t("common.average")}
@@ -904,9 +907,9 @@ const MainContent = memo(({
           </button>
 
           <button
-            onClick={() => onChangeView("recent")}
+            onClick={() => onChangeView("assistant")}
             className={`relative flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 ${
-              activeView === "recent"
+              activeView === "assistant"
                 ? darkMode
                   ? "bg-purple-600/90 text-white shadow-lg"
                   : "bg-white text-purple-600 shadow-md"
@@ -915,7 +918,7 @@ const MainContent = memo(({
                 : "text-purple-600 hover:text-purple-700 hover:bg-white/50"
             }`}
             style={
-              activeView === "recent"
+              activeView === "assistant"
                 ? {
                     boxShadow: darkMode
                       ? "0 2px 8px rgba(139, 92, 246, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1) inset"
@@ -924,8 +927,8 @@ const MainContent = memo(({
                 : {}
             }
           >
-            <Clock className="w-4 h-4" />
-            <span>{t("views.recent")}</span>
+            <Bot className="w-4 h-4" />
+            <span>{t("views.assistant")}</span>
           </button>
 
           <button
@@ -1035,15 +1038,15 @@ const MainContent = memo(({
               <Plus className="w-6 h-6" />
             </button>
 
-            {/* Botón Recientes */}
+            {/* Botón Asistente IA */}
             <button
               onClick={() => {
-                onChangeView("recent");
+                onChangeView("assistant");
                 window.scrollTo({ top: 0, behavior: "smooth" });
                 if (showFilters) onToggleFilters();
               }}
               className={`flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 rounded-xl font-medium transition-all relative ${
-                activeView === "recent"
+                activeView === "assistant"
                   ? darkMode
                     ? "bg-purple-600/90 text-white"
                     : "bg-purple-600/90 text-white"
@@ -1052,9 +1055,9 @@ const MainContent = memo(({
                   : "text-purple-600 hover:bg-white/50"
               }`}
             >
-              <Clock className="w-4 h-4" />
-              <span className="text-[10px] font-medium">{t("views.recent")}</span>
-              {activeView === "recent" && (
+              <Bot className="w-4 h-4" />
+              <span className="text-[10px] font-medium">{t("views.assistant")}</span>
+              {activeView === "assistant" && (
                 <div className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-white"></div>
               )}
             </button>
@@ -2481,45 +2484,21 @@ const MainContent = memo(({
         </div>
       )}
 
-      {activeView === "recent" && (
-        <div className={`${cardClass} rounded-xl sm:rounded-2xl p-2 sm:p-4 border shadow-lg`}>
-          <div className="flex items-center justify-between mb-2 sm:mb-3">
-            <h3 className={`text-sm sm:text-lg font-bold ${textClass}`}>
-              Últimos Gastos Añadidos
-            </h3>
-            <span className={`text-xs sm:text-sm ${textSecondaryClass}`}>
-              ({recentExpenses.length})
-            </span>
-          </div>
-
-          {recentExpenses.length === 0 ? (
-            <div className="text-center py-8 sm:py-12">
-              <Clock className={`w-12 h-12 sm:w-16 sm:h-16 ${textSecondaryClass} mx-auto mb-3 sm:mb-4`} />
-              <p className={`text-base sm:text-xl font-semibold ${textClass} mb-1 sm:mb-2`}>
-                No hay gastos todavía
-              </p>
-              <p className={`text-xs sm:text-sm ${textSecondaryClass}`}>
-                Añade tu primer gasto para comenzar
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-1.5 sm:space-y-2">
-              {recentExpenses.map((expense) => (
-                <ExpenseCard
-                  key={expense.id}
-                  expense={expense}
-                  onEdit={onEditExpense}
-                  onDelete={(exp) => onRequestDelete({
-                    type: "expense",
-                    id: exp.id,
-                  })}
-                  darkMode={darkMode}
-                  isMobile={isMobile}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+      {activeView === "assistant" && (
+        <AIAssistant
+          darkMode={darkMode}
+          textClass={textClass}
+          textSecondaryClass={textSecondaryClass}
+          expenses={filteredExpenses}
+          allExpenses={allExpenses}
+          categories={categories}
+          budgets={budgets}
+          categoryTotals={categoryTotals}
+          income={income}
+          goals={goals}
+          recurringExpenses={recurringExpenses}
+          addExpense={onAddExpenseFromAI}
+        />
       )}
     </div>
   );

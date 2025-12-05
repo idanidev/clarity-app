@@ -460,6 +460,31 @@ const Dashboard = ({ user }) => {
     }
   };
 
+  // Función wrapper para añadir gastos desde el AI Assistant
+  const handleAddExpenseFromAI = useCallback(async (expenseData) => {
+    if (!user) return;
+
+    try {
+      const expenseAmount = parseFloat(expenseData.amount);
+      await addExpenseDB(user.uid, {
+        name: expenseData.name || expenseData.description || "Gasto añadido desde chat",
+        amount: expenseAmount,
+        category: expenseData.category,
+        subcategory: expenseData.subcategory || "",
+        date: expenseData.date || new Date().toISOString().slice(0, 10),
+        paymentMethod: expenseData.paymentMethod || "Tarjeta",
+        isRecurring: false,
+        recurringId: null,
+      });
+
+      trackAddExpense(expenseData.category, expenseAmount);
+      // No mostrar notificación aquí, el AIAssistant lo maneja visualmente
+    } catch (error) {
+      console.error("Error añadiendo gasto desde AI:", error);
+      throw error;
+    }
+  }, [user]);
+
   const handleUpdateExpense = async (e) => {
     e.preventDefault();
     if (!user || !editingExpense || isUpdatingExpense) return;
@@ -1809,7 +1834,7 @@ const Dashboard = ({ user }) => {
     setActiveView(view);
     trackViewChange(view);
     // Si cambiamos a una vista que no debe tener filtros, ocultarlos
-    if (view === "recent" || view === "budgets" || view === "goals") {
+    if (view === "assistant" || view === "budgets" || view === "goals") {
       setShowFilters(false);
     }
   }, []);
@@ -1983,6 +2008,8 @@ const Dashboard = ({ user }) => {
         goals={goals}
         income={income}
         onOpenGoals={handleOpenGoals}
+        onAddExpenseFromAI={handleAddExpenseFromAI}
+        allExpenses={expenses}
       />
 
       <Suspense fallback={showAddExpense ? <ModalLoader /> : null}>

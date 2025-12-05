@@ -6,6 +6,7 @@
 
 const { setGlobalOptions } = require("firebase-functions/v2");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { onRequest } = require("firebase-functions/v2/https");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
@@ -766,7 +767,6 @@ exports.sendWeeklyReminders = onSchedule(
  * Se puede invocar desde Firebase Console o mediante HTTP
  * Uso: https://europe-west1-clarity-gastos.cloudfunctions.net/sendTestNotification?userId=TU_USER_ID
  */
-const { onRequest } = require("firebase-functions/v2/https");
 exports.sendTestNotification = onRequest(
   {
     cors: true,
@@ -1099,6 +1099,71 @@ exports.sendMonthlyIncomeReminder = onSchedule(
     } catch (error) {
       logger.error("❌ Error en sendMonthlyIncomeReminder:", error);
       throw error;
+    }
+  }
+);
+
+/**
+ * Cloud Function que actúa como proxy para la API de DeepSeek
+ * Evita problemas de CORS y mantiene la API key segura en el servidor
+ */
+exports.aiProxy = onRequest(
+  {
+    cors: true,
+    region: "europe-west1",
+    memory: "256MiB",
+    timeoutSeconds: 60,
+    secrets: ["DEEPSEEK_API_KEY"], // Usar Secret Manager
+  },
+  async (req, res) => {
+    // Solo permitir POST
+    if (req.method !== "POST") {
+      res.status(405).json({ error: "Method not allowed" });
+      return;
+    }
+
+    try {
+      // Obtener la API key del secret de Firebase
+      const apiKey = process.env.DEEPSEEK_API_KEY;
+      if (!apiKey) {
+        logger.error("❌ DEEPSEEK_API_KEY no configurada en los secrets de Firebase");
+        res.status(500).json({ error: "API key not configured. Please set DEEPSEEK_API_KEY secret in Firebase." });
+        return;
+      }
+
+      const { model, max_tokens: maxTokens, messages } = req.body;
+
+      if (!model || !messages) {
+        res.status(400).json({ error: "Missing required fields: model, messages" });
+        return;
+      }
+
+      // Hacer la petición a DeepSeek
+      const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: model || "deepseek-chat",
+          max_tokens: maxTokens || 1000,
+          messages: messages,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        logger.error("❌ Error en API de DeepSeek:", errorData);
+        res.status(response.status).json(errorData);
+        return;
+      }
+
+      const data = await response.json();
+      res.status(200).json(data);
+    } catch (error) {
+      logger.error("❌ Error en aiProxy:", error);
+      res.status(500).json({ error: "Internal server error", message: error.message });
     }
   }
 );

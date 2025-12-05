@@ -103,38 +103,38 @@ const SettingsModal = ({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
       onMouseDown={onClose}
     >
       <div
-        className={`${cardClass} rounded-xl sm:rounded-2xl p-0 max-w-2xl w-full border shadow-2xl max-h-[95vh] sm:max-h-[90vh] flex flex-col`}
+        className={`${cardClass} rounded-2xl p-0 max-w-2xl w-full border shadow-2xl max-h-[90vh] flex flex-col`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div
-          className={`sticky top-0 z-10 px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center ${
+          className={`sticky top-0 z-10 px-6 py-4 flex justify-between items-center ${
             darkMode
               ? "bg-gray-800/95 border-b border-gray-700"
               : "bg-white/80 border-b border-purple-100"
           } backdrop-blur`}
         >
-          <h3 className={`text-xl sm:text-2xl font-bold ${textClass}`}>
+          <h3 className={`text-2xl font-bold ${textClass}`}>
             {t("settings.title")}
           </h3>
           <button
             onClick={onClose}
-            className={`p-1.5 sm:p-2 rounded-lg ${
+            className={`p-2 rounded-lg ${
               darkMode ? "hover:bg-gray-700" : "hover:bg-purple-100"
             } transition-all`}
           >
-            <X className={`w-5 h-5 sm:w-6 sm:h-6 ${textClass}`} />
+            <X className={`w-6 h-6 ${textClass}`} />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="px-4 sm:px-6 pt-3 sm:pt-4 flex gap-1 sm:gap-2 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+        <div className="px-6 pt-4 flex gap-2 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
           <button
             onClick={() => setActiveTab("general")}
-            className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-t-lg text-sm sm:text-base font-medium transition-all whitespace-nowrap ${
+            className={`px-4 py-2 rounded-t-lg text-base font-medium transition-all whitespace-nowrap ${
               activeTab === "general"
                 ? darkMode
                   ? "bg-gray-700 text-white border-b-2 border-purple-500"
@@ -148,7 +148,7 @@ const SettingsModal = ({
           </button>
           <button
             onClick={() => setActiveTab("notifications")}
-            className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-t-lg text-sm sm:text-base font-medium transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap ${
+            className={`px-4 py-2 rounded-t-lg text-base font-medium transition-all flex items-center gap-2 whitespace-nowrap ${
               activeTab === "notifications"
                 ? darkMode
                   ? "bg-gray-700 text-white border-b-2 border-purple-500"
@@ -158,12 +158,12 @@ const SettingsModal = ({
                 : "text-gray-600 hover:text-purple-600"
             }`}
           >
-            <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <Bell className="w-4 h-4" />
             {t("settings.notifications")}
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
+        <div className="flex-1 overflow-y-auto px-6 py-6 pb-safe space-y-6">
           {activeTab === "general" && (
             <>
               {/* Ingresos */}
@@ -599,7 +599,7 @@ const SettingsModal = ({
         </div>
 
         {/* Botón guardar sticky en la parte inferior */}
-        <div className={`sticky bottom-0 px-4 sm:px-6 py-4 border-t ${
+        <div className={`sticky bottom-0 px-6 py-4 pb-safe border-t ${
           darkMode
             ? "bg-gray-800/95 border-gray-700"
             : "bg-white/95 border-purple-100"
@@ -607,14 +607,14 @@ const SettingsModal = ({
           {activeTab === "general" ? (
             <button
               onClick={handleSaveIncome}
-              className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-lg bg-purple-600 text-white text-base sm:text-base font-medium hover:bg-purple-700 active:bg-purple-800 transition-all shadow-lg"
+              className="w-full px-6 py-3 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all"
             >
               {t("common.save")}
             </button>
           ) : (
             <button
               onClick={handleSaveNotifications}
-              className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-lg bg-purple-600 text-white text-base sm:text-base font-medium hover:bg-purple-700 active:bg-purple-800 transition-all shadow-lg"
+              className="w-full px-6 py-3 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all"
             >
               {t("common.save")}
             </button>

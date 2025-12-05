@@ -275,9 +275,35 @@ export const translations = {
       chart: "Gráfico",
       budgets: "Presupuestos",
       goals: "Objetivos",
-      recent: "Recientes",
+      assistant: "Asistente IA",
       distribution: "Distribución por Categoría",
       noExpensesPeriod: "No hay gastos en este período",
+    },
+    // AI Assistant
+    aiAssistant: {
+      title: "Asistente IA",
+      subtitle: "Tu experto financiero personal",
+      placeholder: "Pregúntame sobre tus gastos o añade uno nuevo...",
+      welcome: "¡Hola! Soy tu asistente financiero",
+      welcomeDesc: "Puedo ayudarte a analizar tus gastos, darte consejos personalizados, responder tus preguntas sobre finanzas y añadir gastos por ti.",
+      tryAsking: "Prueba preguntando:",
+      capabilities: [
+        { icon: "TrendingUp", text: "Analizar patrones de gasto" },
+        { icon: "Plus", text: "Añadir gastos por voz o texto" },
+        { icon: "Target", text: "Comparar con presupuestos" },
+        { icon: "Lightbulb", text: "Dar consejos personalizados" }
+      ],
+      exampleQuestions: [
+        "¿En qué gasto más dinero?",
+        "¿Cómo puedo ahorrar más este mes?",
+        "Analiza el mes pasado y dime en qué puedo mejorar",
+        "Analiza el total y dime en qué puedo mejorar",
+        "¿Estoy cumpliendo mis objetivos de ahorro?",
+        "¿Qué categoría debería reducir?",
+        "Añade 25€ de transporte del mes pasado",
+        "Dame consejos para mejorar mis finanzas"
+      ],
+      error: "Lo siento, hubo un error al procesar tu solicitud. Por favor, intenta de nuevo.",
     },
     // Export
     export: {
@@ -565,9 +591,35 @@ export const translations = {
       chart: "Chart",
       budgets: "Budgets",
       goals: "Goals",
-      recent: "Recent",
+      assistant: "AI Assistant",
       distribution: "Distribution by Category",
       noExpensesPeriod: "No expenses in this period",
+    },
+    // AI Assistant
+    aiAssistant: {
+      title: "AI Assistant",
+      subtitle: "Your personal finance expert",
+      placeholder: "Ask me about your expenses or add a new one...",
+      welcome: "Hello! I'm your financial assistant",
+      welcomeDesc: "I can help you analyze your spending, give personalized advice, answer your finance questions, and add expenses for you.",
+      tryAsking: "Try asking:",
+      capabilities: [
+        { icon: "TrendingUp", text: "Analyze spending patterns" },
+        { icon: "Plus", text: "Add expenses by voice or text" },
+        { icon: "Target", text: "Compare with budgets" },
+        { icon: "Lightbulb", text: "Give personalized advice" }
+      ],
+      exampleQuestions: [
+        "What do I spend most money on?",
+        "How can I save more this month?",
+        "I spent 50€ at the supermarket",
+        "Am I meeting my savings goals?",
+        "Analyze my expenses from last month",
+        "Which category should I reduce?",
+        "Add 25€ for transportation from last month",
+        "Give me advice to improve my finances"
+      ],
+      error: "Sorry, there was an error processing your request. Please try again.",
     },
     // Export
     export: {
