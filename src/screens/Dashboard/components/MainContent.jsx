@@ -33,6 +33,7 @@ import { getLongTermGoalProgress } from "../../../services/goalsService";
 import { useTranslation } from "../../../contexts/LanguageContext";
 import ExpenseCard from "./ExpenseCard";
 import AIAssistant from "./AIAssistant";
+import VoiceExpenseButton from "./VoiceExpenseButton";
 
 const MainContent = memo(({
   cardClass,
@@ -71,6 +72,7 @@ const MainContent = memo(({
   onOpenGoals,
   onAddExpenseFromAI,
   allExpenses,
+  showNotification,
 }) => {
   const { t } = useTranslation();
   const [isMobile, setIsMobile] = useState(false);
@@ -377,126 +379,33 @@ const MainContent = memo(({
         </div>
       )}
 
-      {/* Filtros rápidos en móvil - Chips en la parte superior - Solo en table y chart */}
+      {/* Botón de filtros avanzados - Parte inferior fija (arriba de la barra de navegación) */}
       {(activeView === "table" || activeView === "chart") && (
-        <div className="md:hidden mb-3">
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {/* Chip de período rápido */}
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <button
-                onClick={() => {
-                  const today = new Date();
-                  onFilterPeriodTypeChange("month");
-                  onMonthChange(today.toISOString().slice(0, 7));
-                  if (showFilters) onToggleFilters();
-                }}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
-                  filterPeriodType === "month" && selectedMonth === new Date().toISOString().slice(0, 7)
-                    ? darkMode
-                      ? "bg-purple-600 text-white"
-                      : "bg-purple-600 text-white"
-                    : darkMode
-                    ? "bg-gray-700 text-gray-300"
-                    : "bg-white/80 text-purple-700 border border-purple-200"
-                }`}
-              >
-                Este mes
-              </button>
-              <button
-                onClick={() => {
-                  const today = new Date();
-                  const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-                  onFilterPeriodTypeChange("month");
-                  onMonthChange(lastMonth.toISOString().slice(0, 7));
-                  if (showFilters) onToggleFilters();
-                }}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
-                  filterPeriodType === "month" && selectedMonth !== new Date().toISOString().slice(0, 7)
-                    ? darkMode
-                      ? "bg-purple-600 text-white"
-                      : "bg-purple-600 text-white"
-                    : darkMode
-                    ? "bg-gray-700 text-gray-300"
-                    : "bg-white/80 text-purple-700 border border-purple-200"
-                }`}
-              >
-                Mes anterior
-              </button>
-              <button
-                onClick={() => {
-                  onFilterPeriodTypeChange("year");
-                  onYearChange(new Date().getFullYear().toString());
-                  if (showFilters) onToggleFilters();
-                }}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
-                  filterPeriodType === "year"
-                    ? darkMode
-                      ? "bg-purple-600 text-white"
-                      : "bg-purple-600 text-white"
-                    : darkMode
-                    ? "bg-gray-700 text-gray-300"
-                    : "bg-white/80 text-purple-700 border border-purple-200"
-                }`}
-              >
-                Este año
-              </button>
-              <button
-                onClick={() => {
-                  onFilterPeriodTypeChange("all");
-                  if (showFilters) onToggleFilters();
-                }}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
-                  filterPeriodType === "all"
-                    ? darkMode
-                      ? "bg-purple-600 text-white"
-                      : "bg-purple-600 text-white"
-                    : darkMode
-                    ? "bg-gray-700 text-gray-300"
-                    : "bg-white/80 text-purple-700 border border-purple-200"
-                }`}
-              >
-                Todos
-              </button>
-            </div>
-
-            {/* Chip de categoría rápida */}
-            {selectedCategory !== "all" && (
-              <button
-                onClick={() => {
-                  onCategoryChange("all");
-                  if (showFilters) onToggleFilters();
-                }}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap flex items-center gap-1.5 flex-shrink-0 ${
-                  darkMode
-                    ? "bg-purple-600 text-white"
-                    : "bg-purple-600 text-white"
-                }`}
-              >
-                {selectedCategory}
-                <X className="w-3 h-3" />
-              </button>
-            )}
-          </div>
-
-          {/* Botón de filtros avanzados - Parte inferior fija (arriba de la barra de navegación) */}
-          <div className="fixed bottom-28 right-4 z-40 md:hidden" style={{ bottom: 'calc(5.5rem + env(safe-area-inset-bottom))' }}>
-            <button
-              onClick={onToggleFilters}
-              className={`p-4 rounded-full shadow-2xl backdrop-blur-xl border transition-all active:scale-95 ${
-                showFilters
-                  ? darkMode
-                    ? "bg-purple-600/80 border-purple-500/50 text-white"
-                    : "bg-purple-600/80 border-purple-400/50 text-white"
-                  : darkMode
-                  ? "bg-gray-800/90 backdrop-blur-xl border-gray-700/50 text-gray-300"
-                  : "bg-white/90 backdrop-blur-xl border-white/60 text-purple-600"
-              }`}
-            >
-              <Filter className="w-5 h-5" />
-            </button>
-          </div>
+        <div className="fixed bottom-28 right-4 z-40 md:hidden" style={{ bottom: 'calc(5.5rem + env(safe-area-inset-bottom))' }}>
+          <button
+            onClick={onToggleFilters}
+            className={`p-4 rounded-full shadow-2xl backdrop-blur-xl border transition-all active:scale-95 ${
+              showFilters
+                ? darkMode
+                  ? "bg-purple-600/25 border-purple-500/40 text-white"
+                  : "bg-purple-600/25 border-purple-400/40 text-white"
+                : darkMode
+                ? "bg-gray-800/25 backdrop-blur-xl border-gray-700/40 text-gray-300"
+                : "bg-white/25 backdrop-blur-xl border-white/40 text-purple-600"
+            }`}
+          >
+            <Filter className="w-5 h-5" />
+          </button>
         </div>
       )}
+
+      {/* Botón de añadir gasto por voz - Solo en móvil */}
+      <VoiceExpenseButton
+        darkMode={darkMode}
+        categories={categories}
+        addExpense={onAddExpenseFromAI}
+        showNotification={showNotification}
+      />
 
       {/* Panel de filtros avanzados para móvil - Bottom sheet style - Solo en table y chart */}
       {showFilters && (activeView === "table" || activeView === "chart") && (
@@ -576,6 +485,89 @@ const MainContent = memo(({
                   paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))',
                 }}
               >
+                  {/* Filtros rápidos */}
+                  <div>
+                    <label className={`block text-sm font-medium mb-2 ${textClass}`}>
+                      Filtros rápidos
+                    </label>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        onClick={() => {
+                          const today = new Date();
+                          onFilterPeriodTypeChange("month");
+                          onMonthChange(today.toISOString().slice(0, 7));
+                          onToggleFilters();
+                        }}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+                          filterPeriodType === "month" && selectedMonth === new Date().toISOString().slice(0, 7)
+                            ? darkMode
+                              ? "bg-purple-600 text-white"
+                              : "bg-purple-600 text-white"
+                            : darkMode
+                            ? "bg-gray-700 text-gray-300"
+                            : "bg-white/80 text-purple-700 border border-purple-200"
+                        }`}
+                      >
+                        Este mes
+                      </button>
+                      <button
+                        onClick={() => {
+                          const today = new Date();
+                          const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                          onFilterPeriodTypeChange("month");
+                          onMonthChange(lastMonth.toISOString().slice(0, 7));
+                          onToggleFilters();
+                        }}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+                          filterPeriodType === "month" && selectedMonth !== new Date().toISOString().slice(0, 7)
+                            ? darkMode
+                              ? "bg-purple-600 text-white"
+                              : "bg-purple-600 text-white"
+                            : darkMode
+                            ? "bg-gray-700 text-gray-300"
+                            : "bg-white/80 text-purple-700 border border-purple-200"
+                        }`}
+                      >
+                        Mes anterior
+                      </button>
+                      <button
+                        onClick={() => {
+                          onFilterPeriodTypeChange("year");
+                          onYearChange(new Date().getFullYear().toString());
+                          onToggleFilters();
+                        }}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+                          filterPeriodType === "year"
+                            ? darkMode
+                              ? "bg-purple-600 text-white"
+                              : "bg-purple-600 text-white"
+                            : darkMode
+                            ? "bg-gray-700 text-gray-300"
+                            : "bg-white/80 text-purple-700 border border-purple-200"
+                        }`}
+                      >
+                        Este año
+                      </button>
+                      <button
+                        onClick={() => {
+                          onFilterPeriodTypeChange("all");
+                          onToggleFilters();
+                        }}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+                          filterPeriodType === "all"
+                            ? darkMode
+                              ? "bg-purple-600 text-white"
+                              : "bg-purple-600 text-white"
+                            : darkMode
+                            ? "bg-gray-700 text-gray-300"
+                            : "bg-white/80 text-purple-700 border border-purple-200"
+                        }`}
+                      >
+                        Todos
+                      </button>
+                    </div>
+                  </div>
+
                   <div>
                     <label className={`block text-sm font-medium mb-2 ${textClass}`}>
                       {t("filters.period")}

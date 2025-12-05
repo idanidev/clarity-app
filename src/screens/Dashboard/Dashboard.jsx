@@ -999,65 +999,19 @@ const Dashboard = ({ user }) => {
       return;
     }
 
-    // Si no hay categorías en absoluto, restaurarlas todas desde los gastos
+    // CRÍTICO: NO restaurar categorías automáticamente
+    // Si el usuario no tiene categorías o faltan algunas, es porque las eliminó intencionalmente
+    // o porque nunca las configuró. NO crear categorías automáticamente.
+    // El usuario debe crear sus propias categorías manualmente.
+    
+    // Si no hay categorías en absoluto, NO hacer nada automáticamente
     if (!categories || Object.keys(categories).length === 0) {
-      console.warn("[Restauración automática] No hay categorías, restaurando desde gastos...");
-      isRestoringRef.current = true;
-
-      const restoredCategories = {};
-      const categoryColors = {
-        Alimentacion: "#8B5CF6",
-        Transporte: "#3B82F6",
-        Vivienda: "#EC4899",
-        Ocio: "#10B981",
-        Salud: "#F59E0B",
-        Compras: "#EF4444",
-        Educacion: "#6366F1",
-      };
-
-      expenses.forEach((expense) => {
-        if (!expense?.category) return;
-
-        if (!restoredCategories[expense.category]) {
-          // Asegurar que siempre sea un objeto con subcategories (array) y color
-          restoredCategories[expense.category] = {
-            subcategories: [],
-            color: categoryColors[expense.category] || "#8B5CF6",
-          };
-        }
-
-        // Asegurar que subcategories sea un array antes de hacer push
-        if (!Array.isArray(restoredCategories[expense.category].subcategories)) {
-          restoredCategories[expense.category].subcategories = [];
-        }
-
-        if (expense.subcategory && !restoredCategories[expense.category].subcategories.includes(expense.subcategory)) {
-          restoredCategories[expense.category].subcategories.push(expense.subcategory);
-        }
-      });
-
-      // Ordenar subcategorías
-      Object.keys(restoredCategories).forEach((cat) => {
-        restoredCategories[cat].subcategories.sort((a, b) => a.localeCompare(b));
-      });
-
-      const persistRestored = async () => {
-        try {
-          await saveCategories(user.uid, restoredCategories, { mergeMode: "merge" });
-          setCategories(restoredCategories);
-          console.log("[Restauración automática] Categorías restauradas:", Object.keys(restoredCategories));
-        } catch (error) {
-          console.error("Error restoring categories:", error);
-        } finally {
-          isRestoringRef.current = false;
-        }
-      };
-
-      void persistRestored();
+      console.log("[Restauración automática] Usuario no tiene categorías. NO se crearán automáticamente. El usuario debe crearlas manualmente.");
       return;
     }
 
-    // Restaurar categorías faltantes que tienen gastos asociados
+    // Si faltan categorías que tienen gastos asociados, NO crearlas automáticamente
+    // El usuario puede tener gastos de categorías que eliminó intencionalmente
     const missingCategories = new Set();
     expenses.forEach((expense) => {
       if (expense?.category && !categories[expense.category]) {
@@ -1066,55 +1020,8 @@ const Dashboard = ({ user }) => {
     });
 
     if (missingCategories.size > 0) {
-      console.warn("[Restauración automática] Categorías faltantes detectadas:", Array.from(missingCategories));
-      isRestoringRef.current = true;
-
-      // Asegurar que categories sea un objeto, nunca un array
-      let safeCategories = {};
-      if (categories && typeof categories === "object" && !Array.isArray(categories)) {
-        safeCategories = { ...categories };
-      } else if (Array.isArray(categories)) {
-        console.error("[Restauración automática] ERROR: categories es un array, ignorando y usando objeto vacío");
-        safeCategories = {};
-      }
-
-      const restoredCategories = { ...safeCategories };
-      const categoryColors = {
-        Alimentacion: "#8B5CF6",
-        Transporte: "#3B82F6",
-        Vivienda: "#EC4899",
-        Ocio: "#10B981",
-        Salud: "#F59E0B",
-        Compras: "#EF4444",
-        Educacion: "#6366F1",
-      };
-
-      missingCategories.forEach((categoryName) => {
-        const categoryExpenses = expenses.filter((e) => e?.category === categoryName);
-        const subcategories = Array.from(
-          new Set(categoryExpenses.map((e) => e?.subcategory).filter(Boolean))
-        ).sort((a, b) => a.localeCompare(b));
-
-        // Asegurar que siempre sea un objeto con subcategories (array) y color
-        restoredCategories[categoryName] = {
-          subcategories: Array.isArray(subcategories) ? subcategories : [],
-          color: categoryColors[categoryName] || "#8B5CF6",
-        };
-      });
-
-      const persistRestored = async () => {
-        try {
-          await saveCategories(user.uid, restoredCategories, { mergeMode: "merge" });
-          setCategories(restoredCategories);
-          console.log("[Restauración automática] Categorías restauradas:", Array.from(missingCategories));
-        } catch (error) {
-          console.error("Error restoring missing categories:", error);
-        } finally {
-          isRestoringRef.current = false;
-        }
-      };
-
-      void persistRestored();
+      console.log("[Restauración automática] Categorías faltantes detectadas:", Array.from(missingCategories), "NO se crearán automáticamente.");
+      // NO crear categorías automáticamente
       return;
     }
 
@@ -2010,6 +1917,7 @@ const Dashboard = ({ user }) => {
         onOpenGoals={handleOpenGoals}
         onAddExpenseFromAI={handleAddExpenseFromAI}
         allExpenses={expenses}
+        showNotification={showNotification}
       />
 
       <Suspense fallback={showAddExpense ? <ModalLoader /> : null}>

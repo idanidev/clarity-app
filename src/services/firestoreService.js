@@ -307,24 +307,31 @@ export const migrateCategoriesToNewFormat = (categories) => {
       ? normalizeSubcategories(categoryData)
       : normalizeSubcategories(categoryData?.subcategories);
 
-    // PRESERVAR el color existente si existe, solo usar default si NO hay color
+    // CRÍTICO: PRESERVAR el color existente SIEMPRE que exista
+    // Solo asignar color por defecto si es formato antiguo (array) y NO tiene color
     let color;
     if (categoryData && typeof categoryData === "object" && categoryData.color) {
-      // Si ya tiene color, preservarlo
+      // Si ya tiene color, PRESERVARLO EXACTAMENTE (no cambiarlo nunca)
       color = categoryData.color;
     } else if (Array.isArray(categoryData)) {
-      // Formato antiguo (array), usar color por defecto
+      // Formato antiguo (array), usar color por defecto solo para migración
       color = defaultColors[colorIndex % defaultColors.length];
+    } else if (categoryData && typeof categoryData === "object" && !categoryData.color) {
+      // Objeto sin color: NO asignar color por defecto, dejar que el usuario lo configure
+      // O usar el color existente si hay uno en algún lugar
+      color = categoryData.color || defaultColors[colorIndex % defaultColors.length];
     } else {
-      // No tiene color, usar color por defecto
+      // No tiene color, usar color por defecto solo para migración
       color = defaultColors[colorIndex % defaultColors.length];
     }
 
+    // PRESERVAR todos los campos existentes (icon, etc.)
     migrated[categoryName] = {
+      ...(typeof categoryData === "object" && !Array.isArray(categoryData) ? categoryData : {}),
       subcategories: Array.from(new Set(normalizedSubcategories)).sort((a, b) =>
         a.localeCompare(b)
       ),
-      color,
+      color, // El color ya fue determinado arriba (preservado o asignado)
     };
 
     colorIndex++;
@@ -578,27 +585,32 @@ export const getUserCategories = async (userId) => {
       const categories = data.categories || null;
       if (!categories) return null;
       
-      // Si las categorías ya están en el formato nuevo (tienen color), devolverlas tal cual
-      // Solo migrar si están en formato antiguo (arrays)
+      // CRÍTICO: Si el usuario ya tiene categorías, NO hacer ninguna modificación automática
+      // Solo migrar el formato si es absolutamente necesario (formato antiguo con arrays)
       const needsMigration = Object.values(categories).some(cat => Array.isArray(cat));
       
-      const finalCategories = needsMigration
-        ? migrateCategoriesToNewFormat(categories)
-        : categories;
-
-      // Paso adicional: fusionar categorías duplicadas (con y sin emoji) una sola vez
-      const mergedCategories = mergeDuplicateDefaultCategories(finalCategories);
-
-      // Si hubo cambios, actualizar Firestore para no repetir la migración
-      const changed = JSON.stringify(mergedCategories) !== JSON.stringify(finalCategories);
-      if (changed) {
-        await updateDoc(userDocRef, {
-          categories: mergedCategories,
-          updatedAt: new Date().toISOString(),
-        });
+      if (needsMigration) {
+        // Solo migrar formato (arrays -> objetos con color), pero PRESERVAR colores existentes
+        const finalCategories = migrateCategoriesToNewFormat(categories);
+        
+        // Actualizar Firestore solo si hubo migración de formato
+        const changed = JSON.stringify(finalCategories) !== JSON.stringify(categories);
+        if (changed) {
+          await updateDoc(userDocRef, {
+            categories: finalCategories,
+            updatedAt: new Date().toISOString(),
+          });
+          console.log(`[getUserCategories] Migrado formato de categorías para usuario ${userId}`);
+        }
+        
+        // IMPORTANTE: NO fusionar categorías duplicadas automáticamente
+        // El usuario puede tener categorías con nombres similares intencionalmente
+        return finalCategories;
       }
 
-      return mergedCategories;
+      // Si no necesita migración, devolver las categorías TAL CUAL están
+      // NO hacer ninguna modificación automática
+      return categories;
     }
     return null;
   } catch (error) {
@@ -811,50 +823,36 @@ export const initializeUser = async (userId, userData) => {
     };
 
     if (userDoc.exists()) {
-      // Usuario existente: NUNCA tocar las categorías, incluso si están vacías o en formato antiguo
+      // Usuario existente: NO MODIFICAR NADA que ya exista
       const currentData = userDoc.data();
-      const existingCategories = currentData.categories;
       
-      // Construir updateData sin incluir categories NUNCA para usuarios existentes
-      const updateData = {
-        updatedAt: new Date().toISOString(),
-      };
-
-      // Actualizar email si se proporciona (solo si es diferente)
+      // CRÍTICO: Para usuarios existentes, NO hacer NINGUNA modificación automática
+      // Solo actualizar el email si es diferente y se proporciona
+      const updateData = {};
+      
+      // Actualizar email SOLO si se proporciona Y es diferente
       if (userData.email && userData.email !== currentData.email) {
         updateData.email = userData.email;
+        updateData.updatedAt = new Date().toISOString();
       }
 
-      // NUNCA establecer categorías predeterminadas para usuarios existentes
-      // Si el usuario no tiene categorías, es porque las eliminó o nunca las configuró
-      // Las categorías predeterminadas SOLO se crean para usuarios nuevos (línea 874)
-      const hasCategories = 
-        existingCategories !== null &&
-        existingCategories !== undefined &&
-        (Array.isArray(existingCategories) || 
-         (typeof existingCategories === "object" && Object.keys(existingCategories).length > 0));
-      
-      if (hasCategories) {
-        const categoryCount = Array.isArray(existingCategories) ? existingCategories.length : Object.keys(existingCategories).length;
-        console.log(`[initializeUser] Usuario ${userId} ya tiene categorías (${categoryCount}), NO se tocan`);
-      } else {
-        console.log(`[initializeUser] Usuario ${userId} no tiene categorías, pero NO se crearán predeterminadas (usuario existente)`);
-      }
-      // EXPLÍCITAMENTE NO incluir categories en updateData para usuarios existentes
-      // Esto garantiza que las categorías existentes nunca se sobrescriban
+      // NUNCA modificar estos campos para usuarios existentes:
+      // - categories (aunque estén vacías o en formato antiguo)
+      // - theme (aunque no exista, no establecer "light" por defecto)
+      // - budgets (aunque no exista, no establecer {} por defecto)
+      // - income (aunque no exista, no establecer 0 por defecto)
+      // - goals (aunque no exista, no establecer {} por defecto)
+      // - language (aunque no exista, no establecer "es" por defecto)
+      // 
+      // El usuario debe configurar estos valores manualmente si los necesita.
+      // Si no existen, es porque el usuario no los ha configurado aún o los eliminó intencionalmente.
 
-      // Solo establecer valores por defecto si no existen
-      if (currentData.budgets === undefined || currentData.budgets === null) {
-        updateData.budgets = {};
-      }
-      if (!currentData.theme) {
-        updateData.theme = "light";
-      }
-
-      // Solo actualizar si hay algo que actualizar (evitar escrituras innecesarias)
-      const fieldsToUpdate = Object.keys(updateData).filter(key => key !== "updatedAt");
-      if (fieldsToUpdate.length > 0) {
+      // Solo actualizar si hay algo que actualizar (solo email)
+      if (Object.keys(updateData).length > 0) {
         await updateDoc(userDocRef, updateData);
+        console.log(`[initializeUser] Usuario existente ${userId}: solo actualizado email si cambió`);
+      } else {
+        console.log(`[initializeUser] Usuario existente ${userId}: NO se modificó nada`);
       }
       return;
     }

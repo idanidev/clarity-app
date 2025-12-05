@@ -1,6 +1,36 @@
 import { useState, useRef, useEffect, memo } from 'react';
-import { Send, Loader2, Sparkles, TrendingUp, Target, Lightbulb, Plus, Check, Mic, MicOff } from 'lucide-react';
+import { Send, Loader2, Sparkles, Check, TrendingUp, Target, Lightbulb, Plus } from 'lucide-react';
 import { useTranslation } from '../../../contexts/LanguageContext';
+
+// Hook para detectar el teclado virtual
+const useKeyboardHeight = () => {
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+
+    const handleResize = () => {
+      const viewport = window.visualViewport;
+      const windowHeight = window.innerHeight;
+      const viewportHeight = viewport.height;
+      const heightDiff = windowHeight - viewportHeight;
+      
+      // Si la diferencia es significativa (>150px), asumimos que el teclado está abierto
+      if (heightDiff > 150) {
+        setKeyboardHeight(heightDiff);
+      } else {
+        setKeyboardHeight(0);
+      }
+    };
+
+    window.visualViewport.addEventListener('resize', handleResize);
+    return () => {
+      window.visualViewport?.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  return keyboardHeight;
+};
 
 const AIAssistant = memo(({
   darkMode,
@@ -20,101 +50,49 @@ const AIAssistant = memo(({
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
-  const recognitionRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+  const keyboardHeight = useKeyboardHeight();
 
-  // Auto-scroll al último mensaje
+  // Auto-scroll al último mensaje cuando hay nuevos mensajes o cuando aparece el teclado
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  // Inicializar reconocimiento de voz
-  useEffect(() => {
-    if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-      // @ts-ignore - Web Speech API no está completamente tipada
-      const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const recognition = new SpeechRecognitionClass();
-      
-      recognition.continuous = true; // Cambiar a true para que no se detenga automáticamente
-      recognition.interimResults = true; // Mostrar resultados mientras habla
-      recognition.lang = 'es-ES';
-
-      recognition.onstart = () => {
-        setIsListening(true);
-        console.log('🎤 Reconocimiento de voz iniciado');
-      };
-
-      recognition.onresult = (event) => {
-        let finalTranscript = '';
-
-        // Procesar todos los resultados
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript + ' ';
-          }
-        }
-
-        // Actualizar el input con el texto final cuando termine
-        if (finalTranscript) {
-          setInput(prev => {
-            const newText = prev + (prev && !prev.endsWith(' ') ? ' ' : '') + finalTranscript.trim();
-            return newText;
-          });
-        }
-      };
-
-      recognition.onerror = (event) => {
-        console.error('Error en reconocimiento de voz:', event.error);
-        
-        // No detener si es un error de "no-speech" (solo silencio)
-        if (event.error === 'no-speech') {
-          console.log('No se detectó habla, continuando...');
-          return;
-        }
-        
-        setIsListening(false);
-        
-        if (event.error === 'not-allowed') {
-          alert('⚠️ Permiso de micrófono denegado. Por favor, permite el acceso al micrófono en la configuración del navegador.');
-        } else if (event.error === 'aborted') {
-          // El usuario detuvo manualmente, no mostrar error
-          console.log('Reconocimiento detenido por el usuario');
-        } else if (event.error === 'network') {
-          // Error de red - el reconocimiento de voz requiere conexión a internet
-          alert('⚠️ Error de conexión. El reconocimiento de voz requiere conexión a internet. Por favor, verifica tu conexión e intenta de nuevo.');
-        } else if (event.error === 'audio-capture') {
-          alert('⚠️ No se pudo acceder al micrófono. Verifica que el micrófono esté conectado y funcionando.');
-        } else if (event.error === 'service-not-allowed') {
-          alert('⚠️ El servicio de reconocimiento de voz no está disponible. Por favor, intenta más tarde.');
-        } else {
-          console.error('Error de reconocimiento:', event.error);
-          alert(`⚠️ Error en el reconocimiento de voz: ${event.error}. Por favor, intenta de nuevo.`);
-        }
-      };
-
-      recognition.onend = () => {
-        console.log('🎤 Reconocimiento de voz finalizado');
-        setIsListening(false);
-        // Si el usuario estaba escuchando, reiniciar automáticamente
-        // (esto se manejará en toggleListening)
-      };
-
-      recognitionRef.current = recognition;
-    }
-
-    return () => {
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch (e) {
-          // Ignorar errores al limpiar
-        }
+    const scrollToEnd = () => {
+      const container = messagesContainerRef.current;
+      if (container) {
+        // Scroll directo al final del contenedor
+        container.scrollTop = container.scrollHeight;
+      } else if (messagesEndRef.current) {
+        // Fallback a scrollIntoView
+        messagesEndRef.current.scrollIntoView({ 
+          behavior: 'auto',
+          block: 'end'
+        });
       }
     };
+
+    // Scroll cuando hay cambios
+    if (messages.length > 0 || isLoading || keyboardHeight > 0) {
+      // Usar requestAnimationFrame para asegurar que el DOM está actualizado
+      requestAnimationFrame(() => {
+        scrollToEnd();
+        // Intentos adicionales con delays
+        setTimeout(scrollToEnd, 100);
+        setTimeout(scrollToEnd, 300);
+        setTimeout(scrollToEnd, 500);
+      });
+    }
+  }, [messages, isLoading, keyboardHeight]);
+
+  // Auto-focus en el input cuando se monta el componente
+  useEffect(() => {
+    // Pequeño delay para asegurar que el input esté renderizado
+    const timer = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 100);
+    return () => clearTimeout(timer);
   }, []);
+
 
   // Preparar contexto del usuario para la IA
   const prepareUserContext = () => {
@@ -256,25 +234,33 @@ const AIAssistant = memo(({
   };
 
   // Función mejorada para encontrar la categoría más apropiada
+  // IMPORTANTE: Devuelve la clave EXACTA que existe en categories (case-sensitive)
   const findBestCategory = (suggestedCategory, description) => {
     const categoryNames = Object.keys(categories);
     if (categoryNames.length === 0) return null;
 
-    const searchText = (suggestedCategory || description || '').toLowerCase();
+    const searchText = (suggestedCategory || description || '').toLowerCase().trim();
+    if (!searchText) return categoryNames[0]; // Si no hay texto, usar la primera
     
-    // 1. Match exacto (case-insensitive)
+    // 1. Match exacto (case-insensitive) - devolver la clave EXACTA
     let match = categoryNames.find(
       cat => cat.toLowerCase() === searchText
     );
-    if (match) return match;
+    if (match) {
+      // Validar que existe en categories
+      if (categories[match]) return match;
+    }
 
-    // 2. Match parcial (contiene)
+    // 2. Match parcial (contiene) - devolver la clave EXACTA
     match = categoryNames.find(
-      cat => cat.toLowerCase().includes(searchText) || searchText.includes(cat.toLowerCase())
+      cat => {
+        const catLower = cat.toLowerCase();
+        return (catLower.includes(searchText) || searchText.includes(catLower)) && categories[cat];
+      }
     );
     if (match) return match;
 
-    // 3. Sinónimos comunes
+    // 3. Sinónimos comunes - buscar y devolver la clave EXACTA
     const synonyms = {
       'comida': ['alimentación', 'alimentos', 'supermercado', 'mercado', 'compras', 'grocery'],
       'transporte': ['transporte', 'gasolina', 'gasoil', 'metro', 'autobús', 'taxi', 'uber', 'cabify'],
@@ -283,22 +269,26 @@ const AIAssistant = memo(({
       'salud': ['salud', 'médico', 'farmacia', 'hospital', 'dentista'],
       'ropa': ['ropa', 'vestimenta', 'moda', 'zapatos', 'calzado'],
       'casa': ['casa', 'hogar', 'vivienda', 'alquiler', 'hipoteca', 'luz', 'agua', 'gas'],
+      'hogar': ['casa', 'hogar', 'vivienda', 'alquiler', 'hipoteca', 'luz', 'agua', 'gas'],
       'educación': ['educación', 'curso', 'universidad', 'colegio', 'libros'],
       'tecnología': ['tecnología', 'tech', 'ordenador', 'móvil', 'teléfono', 'internet'],
+      'tabaco': ['tabaco', 'cigarrillos', 'cigarrillo', 'puros'],
     };
 
     // Buscar en sinónimos
     for (const [key, values] of Object.entries(synonyms)) {
       if (values.some(syn => searchText.includes(syn))) {
-        match = categoryNames.find(cat => 
-          cat.toLowerCase().includes(key) || key.includes(cat.toLowerCase())
-        );
+        // Buscar categoría que coincida con la clave del sinónimo
+        match = categoryNames.find(cat => {
+          const catLower = cat.toLowerCase();
+          return (catLower.includes(key) || key.includes(catLower)) && categories[cat];
+        });
         if (match) return match;
       }
     }
 
-    // 4. Si no encuentra nada, usar la primera categoría
-    return categoryNames[0];
+    // 4. Si no encuentra nada, usar la primera categoría válida
+    return categoryNames.find(cat => categories[cat]) || categoryNames[0];
   };
 
   // Detectar gasto directamente desde el texto (sin IA)
@@ -374,21 +364,26 @@ const AIAssistant = memo(({
           actionData.description || actionData.name
         );
 
-        if (!matchedCategory) {
-          return aiResponse.replace(/\[ACTION:.*?\]/s, '') + '\n\n⚠️ No se pudo encontrar una categoría apropiada.';
+        // Validar que la categoría existe y es válida
+        if (!matchedCategory || !categories[matchedCategory]) {
+          console.error('❌ Categoría no válida:', matchedCategory, 'Categorías disponibles:', Object.keys(categories));
+          return aiResponse.replace(/\[ACTION:.*?\]/s, '') + '\n\n⚠️ No se pudo encontrar una categoría apropiada. Por favor, verifica que la categoría existe.';
         }
 
         // Buscar subcategoría si existe
         let matchedSubcategory = '';
-        if (matchedCategory && categories[matchedCategory]) {
-          const subcategories = categories[matchedCategory].subcategories || [];
+        const categoryData = categories[matchedCategory];
+        if (categoryData && categoryData.subcategories && Array.isArray(categoryData.subcategories)) {
+          const subcategories = categoryData.subcategories;
           if (subcategories.length > 0) {
             const desc = (actionData.description || actionData.name || '').toLowerCase();
-            const subMatch = subcategories.find(sub => 
-              sub.toLowerCase().includes(desc) || desc.includes(sub.toLowerCase())
-            );
+            const subMatch = subcategories.find(sub => {
+              if (!sub || typeof sub !== 'string') return false;
+              const subLower = sub.toLowerCase();
+              return subLower.includes(desc) || desc.includes(subLower);
+            });
             if (subMatch) {
-              matchedSubcategory = subMatch;
+              matchedSubcategory = subMatch; // Usar la subcategoría exacta del array
             }
           }
         }
@@ -440,18 +435,26 @@ const AIAssistant = memo(({
       const categoryNames = Object.keys(categories);
       if (categoryNames.length > 0) {
         const matchedCategory = findBestCategory(null, directExpense.description);
-        if (matchedCategory) {
+        
+        // Validar que la categoría existe y es válida
+        if (!matchedCategory || !categories[matchedCategory]) {
+          console.error('❌ Categoría no válida en modo rápido:', matchedCategory, 'Categorías disponibles:', categoryNames);
+          // Continuar con la IA si falla la detección directa
+        } else {
           // Buscar subcategoría
           let matchedSubcategory = '';
-          if (categories[matchedCategory]) {
-            const subcategories = categories[matchedCategory].subcategories || [];
+          const categoryData = categories[matchedCategory];
+          if (categoryData && categoryData.subcategories && Array.isArray(categoryData.subcategories)) {
+            const subcategories = categoryData.subcategories;
             if (subcategories.length > 0) {
               const desc = directExpense.description.toLowerCase();
-              const subMatch = subcategories.find(sub => 
-                sub.toLowerCase().includes(desc) || desc.includes(sub.toLowerCase())
-              );
+              const subMatch = subcategories.find(sub => {
+                if (!sub || typeof sub !== 'string') return false;
+                const subLower = sub.toLowerCase();
+                return subLower.includes(desc) || desc.includes(subLower);
+              });
               if (subMatch) {
-                matchedSubcategory = subMatch;
+                matchedSubcategory = subMatch; // Usar la subcategoría exacta del array
               }
             }
           }
@@ -720,164 +723,72 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
     }
   };
 
-  // Preguntas de ejemplo clickeables
-  const exampleQuestions = t('aiAssistant.exampleQuestions') || [
-    "¿En qué gasto más dinero?",
-    "¿Cómo puedo ahorrar más este mes?",
-    "Gasté 50€ en supermercado",
-    "¿Estoy cumpliendo mis objetivos de ahorro?",
-    "Analiza mis gastos del mes pasado",
-    "¿Qué categoría debería reducir?",
-    "Añade 25€ de transporte del mes pasado",
-    "Dame consejos para mejorar mis finanzas"
-  ];
 
-  const handleExampleClick = (question) => {
-    setInput(question);
-    inputRef.current?.focus();
-  };
-
-  // Manejar inicio/detención de grabación de voz
-  const toggleListening = () => {
-    if (!recognitionRef.current) {
-      alert('⚠️ Tu navegador no soporta reconocimiento de voz. Por favor, usa Chrome, Edge o Safari.');
-      return;
-    }
-
-    // Verificar conexión a internet antes de iniciar
-    if (!navigator.onLine) {
-      alert('⚠️ No hay conexión a internet. El reconocimiento de voz requiere conexión a internet.');
-      return;
-    }
-
-    if (isListening) {
-      // Detener grabación
-      try {
-        recognitionRef.current.stop();
-        setIsListening(false);
-        inputRef.current?.focus();
-      } catch (error) {
-        console.error('Error deteniendo reconocimiento:', error);
-        setIsListening(false);
-      }
-    } else {
-      // Iniciar grabación
-      try {
-        // Limpiar cualquier reconocimiento previo
-        if (recognitionRef.current) {
-          try {
-            recognitionRef.current.stop();
-          } catch (e) {
-            // Ignorar si ya estaba detenido
-          }
-        }
-        
-        // Pequeño delay para asegurar que se reinicia correctamente
-        setTimeout(() => {
-          try {
-            recognitionRef.current.start();
-          } catch (error) {
-            // Si falla, puede ser que ya esté iniciado, intentar de nuevo
-            if (error.message && error.message.includes('already started')) {
-              console.log('Reconocimiento ya iniciado, continuando...');
-              setIsListening(true);
-            } else {
-              console.error('Error iniciando reconocimiento:', error);
-              setIsListening(false);
-              alert('⚠️ No se pudo iniciar el reconocimiento de voz. Verifica tu conexión a internet e intenta de nuevo.');
-            }
-          }
-        }, 100);
-      } catch (error) {
-        console.error('Error preparando reconocimiento:', error);
-        setIsListening(false);
-        alert('⚠️ Error al preparar el reconocimiento de voz. Por favor, intenta de nuevo.');
-      }
-    }
-  };
+  // Calcular altura dinámica considerando el teclado y la barra de navegación
+  // La barra de navegación tiene aproximadamente 5.5rem de altura
+  const navBarHeight = 5.5; // rem
+  const containerHeight = keyboardHeight > 0 
+    ? `calc(100vh - ${keyboardHeight}px - ${navBarHeight}rem)`
+    : `calc(100vh - ${navBarHeight}rem)`;
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className={`flex items-center gap-3 ${textClass}`}>
-        <div className={`p-2 rounded-lg ${darkMode ? 'bg-purple-500/10' : 'bg-purple-100'}`}>
-          <Sparkles className="w-5 h-5 text-purple-500" />
-        </div>
-        <div>
-          <h2 className="text-lg font-semibold">
-            {t('aiAssistant.title') || 'Asistente IA'}
-          </h2>
-          <p className={`text-sm ${textSecondaryClass}`}>
-            {t('aiAssistant.subtitle') || 'Tu experto financiero personal'}
-          </p>
-        </div>
-      </div>
-
+    <div className="h-full flex flex-col px-1 md:px-0" style={{
+      height: containerHeight,
+      maxHeight: containerHeight,
+      paddingTop: 0,
+      paddingBottom: 0,
+      marginTop: 0,
+    }}>
       {/* Chat Container */}
-      <div className={`rounded-xl border ${
+      <div className={`rounded-lg md:rounded-xl border ${
         darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-200'
-      } overflow-hidden`}>
+      } overflow-hidden flex flex-col h-full`}>
         
         {/* Messages Area */}
-        <div className="h-[calc(100vh-280px)] md:h-[600px] overflow-y-auto p-4 space-y-4">
+        <div 
+          ref={messagesContainerRef}
+          className="flex-1 overflow-y-auto px-2 md:px-4 py-1 md:py-2 space-y-2 md:space-y-4" 
+          style={{
+            WebkitOverflowScrolling: 'touch',
+            touchAction: 'pan-y',
+            minHeight: 0,
+            maxHeight: '100%',
+            paddingTop: 0,
+          }}>
           {messages.length === 0 ? (
             // Welcome Screen
-            <div className="h-full flex flex-col items-center justify-center text-center space-y-6 px-4">
-              <div className={`p-4 rounded-full ${darkMode ? 'bg-purple-500/10' : 'bg-purple-100'}`}>
-                <Sparkles className="w-12 h-12 text-purple-500" />
-              </div>
-              <div>
-                <h3 className={`text-xl font-semibold mb-2 ${textClass}`}>
+            <div className="min-h-full flex flex-col items-center justify-center text-center px-2 md:px-4 py-0">
+              <div className="flex items-center justify-center gap-2 md:gap-3 mb-2 md:mb-3">
+                <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-purple-500 flex-shrink-0" />
+                <h3 className={`text-base md:text-xl font-semibold ${textClass}`}>
                   {t('aiAssistant.welcome') || '¡Hola! Soy tu asistente financiero'}
                 </h3>
-                <p className={`${textSecondaryClass} max-w-md`}>
-                  {t('aiAssistant.welcomeDesc') || 'Puedo ayudarte a analizar tus gastos, darte consejos personalizados, responder tus preguntas sobre finanzas y añadir gastos por ti.'}
-                </p>
               </div>
+              <p className={`text-[11px] md:text-sm ${textSecondaryClass} max-w-md mx-auto px-2 mb-3 md:mb-4`}>
+                {t('aiAssistant.welcomeDesc') || 'Puedo ayudarte a analizar tus gastos, darte consejos personalizados, responder tus preguntas sobre finanzas y añadir gastos por ti.'}
+              </p>
 
-              {/* Capabilities */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-2xl">
+              {/* Capabilities - Versión compacta */}
+              <div className="grid grid-cols-2 gap-2 md:gap-3 w-full max-w-md px-2">
                 {(t('aiAssistant.capabilities') || [
                   { icon: 'TrendingUp', text: 'Analizar patrones de gasto' },
-                  { icon: 'Plus', text: 'Añadir gastos por voz o texto' },
+                  { icon: 'Plus', text: 'Añadir gastos por texto' },
                   { icon: 'Target', text: 'Comparar con presupuestos' },
                   { icon: 'Lightbulb', text: 'Dar consejos personalizados' }
                 ]).map((capability, idx) => (
                   <div 
                     key={idx}
-                    className={`flex items-center gap-3 p-3 rounded-lg ${
+                    className={`flex items-center gap-1.5 md:gap-2 p-1.5 md:p-2 rounded-lg ${
                       darkMode ? 'bg-gray-700/50' : 'bg-gray-50'
                     }`}
                   >
-                    {capability.icon === 'TrendingUp' && <TrendingUp className="w-5 h-5 text-purple-500" />}
-                    {capability.icon === 'Plus' && <Plus className="w-5 h-5 text-purple-500" />}
-                    {capability.icon === 'Target' && <Target className="w-5 h-5 text-purple-500" />}
-                    {capability.icon === 'Lightbulb' && <Lightbulb className="w-5 h-5 text-purple-500" />}
-                    <span className={`text-sm ${textClass}`}>{capability.text}</span>
+                    {capability.icon === 'TrendingUp' && <TrendingUp className="w-3.5 h-3.5 md:w-4 md:h-4 text-purple-500 flex-shrink-0" />}
+                    {capability.icon === 'Plus' && <Plus className="w-3.5 h-3.5 md:w-4 md:h-4 text-purple-500 flex-shrink-0" />}
+                    {capability.icon === 'Target' && <Target className="w-3.5 h-3.5 md:w-4 md:h-4 text-purple-500 flex-shrink-0" />}
+                    {capability.icon === 'Lightbulb' && <Lightbulb className="w-3.5 h-3.5 md:w-4 md:h-4 text-purple-500 flex-shrink-0" />}
+                    <span className={`text-[10px] md:text-xs ${textClass} break-words leading-tight`}>{capability.text}</span>
                   </div>
                 ))}
-              </div>
-
-              {/* Example Questions */}
-              <div className="w-full max-w-2xl space-y-2">
-                <p className={`text-sm font-medium ${textSecondaryClass}`}>
-                  {t('aiAssistant.tryAsking') || 'Prueba preguntando:'}
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {exampleQuestions.map((question, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => handleExampleClick(question)}
-                      className={`text-left px-4 py-2 rounded-lg text-sm transition-colors ${
-                        darkMode 
-                          ? 'bg-gray-700/50 hover:bg-gray-700 text-gray-300' 
-                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                      }`}
-                    >
-                      &quot;{question}&quot;
-                    </button>
-                  ))}
-                </div>
               </div>
             </div>
           ) : (
@@ -889,7 +800,7 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
                   className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                    className={`max-w-[85%] md:max-w-[80%] rounded-xl md:rounded-2xl px-3 md:px-4 py-2 md:py-3 ${
                       message.role === 'user'
                         ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
                         : darkMode
@@ -897,7 +808,7 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
                         : 'bg-gray-100 text-gray-900'
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    <p className="text-[12px] md:text-sm whitespace-pre-wrap break-words leading-relaxed">{message.content}</p>
                     {message.action === 'expense_added' && (
                       <div className="mt-2 flex items-center gap-2 text-green-500 text-xs font-medium">
                         <Check className="w-4 h-4" />
@@ -929,62 +840,39 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
         </div>
 
         {/* Input Area */}
-        <div className={`border-t p-4 ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-          <div className="flex gap-2">
+        <div className={`border-t p-2 md:p-4 flex-shrink-0 ${darkMode ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-white'}`} style={{
+          paddingBottom: keyboardHeight > 0 ? '0.5rem' : 'max(0.5rem, env(safe-area-inset-bottom))',
+          position: 'sticky',
+          bottom: 0,
+          zIndex: 10,
+        }}>
+          <div className="flex gap-1.5 md:gap-2">
             <input
               ref={inputRef}
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder={t('aiAssistant.placeholder') || 'Pregúntame sobre tus gastos o añade uno nuevo...'}
-              disabled={isLoading || isListening}
-              className={`flex-1 px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors ${
+              placeholder={t('aiAssistant.placeholder') || 'Pregúntame sobre tus gastos...'}
+              disabled={isLoading}
+              className={`flex-1 px-2.5 md:px-4 py-2 md:py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors text-[13px] md:text-base ${
                 darkMode
                   ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
                   : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
               } disabled:opacity-50`}
             />
             <button
-              onClick={toggleListening}
-              disabled={isLoading}
-              className={`px-4 py-3 rounded-lg transition-all ${
-                isListening
-                  ? 'bg-red-500 text-white animate-pulse'
-                  : darkMode
-                  ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
-              title={isListening ? 'Detener grabación' : 'Grabar con micrófono'}
-            >
-              {isListening ? (
-                <MicOff className="w-5 h-5" />
-              ) : (
-                <Mic className="w-5 h-5" />
-              )}
-            </button>
-            <button
               onClick={sendMessage}
-              disabled={!input.trim() || isLoading || isListening}
-              className="px-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+              disabled={!input.trim() || isLoading}
+              className="px-2.5 md:px-4 py-2 md:py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity flex-shrink-0"
             >
               {isLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" />
               ) : (
-                <Send className="w-5 h-5" />
+                <Send className="w-4 h-4 md:w-5 md:h-5" />
               )}
             </button>
           </div>
-          {isListening && (
-            <div className="mt-2 space-y-1">
-              <p className={`text-xs text-center ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                🎤 Escuchando... Habla ahora
-              </p>
-              <p className={`text-[10px] text-center ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                Requiere conexión a internet
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </div>

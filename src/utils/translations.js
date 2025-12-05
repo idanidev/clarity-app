@@ -298,10 +298,7 @@ export const translations = {
         "¿Cómo puedo ahorrar más este mes?",
         "Analiza el mes pasado y dime en qué puedo mejorar",
         "Analiza el total y dime en qué puedo mejorar",
-        "¿Estoy cumpliendo mis objetivos de ahorro?",
-        "¿Qué categoría debería reducir?",
-        "Añade 25€ de transporte del mes pasado",
-        "Dame consejos para mejorar mis finanzas"
+        "¿Estoy cumpliendo mis objetivos de ahorro?"
       ],
       error: "Lo siento, hubo un error al procesar tu solicitud. Por favor, intenta de nuevo.",
     },
