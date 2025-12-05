@@ -816,19 +816,20 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
 
   // Calcular altura dinámica considerando el teclado y la barra de navegación
   // La barra de navegación tiene 5.5rem de altura
-  // El input del chat está dentro del contenedor, así que no necesitamos restarlo
+  // El input del chat está fijo, así que necesitamos espacio para él
   const navBarHeight = 5.5; // rem
+  const inputAreaHeight = 4; // rem (altura aproximada del input + padding)
   
   const containerHeight = keyboardHeight > 0 
-    ? `calc(100vh - ${keyboardHeight}px - ${navBarHeight}rem)`
-    : `calc(100vh - ${navBarHeight}rem)`;
+    ? `calc(100vh - ${keyboardHeight}px - ${navBarHeight}rem - ${inputAreaHeight}rem)`
+    : `calc(100vh - ${navBarHeight}rem - ${inputAreaHeight}rem)`;
 
   return (
     <div className="h-full flex flex-col px-1 md:px-0" style={{
       height: containerHeight,
       maxHeight: containerHeight,
       paddingTop: 0,
-      paddingBottom: 0,
+      paddingBottom: keyboardHeight > 0 ? `${inputAreaHeight}rem` : `${inputAreaHeight}rem`, // Espacio para input fijo
       marginTop: 0,
       marginBottom: 0,
     }}>
@@ -847,6 +848,7 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
             minHeight: 0,
             maxHeight: '100%',
             paddingTop: 0,
+            paddingBottom: `${inputAreaHeight}rem`, // Espacio para el input fijo
           }}>
           {messages.length === 0 ? (
             // Welcome Screen
@@ -932,12 +934,24 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
           )}
         </div>
 
-        {/* Input Area */}
-        <div className={`border-t p-2 md:p-4 flex-shrink-0 ${darkMode ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-white'}`} style={{
-          paddingBottom: keyboardHeight > 0 ? '0.5rem' : '0.5rem',
-          marginBottom: 0,
-          position: 'relative',
-          zIndex: 10,
+        {/* Input Area - Fijo arriba del teclado */}
+        <div className={`border-t p-2 md:p-4 flex-shrink-0 ${darkMode ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-white'} md:relative`} style={{
+          position: 'fixed',
+          bottom: keyboardHeight > 0 
+            ? `${keyboardHeight}px` 
+            : `calc(${navBarHeight}rem + env(safe-area-inset-bottom))`,
+          left: '0.25rem',
+          right: '0.25rem',
+          paddingLeft: '0.5rem',
+          paddingRight: '0.5rem',
+          paddingTop: '0.5rem',
+          paddingBottom: keyboardHeight > 0 
+            ? '0.5rem' 
+            : `max(0.5rem, env(safe-area-inset-bottom))`,
+          zIndex: 50,
+          backdropFilter: 'blur(10px)',
+          backgroundColor: darkMode ? 'rgba(31, 41, 55, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+          borderRadius: '0.75rem 0.75rem 0 0',
         }}>
           <div className="flex gap-1.5 md:gap-2">
             <input
