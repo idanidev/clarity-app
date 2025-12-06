@@ -1,6 +1,10 @@
 import { BookOpen, CheckCircle, Lightbulb, Target, TrendingUp, X } from "lucide-react";
+import { useDisableBodyScroll } from "../../../hooks/useDisableBodyScroll";
 
 const TipsModal = ({ visible, darkMode, cardClass, textClass, textSecondaryClass, onClose }) => {
+  // Deshabilitar scroll del body cuando el modal está abierto
+  useDisableBodyScroll(visible);
+
   if (!visible) {
     return null;
   }

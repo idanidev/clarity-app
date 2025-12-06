@@ -12,6 +12,7 @@ import {
 import { createPortal } from "react-dom";
 import { getCategorySubcategories } from "../../../services/firestoreService";
 import { useTranslation } from "../../../contexts/LanguageContext";
+import { useDisableBodyScroll } from "../../../hooks/useDisableBodyScroll";
 
 /** Modal de edición montado en portal (document.body) */
 function EditRecurringDialog({
@@ -31,16 +32,14 @@ function EditRecurringDialog({
   const dialogRef = useRef(null);
   const firstInputRef = useRef(null);
 
-  // Bloquear scroll + foco inicial
+  // Deshabilitar scroll del body cuando el diálogo está abierto
+  useDisableBodyScroll(open);
+
+  // Foco inicial
   useEffect(() => {
     if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     const t = setTimeout(() => firstInputRef.current?.focus(), 0);
-    return () => {
-      document.body.style.overflow = prev;
-      clearTimeout(t);
-    };
+    return () => clearTimeout(t);
   }, [open]);
 
   // Cerrar con ESC
@@ -376,26 +375,8 @@ const RecurringExpensesModal = ({
   const { t } = useTranslation();
   const modalContentRef = useRef(null);
 
-  // Bloquear scroll del body cuando el modal está abierto (móvil)
-  useEffect(() => {
-    if (!visible) return;
-
-    // Guardar posición de scroll y bloquear
-    const scrollY = window.scrollY;
-    document.body.style.position = "fixed";
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = "100%";
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      // Restaurar scroll del body
-      document.body.style.position = "";
-      document.body.style.top = "";
-      document.body.style.width = "";
-      document.body.style.overflow = "";
-      window.scrollTo(0, scrollY);
-    };
-  }, [visible]);
+  // Deshabilitar scroll del body cuando el modal está abierto
+  useDisableBodyScroll(visible);
   
   if (!visible) return null;
 

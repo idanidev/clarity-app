@@ -1,6 +1,7 @@
 import { X, Plus } from "lucide-react";
 import { getCategorySubcategories } from "../../../services/firestoreService";
 import { useState, useEffect } from "react";
+import { useDisableBodyScroll } from "../../../hooks/useDisableBodyScroll";
 
 const AddExpenseModal = ({
   visible,
@@ -21,6 +22,9 @@ const AddExpenseModal = ({
   const [showNewSubcategory, setShowNewSubcategory] = useState(false);
   const [newSubcategoryName, setNewSubcategoryName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Deshabilitar scroll del body cuando el modal está abierto
+  useDisableBodyScroll(visible);
   
   // Limpiar estados cuando se cierra el modal
   useEffect(() => {

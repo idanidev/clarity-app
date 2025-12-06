@@ -20,6 +20,7 @@ import {
   ShoppingBag,
   CreditCard,
 } from "lucide-react";
+import { useDisableBodyScroll } from "../../../hooks/useDisableBodyScroll";
 
 /**
  * Compara dos versiones semánticas (ej: "1.0.0", "1.1.0")
@@ -229,6 +230,9 @@ const SwipeDemo = ({ darkMode, textClass, textSecondaryClass }) => {
 };
 
 const ChangelogModal = ({ visible, darkMode, cardClass, textClass, textSecondaryClass, onClose, lastSeenVersion, currentVersion }) => {
+  // Deshabilitar scroll del body cuando el modal está abierto
+  useDisableBodyScroll(visible);
+
   if (!visible) {
     return null;
   }

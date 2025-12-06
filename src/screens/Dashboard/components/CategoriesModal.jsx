@@ -1,5 +1,6 @@
 import { Edit2, Plus, Save, Trash2, X } from "lucide-react";
 import { getCategoryColor, getCategorySubcategories } from "../../../services/firestoreService";
+import { useDisableBodyScroll } from "../../../hooks/useDisableBodyScroll";
 
 const CategoriesModal = ({
   visible,
@@ -29,6 +30,9 @@ const CategoriesModal = ({
   onRequestDelete,
   onClose,
 }) => {
+  // Deshabilitar scroll del body cuando el modal está abierto
+  useDisableBodyScroll(visible);
+
   if (!visible) {
     return null;
   }

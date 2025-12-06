@@ -3,6 +3,7 @@ import { Bell, DollarSign, Globe, Moon, Sun, X, TestTube, Calendar, RotateCcw } 
 import { useLanguage, useTranslation } from "../../../contexts/LanguageContext";
 import { showTestNotification, areNotificationsEnabled } from "../../../services/pushNotificationService";
 import { restoreCategoriesFromExpenses } from "../../../services/firestoreService";
+import { useDisableBodyScroll } from "../../../hooks/useDisableBodyScroll";
 
 const SettingsModal = ({
   visible,
@@ -88,6 +89,9 @@ const SettingsModal = ({
   });
   const [activeTab, setActiveTab] = useState("general"); // "general" | "notifications"
   const [isRestoring, setIsRestoring] = useState(false);
+
+  // Deshabilitar scroll del body cuando el modal está abierto
+  useDisableBodyScroll(visible);
 
   if (!visible) {
     return null;

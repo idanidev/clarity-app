@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Target, Trash2, X, Calendar, Plus } from "lucide-react";
 import { useTranslation } from "../../../contexts/LanguageContext";
 import { getLongTermGoalProgress } from "../../../services/goalsService";
+import { useDisableBodyScroll } from "../../../hooks/useDisableBodyScroll";
 
 const GoalsModal = ({
   visible,
@@ -20,6 +21,9 @@ const GoalsModal = ({
 }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState("monthly"); // "monthly" | "longTerm"
+  
+  // Deshabilitar scroll del body cuando el modal está abierto
+  useDisableBodyScroll(visible);
   
   // Objetivos mensuales
   const [monthlySavingsGoal, setMonthlySavingsGoal] = useState(goals?.monthlySavingsGoal || goals?.totalSavingsGoal || 0);

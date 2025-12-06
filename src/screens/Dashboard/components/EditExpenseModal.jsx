@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 import { getCategorySubcategories } from "../../../services/firestoreService";
+import { useDisableBodyScroll } from "../../../hooks/useDisableBodyScroll";
 
 const EditExpenseModal = ({
   expense,
@@ -12,6 +13,9 @@ const EditExpenseModal = ({
   onSubmit,
   onClose,
 }) => {
+  // Deshabilitar scroll del body cuando el modal está abierto
+  useDisableBodyScroll(!!expense);
+
   if (!expense) {
     return null;
   }

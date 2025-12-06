@@ -825,7 +825,7 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
     : `calc(100vh - ${navBarHeight}rem - ${inputAreaHeight}rem)`;
 
   return (
-    <div className="h-full flex flex-col px-1 md:px-0" style={{
+    <div className="h-full flex flex-col px-0 md:px-0" style={{
       height: containerHeight,
       maxHeight: containerHeight,
       paddingTop: 0,
@@ -841,7 +841,7 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
         {/* Messages Area */}
         <div 
           ref={messagesContainerRef}
-          className="flex-1 overflow-y-auto px-2 md:px-4 py-1 md:py-2 space-y-2 md:space-y-4" 
+          className="flex-1 overflow-y-auto px-1 md:px-4 py-0.5 md:py-2 space-y-2 md:space-y-4" 
           style={{
             WebkitOverflowScrolling: 'touch',
             touchAction: 'pan-y',
@@ -852,19 +852,19 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
           }}>
           {messages.length === 0 ? (
             // Welcome Screen
-            <div className="flex flex-col items-center text-center px-2 md:px-4 pt-2 md:pt-4">
-              <div className="flex items-center justify-center gap-2 md:gap-3 mb-2 md:mb-3">
-                <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-purple-500 flex-shrink-0" />
-                <h3 className={`text-base md:text-xl font-semibold ${textClass}`}>
+            <div className="flex flex-col items-center text-center px-1 md:px-4 pt-1 md:pt-4">
+              <div className="flex items-center justify-center gap-1.5 md:gap-3 mb-1.5 md:mb-3">
+                <Sparkles className="w-4 h-4 md:w-6 md:h-6 text-purple-500 flex-shrink-0" />
+                <h3 className={`text-sm md:text-xl font-semibold ${textClass}`}>
                   {t('aiAssistant.welcome') || '¡Hola! Soy tu asistente financiero'}
                 </h3>
               </div>
-              <p className={`text-[11px] md:text-sm ${textSecondaryClass} max-w-md mx-auto px-2 mb-3 md:mb-4`}>
+              <p className={`text-[10px] md:text-sm ${textSecondaryClass} max-w-md mx-auto px-1 mb-2 md:mb-4`}>
                 {t('aiAssistant.welcomeDesc') || 'Puedo ayudarte a analizar tus gastos, darte consejos personalizados, responder tus preguntas sobre finanzas y añadir gastos por ti.'}
               </p>
 
               {/* Capabilities - Versión compacta */}
-              <div className="grid grid-cols-2 gap-2 md:gap-3 w-full max-w-md px-2">
+              <div className="grid grid-cols-2 gap-1.5 md:gap-3 w-full max-w-md px-1">
                 {(t('aiAssistant.capabilities') || [
                   { icon: 'TrendingUp', text: 'Analizar patrones de gasto' },
                   { icon: 'Plus', text: 'Añadir gastos por texto' },
@@ -873,15 +873,15 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
                 ]).map((capability, idx) => (
                   <div 
                     key={idx}
-                    className={`flex items-center gap-1.5 md:gap-2 p-1.5 md:p-2 rounded-lg ${
+                    className={`flex items-center gap-1 md:gap-2 p-1 md:p-2 rounded-lg ${
                       darkMode ? 'bg-gray-700/50' : 'bg-gray-50'
                     }`}
                   >
-                    {capability.icon === 'TrendingUp' && <TrendingUp className="w-3.5 h-3.5 md:w-4 md:h-4 text-purple-500 flex-shrink-0" />}
-                    {capability.icon === 'Plus' && <Plus className="w-3.5 h-3.5 md:w-4 md:h-4 text-purple-500 flex-shrink-0" />}
-                    {capability.icon === 'Target' && <Target className="w-3.5 h-3.5 md:w-4 md:h-4 text-purple-500 flex-shrink-0" />}
-                    {capability.icon === 'Lightbulb' && <Lightbulb className="w-3.5 h-3.5 md:w-4 md:h-4 text-purple-500 flex-shrink-0" />}
-                    <span className={`text-[10px] md:text-xs ${textClass} break-words leading-tight`}>{capability.text}</span>
+                    {capability.icon === 'TrendingUp' && <TrendingUp className="w-3 h-3 md:w-4 md:h-4 text-purple-500 flex-shrink-0" />}
+                    {capability.icon === 'Plus' && <Plus className="w-3 h-3 md:w-4 md:h-4 text-purple-500 flex-shrink-0" />}
+                    {capability.icon === 'Target' && <Target className="w-3 h-3 md:w-4 md:h-4 text-purple-500 flex-shrink-0" />}
+                    {capability.icon === 'Lightbulb' && <Lightbulb className="w-3 h-3 md:w-4 md:h-4 text-purple-500 flex-shrink-0" />}
+                    <span className={`text-[9px] md:text-xs ${textClass} break-words leading-tight`}>{capability.text}</span>
                   </div>
                 ))}
               </div>
@@ -895,7 +895,7 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
                   className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[85%] md:max-w-[80%] rounded-xl md:rounded-2xl px-3 md:px-4 py-2 md:py-3 ${
+                    className={`max-w-[90%] md:max-w-[80%] rounded-xl md:rounded-2xl px-2.5 md:px-4 py-1.5 md:py-3 ${
                       message.role === 'user'
                         ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
                         : darkMode
@@ -903,7 +903,7 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
                         : 'bg-gray-100 text-gray-900'
                     }`}
                   >
-                    <p className="text-[12px] md:text-sm whitespace-pre-wrap break-words leading-relaxed">{message.content}</p>
+                    <p className="text-[11px] md:text-sm whitespace-pre-wrap break-words leading-relaxed">{message.content}</p>
                     {message.action === 'expense_added' && (
                       <div className="mt-2 flex items-center gap-2 text-green-500 text-xs font-medium">
                         <Check className="w-4 h-4" />
@@ -935,25 +935,25 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
         </div>
 
         {/* Input Area - Fijo arriba del teclado */}
-        <div className={`border-t p-2 md:p-4 flex-shrink-0 ${darkMode ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-white'} md:relative`} style={{
+        <div className={`border-t p-1 md:p-4 flex-shrink-0 ${darkMode ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-white'} md:relative`} style={{
           position: 'fixed',
           bottom: keyboardHeight > 0 
             ? `${keyboardHeight}px` 
             : `calc(${navBarHeight}rem + env(safe-area-inset-bottom))`,
-          left: '0.25rem',
-          right: '0.25rem',
-          paddingLeft: '0.5rem',
-          paddingRight: '0.5rem',
-          paddingTop: '0.5rem',
+          left: '0.125rem',
+          right: '0.125rem',
+          paddingLeft: '0.375rem',
+          paddingRight: '0.375rem',
+          paddingTop: '0.375rem',
           paddingBottom: keyboardHeight > 0 
-            ? '0.5rem' 
-            : `max(0.5rem, env(safe-area-inset-bottom))`,
+            ? '0.375rem' 
+            : `max(0.375rem, env(safe-area-inset-bottom))`,
           zIndex: 50,
           backdropFilter: 'blur(10px)',
           backgroundColor: darkMode ? 'rgba(31, 41, 55, 0.95)' : 'rgba(255, 255, 255, 0.95)',
           borderRadius: '0.75rem 0.75rem 0 0',
         }}>
-          <div className="flex gap-1.5 md:gap-2">
+          <div className="flex gap-1 md:gap-2">
             <input
               ref={inputRef}
               type="text"
@@ -963,7 +963,7 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
               onKeyPress={handleKeyPress}
               placeholder={t('aiAssistant.placeholder') || 'Pregúntame sobre tus gastos...'}
               disabled={isLoading}
-              className={`flex-1 px-2.5 md:px-4 py-2 md:py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors text-[13px] md:text-base ${
+              className={`flex-1 px-2 md:px-4 py-1.5 md:py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors text-[12px] md:text-base ${
                 darkMode
                   ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
                   : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
@@ -972,7 +972,7 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
             <button
               onClick={sendMessage}
               disabled={!input.trim() || isLoading}
-              className="px-2.5 md:px-4 py-2 md:py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity flex-shrink-0"
+              className="px-2 md:px-4 py-1.5 md:py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity flex-shrink-0"
             >
               {isLoading ? (
                 <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" />

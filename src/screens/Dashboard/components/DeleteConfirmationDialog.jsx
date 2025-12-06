@@ -1,4 +1,5 @@
 import { AlertTriangle, X } from "lucide-react";
+import { useDisableBodyScroll } from "../../../hooks/useDisableBodyScroll";
 
 const DeleteConfirmationDialog = ({
   context,
@@ -9,6 +10,9 @@ const DeleteConfirmationDialog = ({
   onCancel,
   onConfirm,
 }) => {
+  // Deshabilitar scroll del body cuando el diálogo está abierto
+  useDisableBodyScroll(!!context);
+
   if (!context) {
     return null;
   }
