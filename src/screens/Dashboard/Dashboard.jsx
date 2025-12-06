@@ -989,146 +989,17 @@ const Dashboard = ({ user }) => {
   const listenerConfiguredRef = useRef(false);
   const showNotificationRef = useRef(showNotification);
 
-  // Efecto para restaurar categorías y subcategorías perdidas de forma segura
-  useEffect(() => {
-    if (!user || loading || isRestoringRef.current) {
-      return;
-    }
-
-    if (!expenses || expenses.length === 0) {
-      return;
-    }
-
-    // CRÍTICO: NO restaurar categorías automáticamente
-    // Si el usuario no tiene categorías o faltan algunas, es porque las eliminó intencionalmente
-    // o porque nunca las configuró. NO crear categorías automáticamente.
-    // El usuario debe crear sus propias categorías manualmente.
-    
-    // Si no hay categorías en absoluto, NO hacer nada automáticamente
-    if (!categories || Object.keys(categories).length === 0) {
-      console.log("[Restauración automática] Usuario no tiene categorías. NO se crearán automáticamente. El usuario debe crearlas manualmente.");
-      return;
-    }
-
-    // Si faltan categorías que tienen gastos asociados, NO crearlas automáticamente
-    // El usuario puede tener gastos de categorías que eliminó intencionalmente
-    const missingCategories = new Set();
-    expenses.forEach((expense) => {
-      if (expense?.category && !categories[expense.category]) {
-        missingCategories.add(expense.category);
-      }
-    });
-
-    if (missingCategories.size > 0) {
-      console.log("[Restauración automática] Categorías faltantes detectadas:", Array.from(missingCategories), "NO se crearán automáticamente.");
-      // NO crear categorías automáticamente
-      return;
-    }
-
-    // Crear un hash de las categorías y gastos para detectar cambios reales
-    const categoriesHash = JSON.stringify(
-      Object.keys(categories).sort().map((cat) => ({
-        name: cat,
-        subs: getCategorySubcategories(categories[cat]).sort(),
-      }))
-    );
-    const expensesHash = JSON.stringify(
-      expenses
-        .filter((e) => e?.category && e?.subcategory)
-        .map((e) => `${e.category}:${e.subcategory}`)
-        .sort()
-        .slice(0, 100) // Limitar a los primeros 100 para evitar hashes muy grandes
-    );
-    const currentHash = `${categoriesHash}:${expensesHash}`;
-
-    // Si no ha cambiado nada desde la última vez, no hacer nada
-    if (currentHash === lastRestoreHashRef.current) {
-      return;
-    }
-
-    const missingSubcategoriesByCategory = {};
-
-    expenses.forEach((expense) => {
-      if (!expense?.category || !expense?.subcategory) {
-        return;
-      }
-
-      const categoryData = categories[expense.category];
-      if (!categoryData) {
-        return;
-      }
-
-      const existingSubcategories = getCategorySubcategories(categoryData);
-      if (!existingSubcategories.includes(expense.subcategory)) {
-        if (!missingSubcategoriesByCategory[expense.category]) {
-          missingSubcategoriesByCategory[expense.category] = new Set(
-            existingSubcategories
-          );
-        }
-        missingSubcategoriesByCategory[expense.category].add(expense.subcategory);
-      }
-    });
-
-    const categoriesToUpdate = Object.entries(missingSubcategoriesByCategory);
-    if (categoriesToUpdate.length === 0) {
-      lastRestoreHashRef.current = currentHash;
-      return;
-    }
-
-    // Hay subcategorías faltantes, restaurarlas
-    isRestoringRef.current = true;
-
-    // Asegurar que categories sea un objeto, nunca un array
-    let safeCategories = {};
-    if (categories && typeof categories === "object" && !Array.isArray(categories)) {
-      safeCategories = { ...categories };
-    } else if (Array.isArray(categories)) {
-      console.error("[Restauración automática] ERROR: categories es un array, ignorando y usando objeto vacío");
-      safeCategories = {};
-    }
-
-    const restoredCategories = { ...safeCategories };
-
-    categoriesToUpdate.forEach(([categoryName, subcategorySet]) => {
-      const categoryColor = getCategoryColor(categories[categoryName]);
-      const existingSubs = getCategorySubcategories(categories[categoryName]);
-      const allSubs = Array.from(
-        new Set([...existingSubs, ...Array.from(subcategorySet)])
-      ).sort((a, b) => a.localeCompare(b));
-
-      restoredCategories[categoryName] = {
-        subcategories: allSubs,
-        color: categoryColor,
-      };
-
-      console.log(
-        `[Restauración automática] Restaurando subcategorías en "${categoryName}":`,
-        allSubs.filter((sub) => !existingSubs.includes(sub))
-      );
-    });
-
-    const persistRestored = async () => {
-      try {
-        // Usar modo "merge" para fusionar subcategorías de forma segura
-        const savedCategories = await saveCategories(user.uid, restoredCategories, {
-          mergeMode: "merge",
-        });
-        lastRestoreHashRef.current = JSON.stringify(
-          Object.keys(savedCategories).sort().map((cat) => ({
-            name: cat,
-            subs: getCategorySubcategories(savedCategories[cat]).sort(),
-          }))
-        );
-        setCategories(savedCategories);
-      } catch (error) {
-        console.error("Error restoring missing subcategories:", error);
-      } finally {
-        isRestoringRef.current = false;
-      }
-    };
-
-    void persistRestored();
-  }, [user, loading, categories, expenses]);
+  // ⚠️ DESHABILITADO: Efecto para restaurar categorías y subcategorías perdidas
+  // Este código estaba causando que se sobrescribieran las categorías del usuario
+  // con categorías predeterminadas. DESHABILITADO PERMANENTEMENTE.
+  // 
+  // Si el usuario no tiene categorías o faltan algunas, es porque las eliminó intencionalmente
+  // o porque nunca las configuró. NO crear categorías automáticamente.
+  // El usuario debe crear sus propias categorías manualmente.
+  //
+  // useEffect(() => {
+  //   ... código deshabilitado ...
+  // }, [user, loading, categories, expenses]);
 
   // Aplicar clase al body según modo oscuro/claro
   useEffect(() => {

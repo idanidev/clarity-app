@@ -791,36 +791,6 @@ export const initializeUser = async (userId, userData) => {
   try {
     const userDocRef = doc(db, "users", userId);
     const userDoc = await getDoc(userDocRef);
-    const defaultCategories = {
-      Alimentacion: {
-        subcategories: ["Supermercado", "Restaurantes", "Cafeterias"],
-        color: "#8B5CF6",
-      },
-      Transporte: {
-        subcategories: ["Combustible", "Transporte publico", "Taxi"],
-        color: "#3B82F6",
-      },
-      Vivienda: {
-        subcategories: ["Alquiler", "Hipoteca", "Suministros"],
-        color: "#EC4899",
-      },
-      Ocio: {
-        subcategories: ["Streaming", "Deportes", "Hobbies"],
-        color: "#10B981",
-      },
-      Salud: {
-        subcategories: ["Medico", "Farmacia", "Gimnasio"],
-        color: "#F59E0B",
-      },
-      Compras: {
-        subcategories: ["Ropa", "Electronica", "Otros"],
-        color: "#EF4444",
-      },
-      Educacion: {
-        subcategories: ["Cursos", "Libros", "Material"],
-        color: "#6366F1",
-      },
-    };
 
     if (userDoc.exists()) {
       // Usuario existente: NO MODIFICAR NADA que ya exista
@@ -857,11 +827,12 @@ export const initializeUser = async (userId, userData) => {
       return;
     }
 
-    // Usuario nuevo: establecer todas las categorías predeterminadas
-    console.log(`[initializeUser] Creando nuevo usuario ${userId} con categorías predeterminadas`);
+    // Usuario nuevo: NO establecer categorías predeterminadas
+    // El usuario debe crear sus propias categorías manualmente
+    console.log(`[initializeUser] Creando nuevo usuario ${userId} SIN categorías predeterminadas`);
     await setDoc(userDocRef, {
       ...userData,
-      categories: defaultCategories,
+      categories: {}, // ⚠️ VACÍO: El usuario debe crear sus propias categorías
       budgets: {},
       theme: "light",
       createdAt: new Date().toISOString(),
