@@ -92,3 +92,4 @@ VITE_FIREBASE_API_KEY=... VITE_FIREBASE_PROJECT_ID=... npm run restore-categorie
 - El script **NO elimina** categorías existentes que no tengan gastos asociados
 - Solo se restauran categorías que tienen al menos un gasto asociado
 
+
