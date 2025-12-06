@@ -240,14 +240,42 @@ const Dashboard = ({ user }) => {
           return;
         }
 
-        setCategories(userCategories || {});
-        setBudgets(userBudgets || {});
+        // CRÍTICO: Solo establecer valores si existen en Firestore
+        // Si son null, NO establecer valores por defecto que puedan sobrescribir datos existentes
+        if (userCategories !== null && userCategories !== undefined) {
+          setCategories(userCategories);
+        } else {
+          // Si es null, mantener {} solo en el estado local, NO escribir a Firestore
+          setCategories({});
+          console.log('[Dashboard] Usuario no tiene categorías en Firestore, usando objeto vacío en estado local');
+        }
+        
+        if (userBudgets !== null && userBudgets !== undefined) {
+          setBudgets(userBudgets);
+        } else {
+          setBudgets({});
+        }
+        
+        // Theme siempre tiene un valor por defecto, así que está bien
         setDarkMode(userTheme === "dark");
         setChangelogSeenVersion(changelogSeen);
+        
         // Solo establecer ingresos si el usuario los ha configurado (no null)
-        setIncome(userIncome !== null && userIncome !== undefined ? userIncome : 0);
+        // Si es null, mantener 0 en estado local pero NO escribir a Firestore
+        if (userIncome !== null && userIncome !== undefined) {
+          setIncome(userIncome);
+        } else {
+          setIncome(0);
+        }
+        
         // Solo establecer objetivos si el usuario los ha configurado (no null)
-        setGoals(userGoals || { totalSavingsGoal: 0, categoryGoals: {} });
+        if (userGoals !== null && userGoals !== undefined) {
+          setGoals(userGoals);
+        } else {
+          setGoals({ totalSavingsGoal: 0, categoryGoals: {} });
+        }
+        
+        // Notificaciones: si no existen, usar valores por defecto solo en estado local
         setNotificationSettings(userNotificationSettings || {
           budgetAlerts: { enabled: true, at80: true, at90: true, at100: true },
           recurringReminders: { enabled: true },

@@ -818,24 +818,17 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
 
 
   // Calcular altura dinámica considerando el teclado y la barra de navegación
-  // La barra de navegación tiene 5.5rem de altura
-  // El input del chat está fijo, así que necesitamos espacio para él
   const navBarHeight = 5.5; // rem
   const inputAreaHeight = 4; // rem (altura aproximada del input + padding)
   
   const containerHeight = keyboardHeight > 0 
-    ? `calc(100vh - ${keyboardHeight}px - ${navBarHeight}rem - ${inputAreaHeight}rem)`
-    : `calc(100vh - ${navBarHeight}rem - ${inputAreaHeight}rem)`;
+    ? `calc(100vh - ${keyboardHeight}px - ${navBarHeight}rem)`
+    : `calc(100vh - ${navBarHeight}rem)`;
 
   return (
-    <div className="h-full flex flex-col px-0 md:px-0" style={{
+    <div className="h-full flex flex-col" style={{
       height: containerHeight,
       maxHeight: containerHeight,
-      paddingTop: 0,
-      // Sin paddingBottom cuando no hay mensajes, solo cuando hay mensajes
-      paddingBottom: messages.length === 0 ? '0' : (keyboardHeight > 0 ? `${inputAreaHeight}rem` : `${inputAreaHeight}rem`),
-      marginTop: 0,
-      marginBottom: 0,
     }}>
       {/* Chat Container */}
       <div className={`rounded-lg md:rounded-xl border ${
@@ -845,26 +838,23 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
         {/* Messages Area */}
         <div 
           ref={messagesContainerRef}
-          className="flex-1 overflow-y-auto px-1 md:px-4 py-0.5 md:py-2 space-y-2 md:space-y-4" 
+          className="flex-1 overflow-y-auto px-1 md:px-4 py-2 md:py-4 space-y-2 md:space-y-4" 
           style={{
             WebkitOverflowScrolling: 'touch',
             touchAction: 'pan-y',
             minHeight: 0,
-            maxHeight: '100%',
-            paddingTop: 0,
-            // Mínimo padding cuando no hay mensajes (bienvenida), más cuando hay mensajes
-            paddingBottom: messages.length === 0 ? '0.25rem' : `${inputAreaHeight}rem`,
+            paddingBottom: messages.length === 0 ? '1rem' : '1rem',
           }}>
           {messages.length === 0 ? (
             // Welcome Screen
-            <div className="flex flex-col items-center justify-start text-center px-1 md:px-4 pt-2 md:pt-4" style={{ minHeight: '100%' }}>
-              <div className="flex items-center justify-center gap-1.5 md:gap-3 mb-1.5 md:mb-3">
+            <div className="flex flex-col items-center text-center px-1 md:px-4 pt-4 md:pt-6">
+              <div className="flex items-center justify-center gap-1.5 md:gap-3 mb-2 md:mb-3">
                 <Sparkles className="w-4 h-4 md:w-6 md:h-6 text-purple-500 flex-shrink-0" />
                 <h3 className={`text-sm md:text-xl font-semibold ${textClass}`}>
                   {t('aiAssistant.welcome') || '¡Hola! Soy tu asistente financiero'}
                 </h3>
               </div>
-              <p className={`text-[10px] md:text-sm ${textSecondaryClass} max-w-md mx-auto px-1 mb-2 md:mb-4`}>
+              <p className={`text-[10px] md:text-sm ${textSecondaryClass} max-w-md mx-auto px-1 mb-3 md:mb-4`}>
                 {t('aiAssistant.welcomeDesc') || 'Puedo ayudarte a analizar tus gastos, darte consejos personalizados, responder tus preguntas sobre finanzas y añadir gastos por ti.'}
               </p>
 
@@ -939,25 +929,8 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
           )}
         </div>
 
-        {/* Input Area - Fijo arriba del teclado */}
-        <div className={`border-t p-1 md:p-4 flex-shrink-0 ${darkMode ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-white'} md:relative`} style={{
-          position: 'fixed',
-          bottom: keyboardHeight > 0 
-            ? `${keyboardHeight}px` 
-            : `calc(${navBarHeight}rem + env(safe-area-inset-bottom))`,
-          left: '0.125rem',
-          right: '0.125rem',
-          paddingLeft: '0.375rem',
-          paddingRight: '0.375rem',
-          paddingTop: '0.375rem',
-          paddingBottom: keyboardHeight > 0 
-            ? '0.375rem' 
-            : `max(0.375rem, env(safe-area-inset-bottom))`,
-          zIndex: 50,
-          backdropFilter: 'blur(10px)',
-          backgroundColor: darkMode ? 'rgba(31, 41, 55, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-          borderRadius: '0.75rem 0.75rem 0 0',
-        }}>
+        {/* Input Area - Dentro del contenedor, no fijo */}
+        <div className={`border-t p-2 md:p-4 flex-shrink-0 ${darkMode ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-white'}`}>
           <div className="flex gap-1 md:gap-2">
             <input
               ref={inputRef}

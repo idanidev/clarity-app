@@ -580,41 +580,58 @@ export const getUserCategories = async (userId) => {
     const userDocRef = doc(db, "users", userId);
     const userDoc = await getDoc(userDocRef);
 
-    if (userDoc.exists()) {
-      const data = userDoc.data();
-      const categories = data.categories || null;
-      if (!categories) return null;
-      
-      // CRÍTICO: Si el usuario ya tiene categorías, NO hacer ninguna modificación automática
-      // Solo migrar el formato si es absolutamente necesario (formato antiguo con arrays)
-      const needsMigration = Object.values(categories).some(cat => Array.isArray(cat));
-      
-      if (needsMigration) {
-        // Solo migrar formato (arrays -> objetos con color), pero PRESERVAR colores existentes
-        const finalCategories = migrateCategoriesToNewFormat(categories);
-        
-        // Actualizar Firestore solo si hubo migración de formato
-        const changed = JSON.stringify(finalCategories) !== JSON.stringify(categories);
-        if (changed) {
-          await updateDoc(userDocRef, {
-            categories: finalCategories,
-            updatedAt: new Date().toISOString(),
-          });
-          console.log(`[getUserCategories] Migrado formato de categorías para usuario ${userId}`);
-        }
-        
-        // IMPORTANTE: NO fusionar categorías duplicadas automáticamente
-        // El usuario puede tener categorías con nombres similares intencionalmente
-        return finalCategories;
-      }
-
-      // Si no necesita migración, devolver las categorías TAL CUAL están
-      // NO hacer ninguna modificación automática
-      return categories;
+    if (!userDoc.exists()) {
+      console.log(`[getUserCategories] Usuario ${userId} no existe en Firestore`);
+      return null;
     }
-    return null;
+
+    const data = userDoc.data();
+    const categories = data.categories;
+    
+    // CRÍTICO: Si categories es undefined o null, devolver null (usuario no tiene categorías)
+    // Pero si es un objeto vacío {}, devolverlo (usuario tiene categorías vacías intencionalmente)
+    if (categories === undefined || categories === null) {
+      console.log(`[getUserCategories] Usuario ${userId} no tiene categorías (null/undefined)`);
+      return null;
+    }
+    
+    // Si categories existe pero no es un objeto, hay un error de formato
+    if (typeof categories !== "object" || Array.isArray(categories)) {
+      console.error(`[getUserCategories] ERROR: Usuario ${userId} tiene categorías en formato inválido:`, typeof categories, Array.isArray(categories));
+      // Devolver null para que el usuario pueda empezar de nuevo
+      return null;
+    }
+    
+    // CRÍTICO: Si el usuario ya tiene categorías, NO hacer ninguna modificación automática
+    // Solo migrar el formato si es absolutamente necesario (formato antiguo con arrays)
+    const needsMigration = Object.values(categories).some(cat => Array.isArray(cat));
+    
+    if (needsMigration) {
+      console.log(`[getUserCategories] Usuario ${userId} necesita migración de formato`);
+      // Solo migrar formato (arrays -> objetos con color), pero PRESERVAR colores existentes
+      const finalCategories = migrateCategoriesToNewFormat(categories);
+      
+      // Actualizar Firestore solo si hubo migración de formato
+      const changed = JSON.stringify(finalCategories) !== JSON.stringify(categories);
+      if (changed) {
+        await updateDoc(userDocRef, {
+          categories: finalCategories,
+          updatedAt: new Date().toISOString(),
+        });
+        console.log(`[getUserCategories] Migrado formato de categorías para usuario ${userId}`);
+      }
+      
+      // IMPORTANTE: NO fusionar categorías duplicadas automáticamente
+      // El usuario puede tener categorías con nombres similares intencionalmente
+      return finalCategories;
+    }
+
+    // Si no necesita migración, devolver las categorías TAL CUAL están
+    // NO hacer ninguna modificación automática
+    console.log(`[getUserCategories] Usuario ${userId} tiene ${Object.keys(categories).length} categorías, sin migración necesaria`);
+    return categories;
   } catch (error) {
-    console.error("Error getting categories:", error);
+    console.error(`[getUserCategories] ERROR para usuario ${userId}:`, error);
     throw error;
   }
 };
@@ -789,12 +806,23 @@ export const getChangelogSeenVersion = async (userId) => {
  */
 export const initializeUser = async (userId, userData) => {
   try {
+    console.log(`[initializeUser] INICIO para usuario ${userId}`, { email: userData?.email });
     const userDocRef = doc(db, "users", userId);
     const userDoc = await getDoc(userDocRef);
 
     if (userDoc.exists()) {
       // Usuario existente: NO MODIFICAR NADA que ya exista
       const currentData = userDoc.data();
+      console.log(`[initializeUser] Usuario ${userId} EXISTE. Datos actuales:`, {
+        hasCategories: !!currentData.categories,
+        categoriesCount: currentData.categories ? Object.keys(currentData.categories).length : 0,
+        hasTheme: !!currentData.theme,
+        theme: currentData.theme,
+        hasIncome: currentData.income !== undefined && currentData.income !== null,
+        income: currentData.income,
+        hasGoals: !!currentData.goals,
+        hasBudgets: !!currentData.budgets,
+      });
       
       // CRÍTICO: Para usuarios existentes, NO hacer NINGUNA modificación automática
       // Solo actualizar el email si es diferente y se proporciona
@@ -804,6 +832,7 @@ export const initializeUser = async (userId, userData) => {
       if (userData.email && userData.email !== currentData.email) {
         updateData.email = userData.email;
         updateData.updatedAt = new Date().toISOString();
+        console.log(`[initializeUser] Email diferente, se actualizará: ${currentData.email} -> ${userData.email}`);
       }
 
       // NUNCA modificar estos campos para usuarios existentes:
@@ -820,9 +849,9 @@ export const initializeUser = async (userId, userData) => {
       // Solo actualizar si hay algo que actualizar (solo email)
       if (Object.keys(updateData).length > 0) {
         await updateDoc(userDocRef, updateData);
-        console.log(`[initializeUser] Usuario existente ${userId}: solo actualizado email si cambió`);
+        console.log(`[initializeUser] ✅ Usuario existente ${userId}: solo actualizado email`);
       } else {
-        console.log(`[initializeUser] Usuario existente ${userId}: NO se modificó nada`);
+        console.log(`[initializeUser] ✅ Usuario existente ${userId}: NO se modificó NADA (correcto)`);
       }
       return;
     }
