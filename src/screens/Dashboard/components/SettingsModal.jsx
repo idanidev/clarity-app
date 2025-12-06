@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { Bell, DollarSign, Globe, Moon, Sun, X, TestTube, Calendar } from "lucide-react";
+import { Bell, DollarSign, Globe, Moon, Sun, X, TestTube, Calendar, RotateCcw } from "lucide-react";
 import { useLanguage, useTranslation } from "../../../contexts/LanguageContext";
 import { showTestNotification, areNotificationsEnabled } from "../../../services/pushNotificationService";
+import { restoreCategoriesFromExpenses } from "../../../services/firestoreService";
 
 const SettingsModal = ({
   visible,
@@ -86,10 +87,42 @@ const SettingsModal = ({
     return defaultSettings;
   });
   const [activeTab, setActiveTab] = useState("general"); // "general" | "notifications"
+  const [isRestoring, setIsRestoring] = useState(false);
 
   if (!visible) {
     return null;
   }
+
+  const handleRestoreCategories = async () => {
+    if (!userId) {
+      showNotification("Error: No se pudo identificar el usuario", "error");
+      return;
+    }
+
+    if (isRestoring) {
+      return;
+    }
+
+    setIsRestoring(true);
+    try {
+      showNotification("Restaurando categorías desde tus gastos...", "info");
+      const result = await restoreCategoriesFromExpenses(userId);
+      
+      if (result.success) {
+        showNotification(
+          `✅ ${result.message}. Total: ${result.total} categorías`,
+          "success"
+        );
+      } else {
+        showNotification(result.message || "No se pudieron restaurar las categorías", "error");
+      }
+    } catch (error) {
+      console.error("Error al restaurar categorías:", error);
+      showNotification("Error al restaurar categorías: " + error.message, "error");
+    } finally {
+      setIsRestoring(false);
+    }
+  };
 
   const handleSaveIncome = () => {
     // Si está vacío o es 0, guardar null (no configurado)
@@ -297,6 +330,42 @@ const SettingsModal = ({
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Restaurar Categorías */}
+              <div
+                className={`p-3 sm:p-4 rounded-lg sm:rounded-xl ${
+                  darkMode ? "bg-gray-700" : "bg-purple-50"
+                }`}
+              >
+                <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                  <RotateCcw
+                    className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${
+                      darkMode ? "text-purple-400" : "text-purple-600"
+                    }`}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm sm:text-base font-medium ${textClass}`}>
+                      Restaurar categorías desde gastos
+                    </p>
+                    <p className={`text-xs sm:text-sm ${textSecondaryClass} mt-0.5 sm:mt-1`}>
+                      Recupera las categorías y subcategorías que usaste en tus gastos
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleRestoreCategories}
+                  disabled={isRestoring}
+                  className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    isRestoring
+                      ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+                      : darkMode
+                      ? "bg-purple-600 text-white hover:bg-purple-700"
+                      : "bg-purple-600 text-white hover:bg-purple-700"
+                  }`}
+                >
+                  {isRestoring ? "Restaurando..." : "Restaurar categorías"}
+                </button>
               </div>
 
               {/* Acerca de */}

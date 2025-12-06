@@ -1108,3 +1108,125 @@ export const getUserNotificationSettings = async (userId) => {
     throw error;
   }
 };
+
+// ==================== RESTORE CATEGORIES FROM EXPENSES ====================
+
+/**
+ * Restaura las categorías y subcategorías desde los gastos del usuario
+ * Esta función extrae todas las categorías y subcategorías únicas de los gastos
+ * y las fusiona con las categorías existentes del usuario
+ * 
+ * @param {string} userId - ID del usuario
+ * @returns {Promise<Object>} Objeto con el resumen de la restauración
+ */
+export const restoreCategoriesFromExpenses = async (userId) => {
+  try {
+    console.log(`[restoreCategoriesFromExpenses] Iniciando restauración para usuario: ${userId}`);
+
+    // 1. Obtener todos los gastos del usuario
+    const expenses = await getExpenses(userId);
+
+    if (!expenses || expenses.length === 0) {
+      console.log("[restoreCategoriesFromExpenses] No se encontraron gastos");
+      return {
+        success: false,
+        message: "No se encontraron gastos para restaurar categorías",
+        restored: 0,
+        total: 0,
+      };
+    }
+
+    console.log(`[restoreCategoriesFromExpenses] Se encontraron ${expenses.length} gastos`);
+
+    // 2. Extraer categorías y subcategorías únicas
+    const categoriesMap = new Map();
+
+    expenses.forEach((expense) => {
+      const category = expense.category;
+      const subcategory = expense.subcategory;
+
+      if (!category) {
+        return; // Saltar gastos sin categoría
+      }
+
+      // Si la categoría no existe, crearla
+      if (!categoriesMap.has(category)) {
+        categoriesMap.set(category, {
+          subcategories: new Set(),
+        });
+      }
+
+      // Agregar subcategoría si existe
+      if (subcategory && subcategory.trim()) {
+        categoriesMap.get(category).subcategories.add(subcategory.trim());
+      }
+    });
+
+    // 3. Convertir Sets a Arrays y preparar el objeto de categorías
+    const restoredCategories = {};
+    const defaultColors = [
+      "#8B5CF6", "#3B82F6", "#EC4899", "#10B981", "#F59E0B",
+      "#EF4444", "#6366F1", "#14B8A6", "#F97316", "#84CC16",
+    ];
+
+    let colorIndex = 0;
+    categoriesMap.forEach((data, categoryName) => {
+      restoredCategories[categoryName] = {
+        subcategories: Array.from(data.subcategories).sort(),
+        color: defaultColors[colorIndex % defaultColors.length],
+      };
+      colorIndex++;
+    });
+
+    console.log(`[restoreCategoriesFromExpenses] Categorías encontradas: ${Object.keys(restoredCategories).length}`);
+
+    // 4. Obtener las categorías actuales del usuario
+    const currentCategories = await getUserCategories(userId);
+
+    // 5. Fusionar: mantener las categorías existentes y agregar las nuevas
+    const mergedCategories = { ...currentCategories };
+
+    let updatedCount = 0;
+    let newCount = 0;
+
+    Object.entries(restoredCategories).forEach(([categoryName, categoryData]) => {
+      if (mergedCategories[categoryName]) {
+        // Categoría existente: fusionar subcategorías y mantener el color existente
+        const existingSubs = Array.isArray(mergedCategories[categoryName].subcategories)
+          ? mergedCategories[categoryName].subcategories
+          : [];
+
+        const newSubs = categoryData.subcategories;
+        const allSubs = Array.from(new Set([...existingSubs, ...newSubs])).sort();
+
+        mergedCategories[categoryName] = {
+          ...mergedCategories[categoryName], // Mantener color y otros datos existentes
+          subcategories: allSubs,
+        };
+
+        updatedCount++;
+      } else {
+        // Nueva categoría: agregarla
+        mergedCategories[categoryName] = categoryData;
+        newCount++;
+      }
+    });
+
+    // 6. Guardar las categorías fusionadas
+    await saveCategories(userId, mergedCategories);
+
+    console.log(`[restoreCategoriesFromExpenses] Restauración completada: ${newCount} nuevas, ${updatedCount} actualizadas`);
+
+    return {
+      success: true,
+      message: `Categorías restauradas: ${newCount} nuevas, ${updatedCount} actualizadas`,
+      restored: Object.keys(restoredCategories).length,
+      new: newCount,
+      updated: updatedCount,
+      total: Object.keys(mergedCategories).length,
+    };
+  } catch (error) {
+    console.error("[restoreCategoriesFromExpenses] Error:", error);
+    throw error;
+  }
+};
