@@ -62,8 +62,15 @@ const AIAssistant = memo(({
     if (!container) return;
 
     if (messages.length === 0) {
-      // Sin mensajes: scroll al inicio (arriba)
-      container.scrollTop = 0;
+      // Sin mensajes: forzar scroll al inicio (arriba) inmediatamente
+      requestAnimationFrame(() => {
+        container.scrollTop = 0;
+        // Asegurar que se mantenga arriba con múltiples intentos
+        setTimeout(() => { container.scrollTop = 0; }, 0);
+        setTimeout(() => { container.scrollTop = 0; }, 50);
+        setTimeout(() => { container.scrollTop = 0; }, 100);
+        setTimeout(() => { container.scrollTop = 0; }, 200);
+      });
     } else {
       // Con mensajes: scroll al final
       const scrollToEnd = () => {
@@ -825,7 +832,8 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
       height: containerHeight,
       maxHeight: containerHeight,
       paddingTop: 0,
-      paddingBottom: keyboardHeight > 0 ? `${inputAreaHeight}rem` : `${inputAreaHeight}rem`, // Espacio para input fijo
+      // Sin paddingBottom cuando no hay mensajes, solo cuando hay mensajes
+      paddingBottom: messages.length === 0 ? '0' : (keyboardHeight > 0 ? `${inputAreaHeight}rem` : `${inputAreaHeight}rem`),
       marginTop: 0,
       marginBottom: 0,
     }}>
@@ -844,12 +852,12 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
             minHeight: 0,
             maxHeight: '100%',
             paddingTop: 0,
-            // Menos padding cuando no hay mensajes (bienvenida), más cuando hay mensajes
-            paddingBottom: messages.length === 0 ? '1rem' : `${inputAreaHeight}rem`,
+            // Mínimo padding cuando no hay mensajes (bienvenida), más cuando hay mensajes
+            paddingBottom: messages.length === 0 ? '0.25rem' : `${inputAreaHeight}rem`,
           }}>
           {messages.length === 0 ? (
             // Welcome Screen
-            <div className="flex flex-col items-center text-center px-1 md:px-4 pt-1 md:pt-4">
+            <div className="flex flex-col items-center justify-start text-center px-1 md:px-4 pt-2 md:pt-4" style={{ minHeight: '100%' }}>
               <div className="flex items-center justify-center gap-1.5 md:gap-3 mb-1.5 md:mb-3">
                 <Sparkles className="w-4 h-4 md:w-6 md:h-6 text-purple-500 flex-shrink-0" />
                 <h3 className={`text-sm md:text-xl font-semibold ${textClass}`}>
