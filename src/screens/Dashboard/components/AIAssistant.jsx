@@ -56,24 +56,20 @@ const AIAssistant = memo(({
   const messagesContainerRef = useRef(null);
   const keyboardHeight = useKeyboardHeight();
 
-  // Auto-scroll al último mensaje cuando hay nuevos mensajes o cuando aparece el teclado
+  // Auto-scroll: arriba cuando no hay mensajes, abajo cuando hay mensajes
   useEffect(() => {
-    const scrollToEnd = () => {
-      const container = messagesContainerRef.current;
-      if (container) {
-        // Scroll directo al final del contenedor
-        container.scrollTop = container.scrollHeight;
-      } else if (messagesEndRef.current) {
-        // Fallback a scrollIntoView
-        messagesEndRef.current.scrollIntoView({ 
-          behavior: 'auto',
-          block: 'end'
-        });
-      }
-    };
+    const container = messagesContainerRef.current;
+    if (!container) return;
 
-    // Scroll cuando hay cambios
-    if (messages.length > 0 || isLoading || keyboardHeight > 0) {
+    if (messages.length === 0) {
+      // Sin mensajes: scroll al inicio (arriba)
+      container.scrollTop = 0;
+    } else {
+      // Con mensajes: scroll al final
+      const scrollToEnd = () => {
+        container.scrollTop = container.scrollHeight;
+      };
+      
       // Usar requestAnimationFrame para asegurar que el DOM está actualizado
       requestAnimationFrame(() => {
         scrollToEnd();
@@ -848,7 +844,8 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
             minHeight: 0,
             maxHeight: '100%',
             paddingTop: 0,
-            paddingBottom: `${inputAreaHeight}rem`, // Espacio para el input fijo
+            // Menos padding cuando no hay mensajes (bienvenida), más cuando hay mensajes
+            paddingBottom: messages.length === 0 ? '1rem' : `${inputAreaHeight}rem`,
           }}>
           {messages.length === 0 ? (
             // Welcome Screen
