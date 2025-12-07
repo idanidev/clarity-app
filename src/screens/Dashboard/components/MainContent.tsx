@@ -1376,22 +1376,31 @@ const MainContent = memo<MainContentProps>(
 
         {/* VISTA DEL ASISTENTE IA - CON onClose CRÍTICO */}
         {activeView === "assistant" && (
-          <AIAssistant
-            darkMode={darkMode}
-            textClass={textClass}
-            textSecondaryClass={textSecondaryClass}
-            expenses={filteredExpenses}
-            allExpenses={allExpenses}
-            categories={categories}
-            budgets={budgets}
-            categoryTotals={categoryTotals}
-            income={income}
-            goals={goals}
-            recurringExpenses={recurringExpenses}
+          <motion.div
+            key="assistant"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={getTransition("smooth")}
+            className="w-full"
+            style={{ minHeight: "calc(100vh - 200px)" }}
+          >
+            <AIAssistant
+              darkMode={darkMode}
+              textClass={textClass}
+              textSecondaryClass={textSecondaryClass}
+              expenses={filteredExpenses}
+              allExpenses={allExpenses}
+              categories={categories}
+              budgets={budgets}
+              categoryTotals={categoryTotals}
+              income={income}
+              goals={goals}
+              recurringExpenses={recurringExpenses}
             addExpense={onAddExpenseFromAI}
             isActive={true}
-            onClose={() => onChangeView("table")} // 🔴 CRÍTICO: Callback para cerrar
           />
+          </motion.div>
         )}
 
         {/* VISTA DE OBJETIVOS */}

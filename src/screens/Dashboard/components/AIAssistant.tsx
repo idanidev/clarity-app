@@ -15,7 +15,6 @@ import {
   Target,
   Trash2,
   TrendingUp,
-  X,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fadeInUp, getTransition } from "../../../config/framerMotion";
@@ -64,7 +63,6 @@ interface AIAssistantProps {
   recurringExpenses: any[];
   addExpense: (expense: ExpenseData) => Promise<void>;
   isActive: boolean;
-  onClose: () => void; // Ya no es opcional
 }
 
 // ============================================
@@ -747,7 +745,6 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
     recurringExpenses,
     addExpense,
     isActive,
-    onClose,
   }) => {
     const { t } = useTranslation();
     const [messages, setMessages] = useState<Message[]>([]);
@@ -917,14 +914,50 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
       inputRef.current?.focus();
     }, []);
 
-    // Calcular altura adaptada al teclado
+    // Detectar Safari y calcular altura apropiada
+    const [isSafari, setIsSafari] = useState(false);
+    const [viewportHeight, setViewportHeight] = useState("100vh");
+
+    useEffect(() => {
+      if (typeof window === "undefined") return;
+
+      // Detectar Safari
+      const safari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      setIsSafari(safari);
+
+      // Calcular altura del viewport
+      const updateHeight = () => {
+        const vh = window.innerHeight;
+        setViewportHeight(`${vh}px`);
+      };
+
+      updateHeight();
+      window.addEventListener("resize", updateHeight);
+
+      return () => window.removeEventListener("resize", updateHeight);
+    }, []);
+
+    // Calcular altura adaptada al teclado - usar vh para Safari
+    const viewportUnit = isSafari ? "vh" : "vh"; // Usar vh para ambos por ahora
     const messagesHeight =
       keyboardHeight > 0
-        ? `calc(100vh - ${keyboardHeight}px - 220px)` // Con teclado (header + nav + input + padding)
-        : "calc(100vh - 220px)"; // Sin teclado
+        ? `calc(100${viewportUnit} - ${keyboardHeight}px - 220px)` // Con teclado (header + nav + input + padding)
+        : `calc(100${viewportUnit} - 220px)`; // Sin teclado
+
+    // Fallback para Safari usando altura calculada
+    const messagesHeightSafari =
+      isSafari && viewportHeight !== "100vh"
+        ? `calc(${viewportHeight} - ${keyboardHeight}px - 220px)`
+        : messagesHeight;
 
     return (
-      <div className="flex flex-col h-full">
+      <div 
+        className="flex flex-col w-full" 
+        style={{ 
+          minHeight: isSafari ? "calc(100vh - 200px)" : "400px",
+          height: isSafari ? "calc(100vh - 200px)" : "auto",
+        }}
+      >
         {/* Mini header con botones */}
         <div className="flex items-center justify-between mb-3 px-2">
           <div className="flex items-center gap-2">
@@ -939,32 +972,19 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
             )}
           </div>
 
-          <div className="flex items-center gap-1">
-            {messages.length > 0 && (
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleClearChat}
-                className={`p-2 rounded-lg transition-colors ${
-                  darkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
-                }`}
-                title="Limpiar chat"
-              >
-                <Trash2 className="w-4 h-4 text-red-500" />
-              </motion.button>
-            )}
+          {messages.length > 0 && (
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={onClose}
+              onClick={handleClearChat}
               className={`p-2 rounded-lg transition-colors ${
                 darkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
               }`}
-              title="Cerrar"
+              title="Limpiar chat"
             >
-              <X className="w-5 h-5" />
+              <Trash2 className="w-4 h-4 text-red-500" />
             </motion.button>
-          </div>
+          )}
         </div>
 
         {/* Contenedor de mensajes */}
@@ -974,7 +994,12 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
               ? "bg-gray-800/50 border-gray-700"
               : "bg-white border-gray-200"
           } overflow-hidden flex flex-col`}
-          style={{ height: messagesHeight, maxHeight: messagesHeight }}
+          style={{
+            height: isSafari ? messagesHeightSafari : messagesHeight,
+            maxHeight: isSafari ? messagesHeightSafari : messagesHeight,
+            minHeight: "400px", // Altura mínima para Safari
+            flex: "1 1 auto", // Asegurar que crezca
+          }}
         >
           <div
             ref={messagesContainerRef}
@@ -982,6 +1007,7 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
             style={{
               WebkitOverflowScrolling: "touch",
               overscrollBehavior: "contain",
+              minHeight: "0", // Crítico para Safari - permite que flex funcione correctamente
             }}
           >
             {messages.length === 0 ? (
