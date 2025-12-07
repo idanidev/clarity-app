@@ -1,7 +1,9 @@
 import { X, Plus } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { getCategorySubcategories } from "../../../services/firestoreService";
 import { useState, useEffect } from "react";
 import { useDisableBodyScroll } from "../../../hooks/useDisableBodyScroll";
+import { scaleIn, getTransition } from "../../../config/framerMotion";
 
 const AddExpenseModal = ({
   visible,
@@ -35,10 +37,6 @@ const AddExpenseModal = ({
       setNewSubcategoryName("");
     }
   }, [visible]);
-
-  if (!visible) {
-    return null;
-  }
 
   const textSecondaryClass = darkMode ? "text-gray-400" : "text-gray-600";
 
@@ -192,14 +190,30 @@ const AddExpenseModal = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-      onMouseDown={onClose}
-    >
-      <div
-        className={`${cardClass} rounded-2xl p-0 max-w-md w-full border shadow-2xl max-h-[90vh] overflow-y-auto`}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+    <AnimatePresence>
+      {visible && (
+        <>
+          {/* Backdrop con fade */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={getTransition('fast')}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
+            onClick={onClose}
+          />
+          
+          {/* Modal con scale */}
+          <motion.div
+            {...scaleIn}
+            transition={getTransition('default')}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            onClick={(e) => e.target === e.currentTarget && onClose()}
+          >
+            <div
+              className={`${cardClass} rounded-2xl p-0 max-w-md w-full border shadow-2xl max-h-[90vh] overflow-y-auto smooth-scroll`}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
         <div
           className={`sticky top-0 z-10 px-6 py-4 flex justify-between items-center ${
             darkMode
@@ -501,8 +515,11 @@ const AddExpenseModal = ({
             Añadir Gasto
           </button>
         </form>
-      </div>
-    </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 };
 

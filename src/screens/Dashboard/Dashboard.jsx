@@ -76,7 +76,7 @@ const TipsModal = lazy(() => import("./components/TipsModal"));
 const OnboardingModal = lazy(() => import("./components/OnboardingModal"));
 
 // Componentes que se usan siempre, sin lazy loading
-import Header from "./components/Header";
+import Header from "./components/Header.tsx";
 import MainContent from "./components/MainContent";
 import MobileMenu from "./components/MobileMenu";
 import Notification from "./components/Notification";
@@ -94,6 +94,7 @@ const Dashboard = ({ user }) => {
   const [categories, setCategories] = useState({});
   const [budgets, setBudgets] = useState({});
   const [loading, setLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const [activeView, setActiveView] = useState("table");
   const [showAddExpense, setShowAddExpense] = useState(false);
@@ -217,12 +218,22 @@ const Dashboard = ({ user }) => {
     let isMounted = true;
 
     const loadUserData = async () => {
+      console.log("🚀 [loadUserData] INICIO - Usuario:", user.uid);
+      console.log("🚀 [loadUserData] Email:", user.email);
+      console.log("🚀 [loadUserData] Provider:", user.providerData[0]?.providerId);
+
       setLoading(true);
 
       try {
+        // 🔍 LOG ANTES DE INITIALIZAR
+        console.log("🔍 [loadUserData] ANTES de initializeUser");
+        
         await initializeUser(user.uid, {
           email: user.email,
         });
+        
+        // 🔍 LOG DESPUÉS DE INITIALIZAR
+        console.log("✅ [loadUserData] DESPUÉS de initializeUser");
 
         const [userCategories, userBudgets, userTheme, userLanguage, changelogSeen, userIncome, userGoals, userNotificationSettings, onboardingStatus] = await Promise.all([
           getUserCategories(user.uid),
@@ -235,6 +246,15 @@ const Dashboard = ({ user }) => {
           getUserNotificationSettings(user.uid),
           getOnboardingStatus(user.uid),
         ]);
+
+        // 🔍 LOG DE DATOS CARGADOS
+        console.log("📊 [loadUserData] DATOS CARGADOS:", {
+          categories: userCategories ? Object.keys(userCategories).length : 0,
+          budgets: userBudgets ? Object.keys(userBudgets).length : 0,
+          theme: userTheme,
+          income: userIncome,
+          hasGoals: !!userGoals,
+        });
 
         if (!isMounted) {
           return;
@@ -453,6 +473,29 @@ const Dashboard = ({ user }) => {
   // Mantener referencia actualizada al callback
   useEffect(() => {
     showNotificationRef.current = showNotification;
+  }, [showNotification]);
+
+  // Detectar cambios de conexión (después de definir showNotification)
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log("🌐 Conexión restaurada, sincronizando...");
+      setIsOnline(true);
+      showNotification("Conexión restaurada", "success");
+    };
+    
+    const handleOffline = () => {
+      console.log("📴 Sin conexión, modo offline activado");
+      setIsOnline(false);
+      showNotification("Modo offline - Los cambios se sincronizarán cuando haya conexión", "info");
+    };
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, [showNotification]);
 
   const handleAddExpense = async (e) => {
@@ -1755,6 +1798,9 @@ const Dashboard = ({ user }) => {
         showRecurring={showRecurring}
         showManagement={showManagement}
         overBudgetCount={overBudgetCategories.length}
+        isOnline={isOnline}
+        income={income}
+        totalExpenses={totalExpenses}
         onToggleManagement={() => setShowManagement((prev) => !prev)}
         onSelectCategories={handleOpenCategories}
         onSelectGoals={handleOpenGoals}
@@ -1951,6 +1997,7 @@ const Dashboard = ({ user }) => {
           income={income}
           categoryTotals={categoryTotalsForBudgets}
           onSaveGoals={handleSaveGoals}
+          onSaveIncome={handleSaveIncome}
           onRequestDelete={(context) => setShowDeleteConfirm(context)}
           onClose={() => setShowGoals(false)}
         />

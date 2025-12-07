@@ -6,6 +6,7 @@ import { useFormValidation } from "../../hooks/useFormValidation";
 import { isValidEmail } from "../../utils/validators";
 import InputField from "./components/InputField";
 import BiometricSetup from "./components/BiometricSetup";
+import { useShake, ShakeWrapper } from "../../hooks/useShake";
 
 const LoginForm = ({ onForgotPassword }) => {
   const {
@@ -18,6 +19,7 @@ const LoginForm = ({ onForgotPassword }) => {
   } = useAuth();
   const [formError, setFormError] = useState(null);
   const [showBiometricSetup, setShowBiometricSetup] = useState(false);
+  const { isShaking, shake } = useShake();
 
   const {
     values,
@@ -48,9 +50,18 @@ const LoginForm = ({ onForgotPassword }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError(null);
+    
+    // Activar shake si hay errores de validación
+    if (!validateForm()) {
+      shake();
+      return;
+    }
 
     const isValid = validateForm();
-    if (!isValid) return;
+    if (!isValid) {
+      shake();
+      return;
+    }
 
     try {
       const loggedUser = await signIn(values.email, values.password);
@@ -61,6 +72,7 @@ const LoginForm = ({ onForgotPassword }) => {
       }
     } catch {
       setFormError("No se ha podido iniciar sesión. Revisa tus datos.");
+      shake();
     }
   };
 
@@ -74,15 +86,16 @@ const LoginForm = ({ onForgotPassword }) => {
 
   return (
     <>
-      <motion.form
-        key="login"
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: 20 }}
-        transition={{ duration: 0.3 }}
-        onSubmit={handleSubmit}
-        className="space-y-4"
-      >
+      <ShakeWrapper isShaking={isShaking}>
+        <motion.form
+          key="login"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: 20 }}
+          transition={{ duration: 0.3 }}
+          onSubmit={handleSubmit}
+          className="space-y-4"
+        >
         {finalError && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -153,6 +166,7 @@ const LoginForm = ({ onForgotPassword }) => {
           )}
         </button>
       </motion.form>
+      </ShakeWrapper>
 
       {/* Modal de setup biométrico */}
       {showBiometricSetup && user && (

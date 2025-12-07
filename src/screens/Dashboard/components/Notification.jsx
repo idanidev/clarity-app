@@ -1,39 +1,28 @@
 import { memo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, Check, X } from "lucide-react";
+import { getTransition } from "../../../config/framerMotion";
 
 const Notification = memo(({ notification, onClose }) => {
-  if (!notification) {
-    return null;
-  }
-
   const intentClasses =
-    notification.type === "success"
+    notification?.type === "success"
       ? "bg-green-500/95 border-green-400"
-      : notification.type === "error"
+      : notification?.type === "error"
       ? "bg-red-500/95 border-red-400"
       : "bg-orange-500/95 border-orange-400";
 
   return (
-    <div
-      className={`fixed top-20 left-4 right-4 sm:top-6 sm:right-6 sm:left-auto z-[9999] px-3 py-2.5 sm:px-5 sm:py-3 rounded-lg sm:rounded-xl backdrop-blur-xl border ${intentClasses} text-white font-medium shadow-2xl max-w-sm sm:max-w-sm mx-auto sm:mx-0 animate-in`}
-      role="status"
-      aria-live="polite"
-      style={{
-        // En móvil: arriba, justo debajo del header (80px = top-20)
-        // La barra inferior está en bottom-0 con z-[100], esta notificación está arriba con z-[9999]
-        // No deberían interferir porque están en extremos opuestos
-        // Forzar aceleración de hardware en iOS
-        WebkitTransform: 'translateZ(0)',
-        transform: 'translateZ(0)',
-        // Asegurar que esté en la capa superior
-        willChange: 'transform',
-        // Prevenir que se mueva con el scroll en iOS
-        WebkitBackfaceVisibility: 'hidden',
-        backfaceVisibility: 'hidden',
-        // Asegurar que esté siempre visible
-        pointerEvents: 'auto',
-      }}
-    >
+    <AnimatePresence>
+      {notification && (
+        <motion.div
+          initial={{ opacity: 0, y: -50, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -50, scale: 0.9 }}
+          transition={getTransition('bounce')}
+          className={`fixed top-20 left-4 right-4 sm:top-6 sm:right-6 sm:left-auto z-[9999] px-3 py-2.5 sm:px-5 sm:py-3 rounded-lg sm:rounded-xl backdrop-blur-xl border ${intentClasses} text-white font-medium shadow-2xl max-w-sm sm:max-w-sm mx-auto sm:mx-0`}
+          role="status"
+          aria-live="polite"
+        >
       <div className="flex items-center gap-2 sm:gap-3">
         {notification.type === "success" ? (
           <Check className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
@@ -50,7 +39,9 @@ const Notification = memo(({ notification, onClose }) => {
           <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
         </button>
       </div>
-    </div>
+    </motion.div>
+      )}
+    </AnimatePresence>
   );
 });
 

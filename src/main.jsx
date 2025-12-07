@@ -3,6 +3,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.jsx";
 import "./index.css";
+import "./styles/animations.css";
 
 // Prevenir zoom permanente en móviles cuando se cierra el teclado
 if (typeof window !== "undefined") {

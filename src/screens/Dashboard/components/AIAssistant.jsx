@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect, memo } from 'react';
-import { Send, Loader2, Sparkles, Check, TrendingUp, Target, Lightbulb, Plus } from 'lucide-react';
+import { useState, useRef, useEffect, memo, useCallback } from 'react';
+import { Send, Loader2, Sparkles, Check, TrendingUp, Target, Lightbulb, Plus, Mic, MicOff } from 'lucide-react';
 import { useTranslation } from '../../../contexts/LanguageContext';
 
-// Hook para detectar el teclado virtual
+// Hook para detectar el teclado virtual - Simplificado
 const useKeyboardHeight = () => {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
@@ -11,21 +11,21 @@ const useKeyboardHeight = () => {
 
     const handleResize = () => {
       const viewport = window.visualViewport;
-      const windowHeight = window.innerHeight;
-      const viewportHeight = viewport.height;
-      const heightDiff = windowHeight - viewportHeight;
+      const heightDiff = window.innerHeight - viewport.height;
       
-      // Si la diferencia es significativa (>150px), asumimos que el teclado está abierto
-      if (heightDiff > 150) {
-        setKeyboardHeight(heightDiff);
-      } else {
-        setKeyboardHeight(0);
-      }
+      // Solo actualizar si hay cambio significativo
+      setKeyboardHeight(prev => {
+        const newHeight = heightDiff > 150 ? heightDiff : 0;
+        return Math.abs(prev - newHeight) > 10 ? newHeight : prev;
+      });
     };
 
     window.visualViewport.addEventListener('resize', handleResize);
+    window.visualViewport.addEventListener('scroll', handleResize);
+    
     return () => {
       window.visualViewport?.removeEventListener('resize', handleResize);
+      window.visualViewport?.removeEventListener('scroll', handleResize);
     };
   }, []);
 
@@ -51,121 +51,55 @@ const AIAssistant = memo(({
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const messagesContainerRef = useRef(null);
+  const recognitionRef = useRef(null);
   const keyboardHeight = useKeyboardHeight();
 
-  // Auto-scroll: arriba cuando no hay mensajes, abajo cuando hay mensajes
+  // Auto-scroll simplificado
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
 
-    if (messages.length === 0) {
-      // Sin mensajes: forzar scroll al inicio (arriba) inmediatamente
-      requestAnimationFrame(() => {
-        container.scrollTop = 0;
-        // Asegurar que se mantenga arriba con múltiples intentos
-        setTimeout(() => { container.scrollTop = 0; }, 0);
-        setTimeout(() => { container.scrollTop = 0; }, 50);
-        setTimeout(() => { container.scrollTop = 0; }, 100);
-        setTimeout(() => { container.scrollTop = 0; }, 200);
-      });
-    } else {
-      // Con mensajes: scroll al final
-      const scrollToEnd = () => {
-        container.scrollTop = container.scrollHeight;
-      };
-      
-      // Usar requestAnimationFrame para asegurar que el DOM está actualizado
-      requestAnimationFrame(() => {
-        scrollToEnd();
-        // Intentos adicionales con delays
-        setTimeout(scrollToEnd, 100);
-        setTimeout(scrollToEnd, 300);
-        setTimeout(scrollToEnd, 500);
-      });
-    }
-  }, [messages, isLoading, keyboardHeight]);
+    // Función de scroll unificada
+    const scrollAction = messages.length === 0 
+      ? () => { container.scrollTop = 0; } // Sin mensajes: arriba
+      : () => { container.scrollTop = container.scrollHeight; }; // Con mensajes: abajo
 
-  // Auto-focus mejorado para PWA y diferentes navegadores
+    // Ejecutar scroll después de renderizar
+    requestAnimationFrame(() => {
+      scrollAction();
+      // Un único retry después de 100ms (suficiente para la mayoría de casos)
+      setTimeout(scrollAction, 100);
+    });
+  }, [messages.length, isLoading]);
+
+  // Auto-focus simplificado
   useEffect(() => {
-    if (!isActive) return; // Solo hacer focus si la vista está activa
+    if (!isActive) return;
 
     const focusInput = () => {
       const input = inputRef.current;
       if (!input) return;
 
-      // Estrategia 1: Focus directo (funciona en Chrome, Firefox)
       try {
         input.focus();
+        // Para iOS: mover cursor al final
+        if (input.setSelectionRange && input.value) {
+          const len = input.value.length;
+          input.setSelectionRange(len, len);
+        }
       } catch (e) {
-        console.log('Focus directo falló:', e);
+        console.warn('Focus falló:', e);
       }
-
-      // Estrategia 2: Click programático (mejor para Safari iOS)
-      // Safari iOS a veces requiere un click real para permitir el focus
-      setTimeout(() => {
-        try {
-          input.click();
-          input.focus();
-        } catch (e) {
-          console.log('Click + focus falló:', e);
-        }
-      }, 50);
-
-      // Estrategia 3: Focus con scrollIntoView (ayuda en algunos casos)
-      setTimeout(() => {
-        try {
-          input.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          input.focus();
-        } catch (e) {
-          console.log('ScrollIntoView + focus falló:', e);
-        }
-      }, 150);
-
-      // Estrategia 4: Para Safari iOS en PWA, a veces necesitamos esperar más
-      // y usar requestAnimationFrame
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          try {
-            input.focus();
-            // Forzar el teclado en iOS (si es posible)
-            if (input.setSelectionRange) {
-              input.setSelectionRange(0, 0);
-            }
-          } catch (e) {
-            console.log('Focus final falló:', e);
-          }
-        }, 200);
-      });
     };
 
-    // Delay inicial para asegurar que el DOM está listo
-    const timer = setTimeout(focusInput, 100);
+    // Delay inicial corto
+    const timer = setTimeout(focusInput, 150);
     
-    // También intentar cuando la vista se vuelve visible (útil para PWA)
-    if (document.visibilityState === 'visible') {
-      setTimeout(focusInput, 300);
-    }
-
     return () => clearTimeout(timer);
-  }, [isActive]); // Ejecutar cuando isActive cambia
-
-  // Detectar cuando la ventana/PWA se vuelve visible
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && isActive) {
-        setTimeout(() => {
-          inputRef.current?.focus();
-        }, 200);
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
   }, [isActive]);
 
 
@@ -816,50 +750,163 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
     }
   };
 
+  // Funcionalidad de reconocimiento de voz
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
 
-  // Calcular altura dinámica considerando el teclado y la barra de navegación
-  const navBarHeight = 5.5; // rem
-  const inputAreaHeight = 4; // rem (altura aproximada del input + padding)
-  
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'es-ES';
+
+    recognition.onstart = () => {
+      setIsListening(true);
+    };
+
+    recognition.onresult = (event) => {
+      let interimTranscript = '';
+      let finalTranscript = '';
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript + ' ';
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+
+      if (finalTranscript) {
+        setInput(prev => {
+          // Remover cualquier transcripción provisional previa y añadir la final
+          const cleanPrev = prev.replace(interimTranscript, '').trim();
+          return (cleanPrev + ' ' + finalTranscript.trim()).trim();
+        });
+      } else if (interimTranscript) {
+        // Mostrar transcripción provisional
+        setInput(prev => {
+          // Remover transcripción provisional anterior si existe
+          const baseText = prev.replace(interimTranscript, '').trim();
+          return baseText + ' ' + interimTranscript;
+        });
+      }
+    };
+
+    recognition.onerror = (event) => {
+      console.error('Error en reconocimiento de voz:', event.error);
+      setIsListening(false);
+      if (event.error === 'no-speech') {
+        // No hacer nada, es normal
+      } else if (event.error === 'audio-capture') {
+        alert('No se pudo acceder al micrófono. Verifica los permisos.');
+      }
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {
+          // Ignorar errores al detener
+        }
+      }
+    };
+  }, []);
+
+  // Reconocimiento de voz optimizado
+  const toggleListening = useCallback(() => {
+    if (!recognitionRef.current) {
+      alert('Tu navegador no soporta reconocimiento de voz');
+      return;
+    }
+
+    if (isListening) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        console.warn('Error deteniendo reconocimiento:', e);
+      }
+      setIsListening(false);
+    } else {
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+      } catch (e) {
+        console.error('Error iniciando reconocimiento:', e);
+        alert('No se pudo acceder al micrófono');
+        setIsListening(false);
+      }
+    }
+  }, [isListening]);
+
+  // Calcular altura dinámica usando dvh (dynamic viewport height - mejor para móvil)
   const containerHeight = keyboardHeight > 0 
-    ? `calc(100vh - ${keyboardHeight}px - ${navBarHeight}rem)`
-    : `calc(100vh - ${navBarHeight}rem)`;
+    ? `calc(100dvh - ${keyboardHeight}px - 11rem)` // dvh = dynamic viewport height
+    : 'calc(100dvh - 11rem)';
+
+  // Preguntas de ejemplo
+  const exampleQuestions = [
+    "¿Cuánto he gastado este mes?",
+    "¿En qué categoría gasto más?",
+    "Añade un gasto de 25€ en supermercado",
+    "¿Estoy dentro del presupuesto?",
+  ];
+
+  const handleExampleQuestion = (question) => {
+    setInput(question);
+    inputRef.current?.focus();
+  };
 
   return (
-    <div className="h-full flex flex-col" style={{
-      height: containerHeight,
-      maxHeight: containerHeight,
-    }}>
+    <>
       {/* Chat Container */}
-      <div className={`rounded-lg md:rounded-xl border ${
-        darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-200'
-      } overflow-hidden flex flex-col h-full`}>
-        
-        {/* Messages Area */}
+      <div 
+        className={`rounded-lg md:rounded-xl border ${
+          darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-200'
+        } overflow-hidden flex flex-col mb-24`} 
+        style={{ 
+          height: containerHeight,
+          maxHeight: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        {/* Messages Area - Optimizado para iOS */}
         <div 
           ref={messagesContainerRef}
-          className="flex-1 overflow-y-auto px-1 md:px-4 py-2 md:py-4 space-y-2 md:space-y-4" 
+          className="flex-1 overflow-y-auto px-3 md:px-4 py-3 md:py-4 space-y-3 md:space-y-4"
           style={{
             WebkitOverflowScrolling: 'touch',
-            touchAction: 'pan-y',
-            minHeight: 0,
-            paddingBottom: messages.length === 0 ? '1rem' : '1rem',
-          }}>
+            scrollBehavior: 'smooth',
+            overscrollBehavior: 'contain',
+          }}
+        >
           {messages.length === 0 ? (
             // Welcome Screen
-            <div className="flex flex-col items-center text-center px-1 md:px-4 pt-4 md:pt-6">
-              <div className="flex items-center justify-center gap-1.5 md:gap-3 mb-2 md:mb-3">
+            <div className="flex flex-col items-center text-center px-1 md:px-4 pt-1 md:pt-2">
+              <div className="flex items-center justify-center gap-1.5 md:gap-3 mb-1 md:mb-2">
                 <Sparkles className="w-4 h-4 md:w-6 md:h-6 text-purple-500 flex-shrink-0" />
                 <h3 className={`text-sm md:text-xl font-semibold ${textClass}`}>
                   {t('aiAssistant.welcome') || '¡Hola! Soy tu asistente financiero'}
                 </h3>
               </div>
-              <p className={`text-[10px] md:text-sm ${textSecondaryClass} max-w-md mx-auto px-1 mb-3 md:mb-4`}>
+              <p className={`text-[10px] md:text-sm ${textSecondaryClass} max-w-md mx-auto px-1 mb-2 md:mb-3`}>
                 {t('aiAssistant.welcomeDesc') || 'Puedo ayudarte a analizar tus gastos, darte consejos personalizados, responder tus preguntas sobre finanzas y añadir gastos por ti.'}
               </p>
 
               {/* Capabilities - Versión compacta */}
-              <div className="grid grid-cols-2 gap-1.5 md:gap-3 w-full max-w-md px-1">
+              <div className="grid grid-cols-2 gap-1.5 md:gap-3 w-full max-w-md px-1 mb-3 md:mb-4">
                 {(t('aiAssistant.capabilities') || [
                   { icon: 'TrendingUp', text: 'Analizar patrones de gasto' },
                   { icon: 'Plus', text: 'Añadir gastos por texto' },
@@ -879,6 +926,28 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
                     <span className={`text-[9px] md:text-xs ${textClass} break-words leading-tight`}>{capability.text}</span>
                   </div>
                 ))}
+              </div>
+
+              {/* Preguntas de ejemplo */}
+              <div className="w-full max-w-md px-1">
+                <p className={`text-[10px] md:text-xs ${textSecondaryClass} mb-2 md:mb-3`}>
+                  Prueba preguntando:
+                </p>
+                <div className="flex flex-col gap-1.5 md:gap-2">
+                  {exampleQuestions.map((question, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleExampleQuestion(question)}
+                      className={`text-left px-3 md:px-4 py-2 md:py-2.5 rounded-lg text-[11px] md:text-sm transition-all ${
+                        darkMode
+                          ? 'bg-gray-700/70 hover:bg-gray-700 text-gray-200'
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      }`}
+                    >
+                      {question}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           ) : (
@@ -928,44 +997,94 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
             </>
           )}
         </div>
+      </div>
 
-        {/* Input Area - Dentro del contenedor, no fijo */}
-        <div className={`border-t p-2 md:p-4 flex-shrink-0 ${darkMode ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-white'}`}>
-          <div className="flex gap-1 md:gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              autoFocus // Fallback HTML nativo
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder={t('aiAssistant.placeholder') || 'Pregúntame sobre tus gastos...'}
-              disabled={isLoading}
-              className={`flex-1 px-2 md:px-4 py-1.5 md:py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors text-[12px] md:text-base ${
-                darkMode
-                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
-                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-              } disabled:opacity-50`}
-            />
-            <button
-              onClick={sendMessage}
-              disabled={!input.trim() || isLoading}
-              className="px-2 md:px-4 py-1.5 md:py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity flex-shrink-0"
-            >
-              {isLoading ? (
-                <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" />
-              ) : (
-                <Send className="w-4 h-4 md:w-5 md:h-5" />
-              )}
-            </button>
-          </div>
+      {/* Input Area - Optimizado */}
+      <div 
+        className={`fixed bottom-0 inset-x-0 border-t p-3 md:p-4 ${
+          darkMode ? 'border-gray-700 bg-gray-900/98' : 'border-gray-200 bg-white/98'
+        }`}
+        style={{
+          paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom))',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          zIndex: 40,
+        }}
+      >
+        <div className="max-w-4xl mx-auto flex gap-2">
+          <input
+            ref={inputRef}
+            type="text"
+            autoFocus
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder={t('aiAssistant.placeholder') || 'Pregúntame sobre tus gastos...'}
+            disabled={isLoading}
+            className={`flex-1 px-3 md:px-4 py-2.5 md:py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors ${
+              darkMode
+                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+            } disabled:opacity-50`}
+            style={{ fontSize: '16px' }} // Prevenir zoom en iOS
+          />
+          <button
+            onClick={toggleListening}
+            disabled={isLoading}
+            className={`p-2.5 md:p-3 rounded-lg transition-all ${
+              isListening
+                ? 'bg-red-500 text-white'
+                : darkMode
+                ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            } disabled:opacity-50`}
+            title={isListening ? 'Detener grabación' : 'Grabar voz'}
+          >
+            {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+          </button>
+          <button
+            onClick={sendMessage}
+            disabled={!input.trim() || isLoading}
+            className="px-4 md:px-6 py-2.5 md:py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
+          >
+            {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+          </button>
         </div>
       </div>
-    </div>
+    </>
   );
 });
 
 AIAssistant.displayName = 'AIAssistant';
 
+// Añadir estilos CSS para mejor experiencia móvil
+if (typeof document !== 'undefined') {
+  const styleId = 'ai-assistant-mobile-styles';
+  if (!document.getElementById(styleId)) {
+    const styleTag = document.createElement('style');
+    styleTag.id = styleId;
+    styleTag.textContent = `
+      /* Prevenir zoom en iOS cuando se hace focus en inputs */
+      @supports (-webkit-touch-callout: none) {
+        input, textarea, select {
+          font-size: 16px !important;
+        }
+      }
+
+      /* Suavizar scroll en toda la app */
+      * {
+        -webkit-overflow-scrolling: touch;
+      }
+
+      /* Safe area para iPhones con notch */
+      .safe-bottom {
+        padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
+      }
+    `;
+    document.head.appendChild(styleTag);
+  }
+}
+
 export default AIAssistant;
+
 

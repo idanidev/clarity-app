@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Target, Trash2, X, Calendar, Plus } from "lucide-react";
+import { Target, Trash2, X, Calendar, Plus, DollarSign } from "lucide-react";
 import { useTranslation } from "../../../contexts/LanguageContext";
 import { getLongTermGoalProgress } from "../../../services/goalsService";
 import { useDisableBodyScroll } from "../../../hooks/useDisableBodyScroll";
@@ -16,6 +16,7 @@ const GoalsModal = ({
   income,
   categoryTotals,
   onSaveGoals,
+  onSaveIncome,
   onRequestDelete,
   onClose,
 }) => {
@@ -185,6 +186,70 @@ const GoalsModal = ({
         </div>
 
         <div className="px-6 py-6">
+          {/* SECCIÓN DE INGRESOS - AÑADIDA */}
+          {onSaveIncome && (
+            <div className={`p-5 rounded-xl border-2 mb-6 ${
+              darkMode 
+                ? 'bg-gray-800 border-gray-700' 
+                : 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200'
+            }`}>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center">
+                  <DollarSign className="w-6 h-6 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <h3 className={`text-lg font-semibold ${textClass}`}>
+                    Ingresos Mensuales
+                  </h3>
+                  <p className={`text-sm ${textSecondaryClass}`}>
+                    Tu sueldo o ingresos fijos mensuales
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <input
+                    type="number"
+                    value={income || ''}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value) || 0;
+                      onSaveIncome(value);
+                    }}
+                    placeholder="Ej: 2500"
+                    className={`${inputClass} w-full text-2xl font-bold`}
+                  />
+                </div>
+              </div>
+
+              {/* Resumen visual si hay ingresos */}
+              {income && income > 0 && (
+                <div className="mt-4 pt-4 border-t border-green-200 dark:border-gray-700 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className={textSecondaryClass}>Ingresos mensuales:</span>
+                    <span className={`font-semibold ${textClass}`}>{income.toFixed(2)}€</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className={textSecondaryClass}>Gastos este mes:</span>
+                    <span className={`font-semibold ${textClass}`}>
+                      {currentMonthExpenses.toFixed(2)}€
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm font-bold border-t pt-2 border-green-200 dark:border-gray-700">
+                    <span className={textClass}>Disponible:</span>
+                    <span className={
+                      (income - currentMonthExpenses) >= 0
+                        ? 'text-green-600 dark:text-green-400'
+                        : 'text-red-600 dark:text-red-400'
+                    }>
+                      {(income - currentMonthExpenses).toFixed(2)}€
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Pestañas */}
           <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-gray-700">
             <button

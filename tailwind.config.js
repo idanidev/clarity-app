@@ -18,6 +18,13 @@ export default {
           900: "#1a1d20",
         },
       },
+      transitionDuration: {
+        '250': '250ms',
+      },
+      transitionTimingFunction: {
+        'smooth': 'cubic-bezier(0.4, 0, 0.2, 1)',
+        'bounce-smooth': 'cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+      },
       animation: {
         "fade-in": "fadeIn 0.2s ease-out",
         "slide-in": "slideIn 0.2s ease-out",

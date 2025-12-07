@@ -14,6 +14,46 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 
+/**
+ * Obtiene un documento con estrategia híbrida:
+ * 1. Intenta leer del cache (rápido, funciona offline)
+ * 2. Si no existe en cache, lee del servidor
+ * 3. Si hay conexión, sincroniza en background
+ */
+const getDocHybrid = async (docRef) => {
+  try {
+    // Primero intentar cache (instantáneo, funciona offline)
+    const cachedDoc = await getDoc(docRef, { source: 'cache' });
+    
+    if (cachedDoc.exists()) {
+      console.log("📦 Leyendo del cache (offline-ready)");
+      
+      // En background, verificar si hay actualizaciones en el servidor
+      if (navigator.onLine) {
+        getDoc(docRef, { source: 'server' })
+          .then((serverDoc) => {
+            if (serverDoc.exists() && 
+                serverDoc.metadata.hasPendingWrites === false &&
+                JSON.stringify(serverDoc.data()) !== JSON.stringify(cachedDoc.data())) {
+              console.log("🔄 Datos actualizados en el servidor, sincronizando...");
+            }
+          })
+          .catch((err) => {
+            console.warn("No se pudo verificar servidor:", err.code);
+          });
+      }
+      
+      return cachedDoc;
+    }
+  } catch (cacheError) {
+    console.log("📡 Cache miss, leyendo del servidor...");
+  }
+  
+  // Si no está en cache, leer del servidor
+  const serverDoc = await getDoc(docRef, { source: 'server' });
+  return serverDoc;
+};
+
 const normalizeSubcategories = (rawSubcategories) => {
   if (!rawSubcategories) {
     return [];
@@ -578,7 +618,7 @@ const mergeDuplicateDefaultCategories = (categories) => {
 export const getUserCategories = async (userId) => {
   try {
     const userDocRef = doc(db, "users", userId);
-    const userDoc = await getDoc(userDocRef);
+    const userDoc = await getDocHybrid(userDocRef); // 👈 Usa estrategia híbrida
 
     if (!userDoc.exists()) {
       console.log(`[getUserCategories] Usuario ${userId} no existe en Firestore`);
@@ -658,7 +698,7 @@ export const saveBudgets = async (userId, budgets) => {
 export const getUserBudgets = async (userId) => {
   try {
     const userDocRef = doc(db, "users", userId);
-    const userDoc = await getDoc(userDocRef);
+    const userDoc = await getDocHybrid(userDocRef); // 👈 Cambio aquí
 
     if (userDoc.exists()) {
       return userDoc.data().budgets || null;
@@ -692,7 +732,7 @@ export const saveTheme = async (userId, theme) => {
 export const getUserTheme = async (userId) => {
   try {
     const userDocRef = doc(db, "users", userId);
-    const userDoc = await getDoc(userDocRef);
+    const userDoc = await getDocHybrid(userDocRef); // 👈 Cambio aquí
 
     if (userDoc.exists()) {
       return userDoc.data().theme || "light";
@@ -722,7 +762,7 @@ export const saveUserLanguage = async (userId, language) => {
 export const getUserLanguage = async (userId) => {
   try {
     const userDocRef = doc(db, "users", userId);
-    const userDoc = await getDoc(userDocRef);
+    const userDoc = await getDocHybrid(userDocRef); // 👈 Cambio aquí
 
     if (userDoc.exists()) {
       return userDoc.data().language || null;
@@ -766,7 +806,7 @@ export const markOnboardingAsCompleted = async (userId) => {
 export const getOnboardingStatus = async (userId) => {
   try {
     const userDocRef = doc(db, "users", userId);
-    const userDoc = await getDoc(userDocRef);
+    const userDoc = await getDocHybrid(userDocRef); // 👈 Cambio aquí
 
     if (userDoc.exists()) {
       const data = userDoc.data();
@@ -785,7 +825,7 @@ export const getOnboardingStatus = async (userId) => {
 export const getChangelogSeenVersion = async (userId) => {
   try {
     const userDocRef = doc(db, "users", userId);
-    const userDoc = await getDoc(userDocRef);
+    const userDoc = await getDocHybrid(userDocRef); // 👈 Cambio aquí
 
     if (userDoc.exists()) {
       return userDoc.data().changelogSeen || null;
@@ -907,7 +947,7 @@ export const saveIncome = async (userId, income) => {
 export const getUserIncome = async (userId) => {
   try {
     const userDocRef = doc(db, "users", userId);
-    const userDoc = await getDoc(userDocRef);
+    const userDoc = await getDocHybrid(userDocRef); // 👈 Cambio aquí
 
     if (userDoc.exists()) {
       const income = userDoc.data().income;
@@ -998,7 +1038,7 @@ export const saveGoals = async (userId, goals) => {
 export const getUserGoals = async (userId) => {
   try {
     const userDocRef = doc(db, "users", userId);
-    const userDoc = await getDoc(userDocRef);
+    const userDoc = await getDocHybrid(userDocRef); // 👈 Cambio aquí
 
     if (userDoc.exists()) {
       const goals = userDoc.data().goals;
@@ -1069,7 +1109,7 @@ export const saveNotificationSettings = async (userId, settings) => {
 export const getUserNotificationSettings = async (userId) => {
   try {
     const userDocRef = doc(db, "users", userId);
-    const userDoc = await getDoc(userDocRef);
+    const userDoc = await getDocHybrid(userDocRef); // 👈 Cambio aquí
 
     if (userDoc.exists()) {
       const settings = userDoc.data().notificationSettings || null;

@@ -24,6 +24,8 @@ import {
   X,
 } from "lucide-react";
 import { memo, useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { fadeIn, getTransition } from "../../../config/framerMotion";
 import {
   Bar,
   BarChart,
@@ -472,14 +474,16 @@ const MainContent = memo(
           </div>
         )}
 
-        {/* Botón de añadir gasto por voz - Solo en móvil */}
-        <VoiceExpenseButton
-          darkMode={darkMode}
-          categories={categories}
-          addExpense={onAddExpenseFromAI}
-          showNotification={showNotification}
-          hasFilterButton={activeView === "table" || activeView === "chart"}
-        />
+        {/* Botón de añadir gasto por voz - Solo en móvil, NO en la vista del asistente IA */}
+        {activeView !== "assistant" && (
+          <VoiceExpenseButton
+            darkMode={darkMode}
+            categories={categories}
+            addExpense={onAddExpenseFromAI}
+            showNotification={showNotification}
+            hasFilterButton={activeView === "table" || activeView === "chart"}
+          />
+        )}
 
         {/* Panel de filtros avanzados para móvil - Bottom sheet style - Solo en table y chart */}
         {showFilters && (activeView === "table" || activeView === "chart") && (
@@ -1190,8 +1194,16 @@ const MainContent = memo(
           </div>
         </div>
 
-        {activeView === "table" && (
-          <div className="max-w-7xl mx-auto">
+        <AnimatePresence mode="wait">
+          {activeView === "table" && (
+            <motion.div
+              key="table"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={getTransition('smooth')}
+              className="max-w-7xl mx-auto"
+            >
             {/* Buscador */}
             {Object.keys(expensesByCategory).length > 0 && (
               <div className="mb-3 sm:mb-4">
@@ -1427,26 +1439,33 @@ const MainContent = memo(
                 })()}
               </div>
             )}
-          </div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {activeView === "chart" && (
-          <div
-            className={`${cardClass} rounded-2xl p-3 md:p-6 border shadow-lg`}
-          >
-            {categoryTotals.length === 0 ? (
-              <div className="text-center py-8 md:py-12">
-                <AlertTriangle
-                  className={`w-12 md:w-16 h-12 md:h-16 ${textSecondaryClass} mx-auto mb-3 md:mb-4`}
-                />
-                <p className={`text-sm md:text-base ${textSecondaryClass}`}>
-                  No hay gastos en este período
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3 md:space-y-6">
-                <div className="relative">
-                  <ResponsiveContainer width="100%" height={400}>
+        <AnimatePresence mode="wait">
+          {activeView === "chart" && (
+            <motion.div
+              key="chart"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={getTransition('smooth')}
+            >
+              <div className={`${cardClass} rounded-2xl p-3 md:p-6 border shadow-lg`}>
+                {categoryTotals.length === 0 ? (
+                  <div className="text-center py-8 md:py-12">
+                    <AlertTriangle
+                      className={`w-12 md:w-16 h-12 md:h-16 ${textSecondaryClass} mx-auto mb-3 md:mb-4`}
+                    />
+                    <p className={`text-sm md:text-base ${textSecondaryClass}`}>
+                      No hay gastos en este período
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 md:space-y-6">
+                    <div className="relative">
+                      <ResponsiveContainer width="100%" height={400}>
                     <PieChart>
                       <defs>
                         {categoryTotals.map((item, index) => {
@@ -2182,11 +2201,13 @@ const MainContent = memo(
                       </div>
                     );
                   })()}
-                </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {activeView === "budgets" && (
           <div
@@ -2308,8 +2329,16 @@ const MainContent = memo(
           </div>
         )}
 
-        {activeView === "goals" && (
-          <div className="space-y-4 sm:space-y-6 animate-in">
+        <AnimatePresence mode="wait">
+          {activeView === "goals" && (
+            <motion.div
+              key="goals"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={getTransition('smooth')}
+              className="space-y-4 sm:space-y-6 animate-in"
+            >
             {/* Header - Optimizado para móvil */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
@@ -3082,11 +3111,20 @@ const MainContent = memo(
                   </button>
                 </div>
               )}
-          </div>
-        )}
+          </motion.div>
+          )}
+        </AnimatePresence>
 
-        {activeView === "assistant" && (
-          <AIAssistant
+        <AnimatePresence mode="wait">
+          {activeView === "assistant" && (
+          <motion.div
+            key="assistant"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={getTransition('smooth')}
+          >
+            <AIAssistant
             darkMode={darkMode}
             textClass={textClass}
             textSecondaryClass={textSecondaryClass}
@@ -3101,7 +3139,9 @@ const MainContent = memo(
             addExpense={onAddExpenseFromAI}
             isActive={activeView === "assistant"}
           />
-        )}
+          </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }

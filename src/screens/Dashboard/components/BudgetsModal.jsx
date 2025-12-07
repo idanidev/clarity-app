@@ -1,5 +1,6 @@
 import { Trash2, X } from "lucide-react";
 import { useDisableBodyScroll } from "../../../hooks/useDisableBodyScroll";
+import AnimatedProgressBar from "../../../components/AnimatedProgressBar";
 
 const BudgetsModal = ({
   visible,
@@ -125,7 +126,7 @@ const BudgetsModal = ({
                 } border ${darkMode ? "border-gray-600" : "border-purple-100"}`}
               >
                 <div className="flex justify-between items-start mb-2">
-                  <div>
+                  <div className="flex-1">
                     <p className={`font-bold ${textClass}`}>{category}</p>
                     <p className={`text-sm ${textSecondaryClass}`}>
                       €{spent.toFixed(2)} / €{budget.toFixed(2)}
@@ -137,23 +138,19 @@ const BudgetsModal = ({
                     }
                     className={`p-2 rounded-lg ${
                       darkMode ? "hover:bg-red-900/50" : "hover:bg-red-100"
-                    } transition-all`}
+                    } transition-all ml-2`}
                   >
                     <Trash2 className="w-4 h-4 text-red-600" />
                   </button>
                 </div>
-                <div
-                  className={`w-full ${darkMode ? "bg-gray-600" : "bg-white"} rounded-full h-2`}
-                >
-                  <div
-                    className={`h-full rounded-full transition-all ${
-                      percentage > 100
-                        ? "bg-red-600"
-                        : "bg-gradient-to-r from-purple-600 to-blue-600"
-                    }`}
-                    style={{ width: `${Math.min(percentage, 100)}%` }}
-                  ></div>
-                </div>
+                <AnimatedProgressBar
+                  value={spent}
+                  max={budget}
+                  showPercentage={true}
+                  size="md"
+                  darkMode={darkMode}
+                  animated={true}
+                />
               </div>
             );
           })}

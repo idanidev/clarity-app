@@ -1,9 +1,15 @@
 // src/firebase.ts
 import { initializeApp, FirebaseApp } from "firebase/app";
-import { getAuth, Auth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore, Firestore } from "firebase/firestore";
+import { getAuth, Auth, GoogleAuthProvider, OAuthProvider } from "firebase/auth";
+import { 
+  Firestore,
+  CACHE_SIZE_UNLIMITED,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager
+} from "firebase/firestore";
 import { getAnalytics, Analytics } from "firebase/analytics";
-import { getMessaging, Messaging } from "firebase/messaging";
+import { getMessaging, Messaging, isSupported } from "firebase/messaging";
 
 // Tu configuración de Firebase
 const firebaseConfig = {
@@ -21,7 +27,22 @@ const app: FirebaseApp = initializeApp(firebaseConfig);
 
 // Inicializar servicios
 export const auth: Auth = getAuth(app);
-export const db: Firestore = getFirestore(app);
+export const appleProvider = new OAuthProvider('apple.com');
+
+// Firestore con configuración optimizada para PWAs
+// persistentLocalCache ya maneja la persistencia offline automáticamente
+export const db: Firestore = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager(),
+    cacheSizeBytes: CACHE_SIZE_UNLIMITED,
+  }),
+});
+
+// Nota: NO llamar enableIndexedDbPersistence() porque persistentLocalCache ya lo maneja
+// Hacerlo causaría el error "SDK cache is already specified"
+if (typeof window !== 'undefined') {
+  console.log("✅ Persistencia offline habilitada mediante persistentLocalCache");
+}
 
 // Analytics solo en el cliente
 export const analytics: Analytics | null = 
@@ -37,19 +58,19 @@ export const analytics: Analytics | null =
     : null;
 
 // Messaging solo en el cliente y si está disponible
-export const messaging: Messaging | null = 
-  typeof window !== 'undefined' && 
-  'serviceWorker' in navigator &&
-  typeof navigator !== 'undefined'
-    ? (() => {
-        try {
-          return getMessaging(app);
-        } catch (error) {
-          console.warn('Firebase Messaging no disponible:', error);
-          return null;
-        }
-      })()
-    : null;
+let messaging: Messaging | null = null;
+if (typeof window !== 'undefined') {
+  isSupported()
+    .then((supported) => {
+      if (supported) {
+        messaging = getMessaging(app);
+      }
+    })
+    .catch((err) => {
+      console.warn("Firebase Messaging no disponible:", err);
+    });
+}
+export { messaging };
 
 // Provider de Google
 export const googleProvider = new GoogleAuthProvider();
