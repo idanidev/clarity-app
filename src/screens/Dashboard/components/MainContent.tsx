@@ -1359,75 +1359,393 @@ const MainContent = memo<MainContentProps>(
               <div className={`${cardClass} rounded-2xl p-3 md:p-6 border shadow-lg`}>
                 {categoryTotals.length === 0 ? (
                   <div className="text-center py-8 md:py-12">
-                    <AlertTriangle className={`w-12 md:w-16 h-12 md:h-16 ${textSecondaryClass} mx-auto mb-3 md:mb-4`} />
-                    <p className={`text-sm md:text-base ${textSecondaryClass}`}>No hay gastos en este período</p>
+                    <AlertTriangle
+                      className={`w-12 md:w-16 h-12 md:h-16 ${textSecondaryClass} mx-auto mb-3 md:mb-4`}
+                    />
+                    <p className={`text-sm md:text-base ${textSecondaryClass}`}>
+                      No hay gastos en este período
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-3 md:space-y-6">
-                    <ResponsiveContainer width="100%" height={isMobile ? 250 : 400}>
-                      <PieChart>
-                        <Pie
-                          data={categoryTotals.map((item) => ({
-                            name: item.category,
-                            value: item.total,
-                            color: categoryColors[item.category] || "#8B5CF6",
-                          }))}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                          outerRadius={isMobile ? 80 : 120}
-                          fill="#8884d8"
-                          dataKey="value"
-                          onClick={handlePieClick}
-                        >
-                          {categoryTotals.map((item, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={categoryColors[item.category] || "#8B5CF6"}
-                              stroke={activeIndex === index ? (darkMode ? "#ffffff" : "#000000") : "none"}
-                              strokeWidth={activeIndex === index ? 3 : 0}
-                            />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          formatter={(value: number) => `€${value.toFixed(2)}`}
-                          contentStyle={{
-                            backgroundColor: darkMode ? "#1f2937" : "#ffffff",
-                            border: darkMode ? "1px solid #374151" : "1px solid #e5e7eb",
-                            borderRadius: "8px",
-                            color: darkMode ? "#f3f4f6" : "#111827",
-                          }}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    {/* Leyenda de categorías - más compacta */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 md:gap-3">
-                      {categoryTotals.map((item) => {
-                        const color = categoryColors[item.category] || "#8B5CF6";
-                        const percentage = (item.total / totalExpenses) * 100;
-                        return (
-                          <div
-                            key={item.category}
-                            className={`flex items-center gap-2 p-2 rounded-lg ${
-                              darkMode ? "bg-gray-800/50" : "bg-white/50"
-                            }`}
+                    <div className="relative">
+                      <ResponsiveContainer width="100%" height={400}>
+                        <PieChart>
+                          <defs>
+                            {categoryTotals.map((item, index) => {
+                              return (
+                                <filter
+                                  key={`shadow-${index}`}
+                                  id={`shadow-${index}`}
+                                  x="-50%"
+                                  y="-50%"
+                                  width="200%"
+                                  height="200%"
+                                >
+                                  <feDropShadow
+                                    dx="0"
+                                    dy="2"
+                                    stdDeviation="3"
+                                    floodOpacity="0.2"
+                                  />
+                                </filter>
+                              );
+                            })}
+                          </defs>
+                          <Pie
+                            data={categoryTotals
+                              .sort((a, b) => b.total - a.total)
+                              .map((item, index) => {
+                                const categoryData = categories[item.category];
+                                const color = getCategoryColor(categoryData);
+                                return {
+                                  name: item.category,
+                                  value: item.total,
+                                  percentage: (
+                                    (item.total / totalExpenses) *
+                                    100
+                                  ).toFixed(1),
+                                  color: color,
+                                  index,
+                                };
+                              })}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={false}
+                            outerRadius={140}
+                            innerRadius={80}
+                            paddingAngle={3}
+                            dataKey="value"
+                            animationBegin={0}
+                            animationDuration={800}
+                            animationEasing="ease-out"
+                            activeIndex={activeIndex}
+                            onClick={(data, index) => {
+                              if (activeIndex === index) {
+                                setActiveIndex(null);
+                                setClickedCategory(null);
+                              } else {
+                                setActiveIndex(index);
+                                setClickedCategory(data);
+                              }
+                            }}
                           >
-                            <div
-                              className="w-3 h-3 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: color }}
-                            />
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-xs md:text-sm font-medium truncate ${textClass}`}>
-                                {item.category}
-                              </p>
-                              <p className={`text-xs ${textSecondaryClass}`}>
-                                €{item.total.toFixed(2)} ({percentage.toFixed(1)}%)
-                              </p>
+                            {categoryTotals.map((item, index) => {
+                              const categoryData = categories[item.category];
+                              const color = getCategoryColor(categoryData);
+                              return (
+                                <Cell
+                                  key={`cell-${index}`}
+                                  fill={color}
+                                  stroke={
+                                    activeIndex === index
+                                      ? darkMode
+                                        ? "#ffffff"
+                                        : "#000000"
+                                      : darkMode
+                                      ? "#1f2937"
+                                      : "#ffffff"
+                                  }
+                                  strokeWidth={activeIndex === index ? 5 : 3}
+                                  filter={
+                                    activeIndex === index
+                                      ? `url(#shadow-${index})`
+                                      : undefined
+                                  }
+                                  style={{
+                                    cursor: "pointer",
+                                    transition: "all 0.3s ease",
+                                  }}
+                                />
+                              );
+                            })}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+
+                      {/* Total en el centro */}
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="text-center">
+                          <p className={`text-xs ${textSecondaryClass} mb-1`}>
+                            Total
+                          </p>
+                          <p
+                            className={`text-3xl font-bold ${textClass} leading-tight`}
+                          >
+                            €{totalExpenses.toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Tooltip personalizado que aparece al hacer click */}
+                      {clickedCategory && (
+                        <div
+                          className="absolute z-50"
+                          style={{
+                            top: "50%",
+                            left: "50%",
+                            transform: "translate(-50%, -50%)",
+                            marginTop: "-60px",
+                          }}
+                        >
+                          <div
+                            className={`p-4 rounded-xl border shadow-2xl ${
+                              darkMode
+                                ? "bg-gray-800 border-gray-700"
+                                : "bg-white border-purple-200"
+                            }`}
+                            style={{
+                              boxShadow: "0 10px 40px rgba(0,0,0,0.3)",
+                              minWidth: "180px",
+                            }}
+                          >
+                            <p
+                              className={`text-lg font-bold mb-3 ${
+                                darkMode ? "text-white" : "text-purple-900"
+                              }`}
+                            >
+                              {clickedCategory.name}
+                            </p>
+                            <div className="flex items-center gap-3">
+                              <div
+                                className="w-5 h-5 rounded-full flex-shrink-0 border-2"
+                                style={{
+                                  backgroundColor: clickedCategory.color,
+                                  borderColor: darkMode ? "#ffffff" : "#000000",
+                                }}
+                              />
+                              <div className="flex items-baseline gap-2">
+                                <p
+                                  className={`text-xl font-bold ${
+                                    darkMode ? "text-white" : "text-purple-900"
+                                  }`}
+                                >
+                                  €{clickedCategory.value?.toFixed(2)}
+                                </p>
+                                <p
+                                  className={`text-sm ${
+                                    darkMode ? "text-gray-200" : "text-gray-600"
+                                  }`}
+                                >
+                                  ({clickedCategory.percentage}%)
+                                </p>
+                              </div>
                             </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveIndex(null);
+                                setClickedCategory(null);
+                              }}
+                              className={`absolute top-2 right-2 p-1 rounded-full ${
+                                darkMode
+                                  ? "hover:bg-gray-700 text-gray-200"
+                                  : "hover:bg-purple-100 text-gray-600"
+                              } transition-all`}
+                              aria-label="Cerrar"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
                           </div>
-                        );
-                      })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Leyenda personalizada - Compacta en móvil */}
+                    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">
+                      {categoryTotals
+                        .sort((a, b) => b.total - a.total)
+                        .map((item, index) => {
+                          const categoryData = categories[item.category];
+                          const color = getCategoryColor(categoryData);
+                          const percentage = (
+                            (item.total / totalExpenses) *
+                            100
+                          ).toFixed(1);
+                          return (
+                            <div
+                              key={index}
+                              className={`p-2 md:p-3 rounded-lg md:rounded-xl border ${
+                                darkMode
+                                  ? "bg-gray-800/50 border-gray-700"
+                                  : "bg-purple-50/50 border-purple-100"
+                              } transition-all hover:shadow-md`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className="w-3 h-3 md:w-4 md:h-4 rounded-full flex-shrink-0"
+                                  style={{ backgroundColor: color }}
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <p
+                                    className={`text-xs md:text-sm font-semibold ${textClass} truncate`}
+                                  >
+                                    {item.category}
+                                  </p>
+                                  <div className="flex items-center gap-1.5 mt-0.5">
+                                    <p
+                                      className={`text-[10px] md:text-xs font-bold ${textClass}`}
+                                    >
+                                      €{item.total.toFixed(2)}
+                                    </p>
+                                    <p
+                                      className={`text-[10px] md:text-xs ${textSecondaryClass}`}
+                                    >
+                                      ({percentage}%)
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+
+                    <div className="space-y-2 md:space-y-3">
+                      {Object.entries(expensesByCategory)
+                        .sort(([, subsA], [, subsB]) => {
+                          const totalA = Object.values(subsA)
+                            .flat()
+                            .reduce((sum, exp) => sum + exp.amount, 0);
+                          const totalB = Object.values(subsB)
+                            .flat()
+                            .reduce((sum, exp) => sum + exp.amount, 0);
+                          return totalB - totalA;
+                        })
+                        .map(([category, subcategories]) => {
+                          const categoryTotal = Object.values(subcategories)
+                            .flat()
+                            .reduce((sum, exp) => sum + exp.amount, 0);
+                          const percentage = (categoryTotal / totalExpenses) * 100;
+                          const isExpanded = expandedCategories[category];
+
+                          const categoryData = categories[category];
+                          const categoryColor = getCategoryColor(categoryData);
+
+                          return (
+                            <div
+                              key={category}
+                              className={`${
+                                darkMode
+                                  ? "bg-gray-900/60 border-gray-800/60"
+                                  : "bg-white/50"
+                              } rounded-xl md:rounded-2xl border ${
+                                darkMode
+                                  ? "border-gray-800/60"
+                                  : "border-purple-100"
+                              } p-2.5 md:p-4 sm:p-5 transition-all`}
+                            >
+                              <button
+                                onClick={() => onToggleCategory(category)}
+                                className="w-full flex items-center justify-between"
+                              >
+                                <div className="flex items-center gap-2 md:gap-3 sm:gap-4">
+                                  <span
+                                    className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full flex-shrink-0"
+                                    style={{ backgroundColor: categoryColor }}
+                                  ></span>
+                                  <div className="text-left min-w-0 flex-1">
+                                    <p
+                                      className={`text-sm md:text-base font-semibold ${textClass} truncate`}
+                                    >
+                                      {category}
+                                    </p>
+                                    <p
+                                      className={`text-xs md:text-sm ${textSecondaryClass} opacity-80`}
+                                    >
+                                      {percentage.toFixed(1)}% del total
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
+                                  <span
+                                    className={`text-sm md:text-base font-semibold ${textClass}`}
+                                  >
+                                    €{categoryTotal.toFixed(2)}
+                                  </span>
+                                  {isExpanded ? (
+                                    <ChevronUp
+                                      className={`w-4 h-4 md:w-5 md:h-5 ${textSecondaryClass}`}
+                                    />
+                                  ) : (
+                                    <ChevronDown
+                                      className={`w-4 h-4 md:w-5 md:h-5 ${textSecondaryClass}`}
+                                    />
+                                  )}
+                                </div>
+                              </button>
+
+                              {isExpanded && (
+                                <div className="mt-2 md:mt-3 space-y-1.5 md:space-y-2 pl-3 md:pl-5">
+                                  {Object.entries(subcategories)
+                                    .sort(([, expsA], [, expsB]) => {
+                                      const totalA = expsA.reduce(
+                                        (sum, exp) => sum + exp.amount,
+                                        0
+                                      );
+                                      const totalB = expsB.reduce(
+                                        (sum, exp) => sum + exp.amount,
+                                        0
+                                      );
+                                      return totalB - totalA;
+                                    })
+                                    .map(([subcategory, exps]) => {
+                                      const spent = exps.reduce(
+                                        (sum, exp) => sum + exp.amount,
+                                        0
+                                      );
+                                      const subPercentage =
+                                        (spent / totalExpenses) * 100;
+
+                                      return (
+                                        <div
+                                          key={subcategory}
+                                          className={`${
+                                            darkMode
+                                              ? "bg-gray-900/50 border border-gray-700/50"
+                                              : "bg-white/60"
+                                          } rounded-lg md:rounded-xl p-2 md:p-3`}
+                                        >
+                                          <div className="flex justify-between items-center mb-1.5 md:mb-2">
+                                            <p
+                                              className={`text-sm md:text-base font-medium ${textClass} truncate`}
+                                            >
+                                              {subcategory}
+                                            </p>
+                                            <span
+                                              className={`text-xs md:text-sm font-semibold flex-shrink-0 ml-2 ${textSecondaryClass}`}
+                                            >
+                                              €{spent.toFixed(2)}
+                                            </span>
+                                          </div>
+                                          <div
+                                            className={`h-1.5 md:h-2 rounded-full ${
+                                              darkMode
+                                                ? "bg-gray-800"
+                                                : "bg-purple-100"
+                                            } overflow-hidden`}
+                                          >
+                                            <div
+                                              className="h-full"
+                                              style={{
+                                                width: `${Math.min(
+                                                  subPercentage,
+                                                  100
+                                                )}%`,
+                                                backgroundColor: categoryColor,
+                                                opacity: 0.8,
+                                              }}
+                                            ></div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                     </div>
                   </div>
                 )}
