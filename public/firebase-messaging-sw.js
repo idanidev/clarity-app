@@ -53,14 +53,53 @@ self.addEventListener('fetch', (event) => {
   // NO cachear llamadas a Firebase/Firestore (dejar que Firestore maneje su cache)
   if (url.hostname.includes('firebaseio.com') || 
       url.hostname.includes('googleapis.com') ||
-      url.hostname.includes('firestore.googleapis.com')) {
+      url.hostname.includes('firestore.googleapis.com') ||
+      url.hostname.includes('firebaseapp.com')) {
     return; // Dejar pasar sin cachear
   }
   
-  // Cachear solo assets estáticos
+  // NO cachear el HTML principal para evitar problemas en iOS PWA
+  if (event.request.method === 'GET' && 
+      (event.request.url.endsWith('/') || 
+       event.request.url.endsWith('/index.html') ||
+       event.request.destination === 'document')) {
+    // Para el HTML, usar network-first para evitar pantallas en blanco
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          // Solo cachear si la respuesta es exitosa
+          if (response && response.status === 200) {
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return response;
+        })
+        .catch(() => {
+          // Si falla la red, intentar desde cache
+          return caches.match(event.request);
+        })
+    );
+    return;
+  }
+  
+  // Para otros assets estáticos, usar cache-first
   event.respondWith(
     caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
+      if (response) {
+        return response;
+      }
+      return fetch(event.request).then((response) => {
+        // Solo cachear respuestas exitosas
+        if (response && response.status === 200) {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+        }
+        return response;
+      });
     })
   );
 });

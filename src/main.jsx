@@ -38,9 +38,40 @@ if (typeof window !== "undefined") {
   });
 }
 
+// Manejar reactivación de la app (especialmente importante para iOS PWA)
+if (typeof window !== "undefined") {
+  // Listener para cuando la app vuelve a estar visible
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      // Forzar un pequeño reflow para asegurar que el contenido se renderice
+      document.body.offsetHeight;
+    }
+  });
+
+  // Listener para cuando la página se muestra desde cache (iOS PWA)
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted) {
+      console.log("Página restaurada desde cache, forzando re-render");
+      // Pequeño delay para asegurar que todo esté listo
+      setTimeout(() => {
+        // Forzar un reflow
+        document.body.offsetHeight;
+        // Disparar un evento personalizado para que App.jsx lo maneje
+        window.dispatchEvent(new Event("apprestored"));
+      }, 100);
+    }
+  });
+
+  // Listener para cuando la app recibe foco
+  window.addEventListener("focus", () => {
+    // Forzar un reflow para asegurar renderizado
+    document.body.offsetHeight;
+  });
+}
+
 // Registrar Service Worker para notificaciones push
 if ("serviceWorker" in navigator && typeof window !== "undefined") {
-  window.addEventListener("load", () => {
+  const registerServiceWorker = () => {
     navigator.serviceWorker
       .register("/firebase-messaging-sw.js", {
         scope: "/",
@@ -49,10 +80,10 @@ if ("serviceWorker" in navigator && typeof window !== "undefined") {
       .then((registration) => {
         console.log("Service Worker registrado correctamente:", registration.scope);
         
-        // Verificar actualizaciones periódicamente
-        setInterval(() => {
+        // Verificar actualizaciones periódicamente (menos frecuente para iOS)
+        const updateInterval = setInterval(() => {
           registration.update();
-        }, 60000); // Cada minuto
+        }, 300000); // Cada 5 minutos (reducido para iOS)
         
         // Escuchar actualizaciones del Service Worker
         registration.addEventListener("updatefound", () => {
@@ -62,8 +93,13 @@ if ("serviceWorker" in navigator && typeof window !== "undefined") {
             newWorker.addEventListener("statechange", () => {
               if (newWorker.state === "activated") {
                 console.log("Nueva versión del Service Worker activada");
-                // Recargar para usar la nueva versión
-                window.location.reload();
+                // Solo recargar si la app está visible (evitar pantalla en blanco)
+                if (document.visibilityState === "visible") {
+                  // Pequeño delay antes de recargar para evitar pantalla en blanco
+                  setTimeout(() => {
+                    window.location.reload();
+                  }, 500);
+                }
               }
             });
           }
@@ -72,21 +108,13 @@ if ("serviceWorker" in navigator && typeof window !== "undefined") {
       .catch((error) => {
         console.error("Error al registrar Service Worker:", error);
       });
-  });
+  };
+
+  window.addEventListener("load", registerServiceWorker);
   
   // También intentar registrar inmediatamente si el DOM ya está listo
   if (document.readyState === "complete" || document.readyState === "interactive") {
-    navigator.serviceWorker
-      .register("/firebase-messaging-sw.js", {
-        scope: "/",
-        updateViaCache: "none",
-      })
-      .then((registration) => {
-        console.log("Service Worker registrado (DOM ya listo):", registration.scope);
-      })
-      .catch((error) => {
-        console.error("Error al registrar Service Worker (DOM ya listo):", error);
-      });
+    registerServiceWorker();
   }
 }
 
