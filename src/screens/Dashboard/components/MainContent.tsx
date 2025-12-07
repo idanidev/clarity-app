@@ -1356,20 +1356,14 @@ const MainContent = memo<MainContentProps>(
               exit={{ opacity: 0, x: -20 }}
               transition={getTransition("smooth")}
             >
-              {categoryTotals.length === 0 ? (
-                <div className={`${cardClass} rounded-2xl p-3 md:p-6 border shadow-lg`}>
+              <div className={`${cardClass} rounded-2xl p-3 md:p-6 border shadow-lg`}>
+                {categoryTotals.length === 0 ? (
                   <div className="text-center py-8 md:py-12">
                     <AlertTriangle className={`w-12 md:w-16 h-12 md:h-16 ${textSecondaryClass} mx-auto mb-3 md:mb-4`} />
                     <p className={`text-sm md:text-base ${textSecondaryClass}`}>No hay gastos en este período</p>
                   </div>
-                </div>
-              ) : (
-                <div className="space-y-4 md:space-y-6">
-                  {/* Gráfico de Pastel */}
-                  <div className={`${cardClass} rounded-2xl p-3 md:p-6 border shadow-lg`}>
-                    <h3 className={`text-lg md:text-xl font-bold mb-4 ${textClass}`}>
-                      Distribución por Categorías
-                    </h3>
+                ) : (
+                  <div className="space-y-3 md:space-y-6">
                     <ResponsiveContainer width="100%" height={isMobile ? 250 : 400}>
                       <PieChart>
                         <Pie
@@ -1385,11 +1379,14 @@ const MainContent = memo<MainContentProps>(
                           outerRadius={isMobile ? 80 : 120}
                           fill="#8884d8"
                           dataKey="value"
+                          onClick={handlePieClick}
                         >
                           {categoryTotals.map((item, index) => (
                             <Cell
                               key={`cell-${index}`}
                               fill={categoryColors[item.category] || "#8B5CF6"}
+                              stroke={activeIndex === index ? (darkMode ? "#ffffff" : "#000000") : "none"}
+                              strokeWidth={activeIndex === index ? 3 : 0}
                             />
                           ))}
                         </Pie>
@@ -1404,20 +1401,17 @@ const MainContent = memo<MainContentProps>(
                         />
                       </PieChart>
                     </ResponsiveContainer>
-                    {/* Leyenda de categorías */}
-                    <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-3">
+                    {/* Leyenda de categorías - más compacta */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 md:gap-3">
                       {categoryTotals.map((item) => {
                         const color = categoryColors[item.category] || "#8B5CF6";
                         const percentage = (item.total / totalExpenses) * 100;
                         return (
                           <div
                             key={item.category}
-                            className="flex items-center gap-2 p-2 rounded-lg"
-                            style={{
-                              backgroundColor: darkMode
-                                ? "rgba(31, 41, 55, 0.5)"
-                                : "rgba(255, 255, 255, 0.5)",
-                            }}
+                            className={`flex items-center gap-2 p-2 rounded-lg ${
+                              darkMode ? "bg-gray-800/50" : "bg-white/50"
+                            }`}
                           >
                             <div
                               className="w-3 h-3 rounded-full flex-shrink-0"
@@ -1436,87 +1430,8 @@ const MainContent = memo<MainContentProps>(
                       })}
                     </div>
                   </div>
-
-                  {/* Gráfico de Barras */}
-                  <div className={`${cardClass} rounded-2xl p-3 md:p-6 border shadow-lg`}>
-                    <h3 className={`text-lg md:text-xl font-bold mb-4 ${textClass}`}>
-                      Gastos por Categoría
-                    </h3>
-                    <ResponsiveContainer width="100%" height={isMobile ? 300 : 400}>
-                      <BarChart
-                        data={categoryTotals
-                          .sort((a, b) => b.total - a.total)
-                          .map((item) => ({
-                            name: item.category,
-                            value: item.total,
-                            color: categoryColors[item.category] || "#8B5CF6",
-                          }))}
-                        margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-                      >
-                        <CartesianGrid
-                          strokeDasharray="3 3"
-                          stroke={darkMode ? "#374151" : "#e5e7eb"}
-                        />
-                        <XAxis
-                          dataKey="name"
-                          angle={-45}
-                          textAnchor="end"
-                          height={80}
-                          tick={{ fill: darkMode ? "#9ca3af" : "#6b7280", fontSize: isMobile ? 10 : 12 }}
-                        />
-                        <YAxis
-                          tick={{ fill: darkMode ? "#9ca3af" : "#6b7280", fontSize: isMobile ? 10 : 12 }}
-                          tickFormatter={(value) => `€${value.toFixed(0)}`}
-                        />
-                        <Tooltip
-                          formatter={(value: number) => `€${value.toFixed(2)}`}
-                          contentStyle={{
-                            backgroundColor: darkMode ? "#1f2937" : "#ffffff",
-                            border: darkMode ? "1px solid #374151" : "1px solid #e5e7eb",
-                            borderRadius: "8px",
-                            color: darkMode ? "#f3f4f6" : "#111827",
-                          }}
-                        />
-                        <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                          {categoryTotals.map((item, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={categoryColors[item.category] || "#8B5CF6"}
-                            />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-
-                  {/* Resumen de totales */}
-                  <div className={`${cardClass} rounded-2xl p-4 md:p-6 border shadow-lg`}>
-                    <h3 className={`text-lg md:text-xl font-bold mb-4 ${textClass}`}>
-                      Resumen
-                    </h3>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center py-2 border-b border-opacity-20" style={{ borderColor: darkMode ? "#4b5563" : "#d1d5db" }}>
-                        <span className={`text-sm md:text-base ${textSecondaryClass}`}>Total de gastos:</span>
-                        <span className={`text-base md:text-lg font-bold ${textClass}`}>
-                          €{totalExpenses.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center py-2 border-b border-opacity-20" style={{ borderColor: darkMode ? "#4b5563" : "#d1d5db" }}>
-                        <span className={`text-sm md:text-base ${textSecondaryClass}`}>Número de gastos:</span>
-                        <span className={`text-base md:text-lg font-bold ${textClass}`}>
-                          {filteredExpenses.length}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center py-2">
-                        <span className={`text-sm md:text-base ${textSecondaryClass}`}>Categorías:</span>
-                        <span className={`text-base md:text-lg font-bold ${textClass}`}>
-                          {categoryTotals.length}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
