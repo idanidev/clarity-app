@@ -12,6 +12,7 @@ import {
   Target,
   Trash2,
   TrendingUp,
+  X,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fadeInUp, getTransition } from "../../../config/framerMotion";
@@ -60,6 +61,7 @@ interface AIAssistantProps {
   recurringExpenses: any[];
   addExpense: (expense: ExpenseData) => Promise<void>;
   isActive: boolean;
+  onClose?: () => void; // Callback para cerrar
 }
 
 // ============================================
@@ -76,11 +78,7 @@ const useKeyboardHeight = () => {
       if (!viewport) return;
 
       const heightDiff = window.innerHeight - viewport.height;
-
-      setKeyboardHeight((prev) => {
-        const newHeight = heightDiff > 150 ? heightDiff : 0;
-        return Math.abs(prev - newHeight) > 10 ? newHeight : prev;
-      });
+      setKeyboardHeight(heightDiff > 100 ? heightDiff : 0);
     };
 
     const viewport = window.visualViewport;
@@ -391,11 +389,9 @@ const createCategoryMatcher = (categories: Category) => {
       .trim();
     if (!searchText) return categoryNames[0];
 
-    // 1. Match exacto
     let match = categoryNames.find((cat) => cat.toLowerCase() === searchText);
     if (match && categories[match]) return match;
 
-    // 2. Match parcial
     match = categoryNames.find((cat) => {
       const catLower = cat.toLowerCase();
       return (
@@ -405,7 +401,6 @@ const createCategoryMatcher = (categories: Category) => {
     });
     if (match) return match;
 
-    // 3. Sinónimos
     for (const [key, values] of Object.entries(synonyms)) {
       const foundSynonym = values.find(
         (syn) => searchText.includes(syn) || syn.includes(searchText)
@@ -426,7 +421,6 @@ const createCategoryMatcher = (categories: Category) => {
       }
     }
 
-    // 4. Fuzzy match
     const fuzzyMatch = categoryNames.find((cat) => {
       const catLower = cat.toLowerCase();
       let matches = 0;
@@ -669,26 +663,26 @@ const WelcomeScreen = memo(
     ];
 
     return (
-      <div className="flex flex-col items-center text-center px-2 md:px-4 pt-4 md:pt-6">
+      <div className="flex flex-col items-center text-center px-4 pt-8">
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ type: "spring", damping: 15 }}
-          className="flex items-center justify-center gap-2 md:gap-3 mb-3 md:mb-4"
+          className="flex items-center justify-center gap-3 mb-4"
         >
-          <Sparkles className="w-6 h-6 md:w-7 md:h-7 text-purple-500" />
-          <h3 className={`text-lg md:text-2xl font-bold ${textClass}`}>
+          <Sparkles className="w-7 h-7 text-purple-500" />
+          <h3 className={`text-xl md:text-2xl font-bold ${textClass}`}>
             ¡Hola! Soy tu asistente financiero
           </h3>
         </motion.div>
 
         <p
-          className={`text-sm md:text-base ${textSecondaryClass} max-w-md mx-auto mb-4 md:mb-6`}
+          className={`text-sm md:text-base ${textSecondaryClass} max-w-md mx-auto mb-6`}
         >
           Puedo analizar tus gastos, darte consejos y añadir gastos por ti
         </p>
 
-        <div className="grid grid-cols-2 gap-2 md:gap-3 w-full max-w-md mb-5 md:mb-6">
+        <div className="grid grid-cols-2 gap-3 w-full max-w-md mb-6">
           {[
             { icon: TrendingUp, text: "Analizar gastos" },
             { icon: Plus, text: "Añadir por voz" },
@@ -705,9 +699,7 @@ const WelcomeScreen = memo(
               }`}
             >
               <item.icon className="w-5 h-5 text-purple-500" />
-              <span className={`text-xs md:text-sm ${textClass}`}>
-                {item.text}
-              </span>
+              <span className={`text-sm ${textClass}`}>{item.text}</span>
             </motion.div>
           ))}
         </div>
@@ -745,23 +737,17 @@ const WelcomeScreen = memo(
 WelcomeScreen.displayName = "WelcomeScreen";
 
 // ============================================
-// MAIN COMPONENT
+// MAIN COMPONENT - OVERLAY COMPLETO
 // ============================================
 const AIAssistant: React.FC<AIAssistantProps> = memo(
   ({
     darkMode,
     textClass,
     textSecondaryClass,
-    expenses,
-    allExpenses,
     categories,
-    budgets,
-    categoryTotals,
-    income,
-    goals,
-    recurringExpenses,
     addExpense,
     isActive,
+    onClose,
   }) => {
     const { t } = useTranslation();
     const [messages, setMessages] = useState<Message[]>([]);
@@ -822,7 +808,7 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
 
       const timer = setTimeout(() => {
         inputRef.current?.focus();
-      }, 150);
+      }, 300);
 
       return () => clearTimeout(timer);
     }, [isActive]);
@@ -893,7 +879,6 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
       setIsLoading(true);
 
       try {
-        // TODO: Integración con IA pendiente
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
         setMessages((prev) => [
@@ -935,62 +920,95 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
       inputRef.current?.focus();
     }, []);
 
+    if (!isActive) return null;
+
+    // Calcular altura del contenedor de mensajes
+    const inputHeight = 80; // Altura aproximada del input area
+    const headerHeight = 64; // Altura del header
+    const messagesHeight =
+      keyboardHeight > 0
+        ? `calc(100vh - ${keyboardHeight}px - ${headerHeight}px - ${inputHeight}px)`
+        : `calc(100vh - ${headerHeight}px - ${inputHeight}px)`;
+
     return (
-      <div className="flex flex-col h-full">
-        {/* Header con contador y botón limpiar */}
-        {messages.length > 0 && (
-          <div className="flex justify-between items-center mb-3 px-2">
-            <span className={`text-sm ${textSecondaryClass}`}>
-              {messages.length} mensaje{messages.length !== 1 ? "s" : ""}
-            </span>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className={`fixed inset-0 z-[100] ${
+          darkMode ? "bg-gray-900" : "bg-white"
+        }`}
+        style={{
+          paddingTop: "env(safe-area-inset-top)",
+          paddingBottom: "env(safe-area-inset-bottom)",
+        }}
+      >
+        {/* Header fijo */}
+        <div
+          className={`sticky top-0 z-10 border-b px-4 py-3 flex items-center justify-between ${
+            darkMode
+              ? "bg-gray-900 border-gray-700"
+              : "bg-white border-gray-200"
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <Sparkles className="w-6 h-6 text-purple-500" />
+            <h2 className={`text-lg font-bold ${textClass}`}>Asistente IA</h2>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {messages.length > 0 && (
+              <>
+                <span className={`text-sm ${textSecondaryClass}`}>
+                  {messages.length}
+                </span>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleClearChat}
+                  className={`p-2 rounded-lg transition-colors ${
+                    darkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
+                  }`}
+                  title="Limpiar chat"
+                >
+                  <Trash2 className="w-5 h-5 text-red-500" />
+                </motion.button>
+              </>
+            )}
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={handleClearChat}
+              onClick={onClose}
               className={`p-2 rounded-lg transition-colors ${
-                darkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
+                darkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
               }`}
+              title="Cerrar"
             >
-              <Trash2 className="w-4 h-4 text-red-500" />
+              <X className="w-6 h-6" />
             </motion.button>
           </div>
-        )}
+        </div>
 
-        {/* Chat Container - ALTURA FIJA SIMPLIFICADA */}
+        {/* Contenedor de mensajes */}
         <div
-          className={`flex-1 rounded-xl border ${
-            darkMode
-              ? "bg-gray-800/50 border-gray-700"
-              : "bg-white border-gray-200"
-          } overflow-hidden flex flex-col mb-4`}
+          ref={messagesContainerRef}
+          className="overflow-y-auto px-4 py-4"
           style={{
-            height:
-              keyboardHeight > 0
-                ? `calc(100vh - ${keyboardHeight}px - 16rem)` // Con teclado
-                : "calc(100vh - 16rem)", // Sin teclado (nav + input + padding)
-            maxHeight:
-              keyboardHeight > 0
-                ? `calc(100vh - ${keyboardHeight}px - 16rem)`
-                : "calc(100vh - 16rem)",
+            height: messagesHeight,
+            WebkitOverflowScrolling: "touch",
+            overscrollBehavior: "contain",
           }}
         >
-          <div
-            ref={messagesContainerRef}
-            className="flex-1 overflow-y-auto px-3 md:px-4 py-3 md:py-4 space-y-3"
-            style={{
-              WebkitOverflowScrolling: "touch",
-              scrollBehavior: "smooth",
-              overscrollBehavior: "contain",
-            }}
-          >
-            {messages.length === 0 ? (
-              <WelcomeScreen
-                textClass={textClass}
-                textSecondaryClass={textSecondaryClass}
-                darkMode={darkMode}
-                onExampleClick={handleExampleClick}
-              />
-            ) : (
+          {messages.length === 0 ? (
+            <WelcomeScreen
+              textClass={textClass}
+              textSecondaryClass={textSecondaryClass}
+              darkMode={darkMode}
+              onExampleClick={handleExampleClick}
+            />
+          ) : (
+            <div className="space-y-3 max-w-4xl mx-auto">
               <AnimatePresence>
                 {messages.map((message, idx) => (
                   <MessageBubble
@@ -1009,7 +1027,7 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
                   >
                     <div
                       className={`rounded-xl px-4 py-3 ${
-                        darkMode ? "bg-gray-700" : "bg-gray-100"
+                        darkMode ? "bg-gray-800" : "bg-gray-100"
                       }`}
                     >
                       <div className="flex gap-1">
@@ -1025,21 +1043,23 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
                   </motion.div>
                 )}
               </AnimatePresence>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
         </div>
 
-        {/* Input Area - FIJO EN BOTTOM */}
+        {/* Input Area fija abajo */}
         <div
-          className={`fixed bottom-0 left-0 right-0 border-t p-3 md:p-4 ${
+          className={`fixed bottom-0 left-0 right-0 border-t p-4 ${
             darkMode
-              ? "border-gray-700 bg-gray-900/95"
-              : "border-gray-200 bg-white/95"
+              ? "bg-gray-900 border-gray-700"
+              : "bg-white border-gray-200"
           }`}
           style={{
-            paddingBottom: "calc(1rem + env(safe-area-inset-bottom) + 4.5rem)", // Nav height
-            zIndex: 45,
+            paddingBottom:
+              keyboardHeight > 0
+                ? "1rem"
+                : "calc(1rem + env(safe-area-inset-bottom))",
           }}
         >
           <div className="max-w-4xl mx-auto">
@@ -1060,7 +1080,7 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
                 disabled={isLoading}
                 className={`flex-1 px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all ${
                   darkMode
-                    ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                    ? "bg-gray-800 border-gray-700 text-white placeholder-gray-400"
                     : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
                 } disabled:opacity-50`}
                 style={{ fontSize: "16px" }}
@@ -1075,7 +1095,7 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
                   isListening
                     ? "bg-red-500 text-white shadow-lg shadow-red-500/50"
                     : darkMode
-                    ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    ? "bg-gray-800 text-gray-300 hover:bg-gray-700"
                     : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                 } disabled:opacity-50`}
               >
@@ -1102,7 +1122,7 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
     );
   }
 );
