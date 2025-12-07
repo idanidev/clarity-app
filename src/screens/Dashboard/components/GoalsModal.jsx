@@ -151,7 +151,9 @@ const GoalsModal = ({
   // Calcular ahorro actual
   const currentMonthExpenses = categoryTotals.reduce((sum, item) => sum + item.total, 0);
   const currentSavings = income > 0 ? income - currentMonthExpenses : 0;
-  const savingsProgress = monthlySavingsGoal > 0 ? (currentSavings / monthlySavingsGoal) * 100 : 0;
+  // Convertir monthlySavingsGoal a número para operaciones numéricas
+  const monthlySavingsGoalNum = parseFloat(monthlySavingsGoal) || 0;
+  const savingsProgress = monthlySavingsGoalNum > 0 ? (currentSavings / monthlySavingsGoalNum) * 100 : 0;
 
   return (
     <div
@@ -317,15 +319,15 @@ const GoalsModal = ({
                     className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
                     placeholder="0.00"
                   />
-                  {monthlySavingsGoal > 0 && income > 0 && (
+                  {monthlySavingsGoalNum > 0 && income > 0 && (
                     <div className="space-y-3 mt-4">
                       <div className="flex justify-between items-baseline">
                         <div>
                           <p className={`text-xs ${textSecondaryClass} mb-1`}>Ahorro actual</p>
                           <p className={`text-2xl font-semibold ${
-                            currentSavings >= monthlySavingsGoal 
+                            currentSavings >= monthlySavingsGoalNum 
                               ? "text-green-600" 
-                              : currentSavings >= monthlySavingsGoal * 0.8
+                              : currentSavings >= monthlySavingsGoalNum * 0.8
                               ? "text-yellow-600"
                               : darkMode ? "text-purple-400" : "text-purple-600"
                           }`}>
@@ -335,18 +337,18 @@ const GoalsModal = ({
                         <div className="text-right">
                           <p className={`text-xs ${textSecondaryClass} mb-1`}>Objetivo</p>
                           <p className={`text-lg font-semibold ${textClass}`}>
-                            €{monthlySavingsGoal.toFixed(2)}
+                            €{monthlySavingsGoalNum.toFixed(2)}
                           </p>
                         </div>
                       </div>
                       <div className="space-y-2">
                         <div className="flex justify-between items-center text-xs">
                           <span className={textSecondaryClass}>
-                            {currentSavings >= monthlySavingsGoal 
+                            {currentSavings >= monthlySavingsGoalNum 
                               ? "🎉 ¡Objetivo alcanzado!" 
-                              : currentSavings >= monthlySavingsGoal * 0.8
+                              : currentSavings >= monthlySavingsGoalNum * 0.8
                               ? "💪 ¡Casi lo logras!"
-                              : `Faltan €${Math.max(0, (monthlySavingsGoal - currentSavings).toFixed(2))}`}
+                              : `Faltan €${Math.max(0, (monthlySavingsGoalNum - currentSavings)).toFixed(2)}`}
                           </span>
                           <span className={`font-semibold ${
                             savingsProgress >= 100 
