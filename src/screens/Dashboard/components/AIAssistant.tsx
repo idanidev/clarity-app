@@ -935,13 +935,9 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
       inputRef.current?.focus();
     }, []);
 
-    const containerHeight =
-      keyboardHeight > 0
-        ? `calc(100dvh - ${keyboardHeight}px - 13rem)`
-        : "calc(100dvh - 13rem)";
-
     return (
-      <div className="flex flex-col h-full pb-24">
+      <div className="flex flex-col h-full">
+        {/* Header con contador y botón limpiar */}
         {messages.length > 0 && (
           <div className="flex justify-between items-center mb-3 px-2">
             <span className={`text-sm ${textSecondaryClass}`}>
@@ -960,13 +956,23 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
           </div>
         )}
 
+        {/* Chat Container - ALTURA FIJA SIMPLIFICADA */}
         <div
           className={`flex-1 rounded-xl border ${
             darkMode
               ? "bg-gray-800/50 border-gray-700"
               : "bg-white border-gray-200"
-          } overflow-hidden flex flex-col`}
-          style={{ height: containerHeight, maxHeight: containerHeight }}
+          } overflow-hidden flex flex-col mb-4`}
+          style={{
+            height:
+              keyboardHeight > 0
+                ? `calc(100vh - ${keyboardHeight}px - 16rem)` // Con teclado
+                : "calc(100vh - 16rem)", // Sin teclado (nav + input + padding)
+            maxHeight:
+              keyboardHeight > 0
+                ? `calc(100vh - ${keyboardHeight}px - 16rem)`
+                : "calc(100vh - 16rem)",
+          }}
         >
           <div
             ref={messagesContainerRef}
@@ -1024,16 +1030,15 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
           </div>
         </div>
 
+        {/* Input Area - FIJO EN BOTTOM */}
         <div
           className={`fixed bottom-0 left-0 right-0 border-t p-3 md:p-4 ${
             darkMode
-              ? "border-gray-700 bg-gray-900/98"
-              : "border-gray-200 bg-white/98"
+              ? "border-gray-700 bg-gray-900/95"
+              : "border-gray-200 bg-white/95"
           }`}
           style={{
-            paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom) + 5rem)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
+            paddingBottom: "calc(1rem + env(safe-area-inset-bottom) + 4.5rem)", // Nav height
             zIndex: 45,
           }}
         >
