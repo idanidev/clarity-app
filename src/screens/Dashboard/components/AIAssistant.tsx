@@ -1,3 +1,6 @@
+// ============================================
+// AIAssistant.tsx - Versión dentro del layout normal
+// ============================================
 import { AnimatePresence, motion } from "framer-motion";
 import {
   CheckCircle,
@@ -19,7 +22,7 @@ import { fadeInUp, getTransition } from "../../../config/framerMotion";
 import { useTranslation } from "../../../contexts/LanguageContext";
 
 // ============================================
-// TYPES
+// TYPES (mantener igual)
 // ============================================
 interface Message {
   role: "user" | "assistant";
@@ -61,11 +64,11 @@ interface AIAssistantProps {
   recurringExpenses: any[];
   addExpense: (expense: ExpenseData) => Promise<void>;
   isActive: boolean;
-  onClose?: () => void; // Callback para cerrar
+  onClose: () => void; // Ya no es opcional
 }
 
 // ============================================
-// CUSTOM HOOKS
+// CUSTOM HOOKS (mantener igual)
 // ============================================
 const useKeyboardHeight = () => {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -201,7 +204,7 @@ const useVoiceRecognition = (
 };
 
 // ============================================
-// UTILITIES
+// UTILITIES (mantener igual - código de categorías y detección)
 // ============================================
 const createCategoryMatcher = (categories: Category) => {
   const categoryNames = Object.keys(categories);
@@ -501,7 +504,7 @@ const detectExpenseFromText = (text: string) => {
 };
 
 // ============================================
-// SUB-COMPONENTS
+// SUB-COMPONENTS (mantener igual - MessageBubble, VoiceIndicator, WelcomeScreen)
 // ============================================
 const MessageBubble = memo(
   ({
@@ -533,7 +536,6 @@ const MessageBubble = memo(
           <p className="text-xs md:text-sm whitespace-pre-wrap break-words leading-relaxed">
             {message.content}
           </p>
-
           {message.action === "expense_added" && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
@@ -544,7 +546,6 @@ const MessageBubble = memo(
               <span>Gasto añadido correctamente</span>
             </motion.div>
           )}
-
           {!isUser && (
             <button
               onClick={onCopy}
@@ -582,10 +583,7 @@ const VoiceIndicator = memo(
             <div
               key={i}
               className="w-1 bg-red-500 rounded-full animate-pulse"
-              style={{
-                height: `${height}px`,
-                animationDelay: `${i * 150}ms`,
-              }}
+              style={{ height: `${height}px`, animationDelay: `${i * 150}ms` }}
             />
           ))}
         </div>
@@ -597,7 +595,6 @@ const VoiceIndicator = memo(
           Escuchando...
         </span>
       </div>
-
       {input && (
         <p
           className={`text-sm mb-2 ${
@@ -607,7 +604,6 @@ const VoiceIndicator = memo(
           &quot;{input}&quot;
         </p>
       )}
-
       <div
         className={`pt-2 border-t ${
           darkMode ? "border-red-500/20" : "border-red-200"
@@ -675,13 +671,11 @@ const WelcomeScreen = memo(
             ¡Hola! Soy tu asistente financiero
           </h3>
         </motion.div>
-
         <p
           className={`text-sm md:text-base ${textSecondaryClass} max-w-md mx-auto mb-6`}
         >
           Puedo analizar tus gastos, darte consejos y añadir gastos por ti
         </p>
-
         <div className="grid grid-cols-2 gap-3 w-full max-w-md mb-6">
           {[
             { icon: TrendingUp, text: "Analizar gastos" },
@@ -703,7 +697,6 @@ const WelcomeScreen = memo(
             </motion.div>
           ))}
         </div>
-
         <div className="w-full max-w-md">
           <p className={`text-sm ${textSecondaryClass} mb-3 font-medium`}>
             Prueba preguntando:
@@ -737,14 +730,21 @@ const WelcomeScreen = memo(
 WelcomeScreen.displayName = "WelcomeScreen";
 
 // ============================================
-// MAIN COMPONENT - OVERLAY COMPLETO
+// MAIN COMPONENT - DENTRO DEL LAYOUT
 // ============================================
 const AIAssistant: React.FC<AIAssistantProps> = memo(
   ({
     darkMode,
     textClass,
     textSecondaryClass,
+    expenses,
+    allExpenses,
     categories,
+    budgets,
+    categoryTotals,
+    income,
+    goals,
+    recurringExpenses,
     addExpense,
     isActive,
     onClose,
@@ -805,11 +805,9 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
 
     useEffect(() => {
       if (!isActive) return;
-
       const timer = setTimeout(() => {
         inputRef.current?.focus();
       }, 300);
-
       return () => clearTimeout(timer);
     }, [isActive]);
 
@@ -880,7 +878,6 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
 
       try {
         await new Promise((resolve) => setTimeout(resolve, 1000));
-
         setMessages((prev) => [
           ...prev,
           {
@@ -920,95 +917,81 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
       inputRef.current?.focus();
     }, []);
 
-    if (!isActive) return null;
-
-    // Calcular altura del contenedor de mensajes
-    const inputHeight = 80; // Altura aproximada del input area
-    const headerHeight = 64; // Altura del header
+    // Calcular altura adaptada al teclado
     const messagesHeight =
       keyboardHeight > 0
-        ? `calc(100vh - ${keyboardHeight}px - ${headerHeight}px - ${inputHeight}px)`
-        : `calc(100vh - ${headerHeight}px - ${inputHeight}px)`;
+        ? `calc(100vh - ${keyboardHeight}px - 220px)` // Con teclado (header + nav + input + padding)
+        : "calc(100vh - 220px)"; // Sin teclado
 
     return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.2 }}
-        className={`fixed inset-0 z-[100] ${
-          darkMode ? "bg-gray-900" : "bg-white"
-        }`}
-        style={{
-          paddingTop: "env(safe-area-inset-top)",
-          paddingBottom: "env(safe-area-inset-bottom)",
-        }}
-      >
-        {/* Header fijo */}
-        <div
-          className={`sticky top-0 z-10 border-b px-4 py-3 flex items-center justify-between ${
-            darkMode
-              ? "bg-gray-900 border-gray-700"
-              : "bg-white border-gray-200"
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <Sparkles className="w-6 h-6 text-purple-500" />
-            <h2 className={`text-lg font-bold ${textClass}`}>Asistente IA</h2>
+      <div className="flex flex-col h-full">
+        {/* Mini header con botones */}
+        <div className="flex items-center justify-between mb-3 px-2">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-purple-500" />
+            <h3 className={`text-sm font-semibold ${textClass}`}>
+              Asistente IA
+            </h3>
+            {messages.length > 0 && (
+              <span className={`text-xs ${textSecondaryClass}`}>
+                {messages.length} mensaje{messages.length !== 1 ? "s" : ""}
+              </span>
+            )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             {messages.length > 0 && (
-              <>
-                <span className={`text-sm ${textSecondaryClass}`}>
-                  {messages.length}
-                </span>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleClearChat}
-                  className={`p-2 rounded-lg transition-colors ${
-                    darkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
-                  }`}
-                  title="Limpiar chat"
-                >
-                  <Trash2 className="w-5 h-5 text-red-500" />
-                </motion.button>
-              </>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleClearChat}
+                className={`p-2 rounded-lg transition-colors ${
+                  darkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
+                }`}
+                title="Limpiar chat"
+              >
+                <Trash2 className="w-4 h-4 text-red-500" />
+              </motion.button>
             )}
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={onClose}
               className={`p-2 rounded-lg transition-colors ${
-                darkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
+                darkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
               }`}
               title="Cerrar"
             >
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5" />
             </motion.button>
           </div>
         </div>
 
         {/* Contenedor de mensajes */}
         <div
-          ref={messagesContainerRef}
-          className="overflow-y-auto px-4 py-4"
-          style={{
-            height: messagesHeight,
-            WebkitOverflowScrolling: "touch",
-            overscrollBehavior: "contain",
-          }}
+          className={`flex-1 rounded-xl border mb-4 ${
+            darkMode
+              ? "bg-gray-800/50 border-gray-700"
+              : "bg-white border-gray-200"
+          } overflow-hidden flex flex-col`}
+          style={{ height: messagesHeight, maxHeight: messagesHeight }}
         >
-          {messages.length === 0 ? (
-            <WelcomeScreen
-              textClass={textClass}
-              textSecondaryClass={textSecondaryClass}
-              darkMode={darkMode}
-              onExampleClick={handleExampleClick}
-            />
-          ) : (
-            <div className="space-y-3 max-w-4xl mx-auto">
+          <div
+            ref={messagesContainerRef}
+            className="flex-1 overflow-y-auto px-3 md:px-4 py-3 md:py-4 space-y-3"
+            style={{
+              WebkitOverflowScrolling: "touch",
+              overscrollBehavior: "contain",
+            }}
+          >
+            {messages.length === 0 ? (
+              <WelcomeScreen
+                textClass={textClass}
+                textSecondaryClass={textSecondaryClass}
+                darkMode={darkMode}
+                onExampleClick={handleExampleClick}
+              />
+            ) : (
               <AnimatePresence>
                 {messages.map((message, idx) => (
                   <MessageBubble
@@ -1018,7 +1001,6 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
                     onCopy={() => handleCopyMessage(idx, message.content)}
                   />
                 ))}
-
                 {isLoading && (
                   <motion.div
                     key="loading"
@@ -1027,7 +1009,7 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
                   >
                     <div
                       className={`rounded-xl px-4 py-3 ${
-                        darkMode ? "bg-gray-800" : "bg-gray-100"
+                        darkMode ? "bg-gray-700" : "bg-gray-100"
                       }`}
                     >
                       <div className="flex gap-1">
@@ -1043,86 +1025,72 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
                   </motion.div>
                 )}
               </AnimatePresence>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Input Area fija abajo */}
-        <div
-          className={`fixed bottom-0 left-0 right-0 border-t p-4 ${
-            darkMode
-              ? "bg-gray-900 border-gray-700"
-              : "bg-white border-gray-200"
-          }`}
-          style={{
-            paddingBottom:
-              keyboardHeight > 0
-                ? "1rem"
-                : "calc(1rem + env(safe-area-inset-bottom))",
-          }}
-        >
-          <div className="max-w-4xl mx-auto">
-            <AnimatePresence>
-              {isListening && (
-                <VoiceIndicator input={input} darkMode={darkMode} />
-              )}
-            </AnimatePresence>
-
-            <div className="flex gap-2">
-              <input
-                ref={inputRef}
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Pregúntame sobre tus gastos..."
-                disabled={isLoading}
-                className={`flex-1 px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all ${
-                  darkMode
-                    ? "bg-gray-800 border-gray-700 text-white placeholder-gray-400"
-                    : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
-                } disabled:opacity-50`}
-                style={{ fontSize: "16px" }}
-              />
-
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={toggleListening}
-                disabled={isLoading}
-                className={`px-4 py-3 rounded-xl transition-all ${
-                  isListening
-                    ? "bg-red-500 text-white shadow-lg shadow-red-500/50"
-                    : darkMode
-                    ? "bg-gray-800 text-gray-300 hover:bg-gray-700"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                } disabled:opacity-50`}
-              >
-                {isListening ? (
-                  <MicOff className="w-5 h-5" />
-                ) : (
-                  <Mic className="w-5 h-5" />
-                )}
-              </motion.button>
-
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={sendMessage}
-                disabled={!input.trim() || isLoading}
-                className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity"
-              >
-                {isLoading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Send className="w-5 h-5" />
-                )}
-              </motion.button>
-            </div>
+            )}
+            <div ref={messagesEndRef} />
           </div>
         </div>
-      </motion.div>
+
+        {/* Input Area */}
+        <div className="pb-2">
+          <AnimatePresence>
+            {isListening && (
+              <VoiceIndicator input={input} darkMode={darkMode} />
+            )}
+          </AnimatePresence>
+
+          <div className="flex gap-2">
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Pregúntame sobre tus gastos..."
+              disabled={isLoading}
+              className={`flex-1 px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all ${
+                darkMode
+                  ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                  : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
+              } disabled:opacity-50`}
+              style={{ fontSize: "16px" }}
+            />
+
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={toggleListening}
+              disabled={isLoading}
+              className={`px-4 py-3 rounded-xl transition-all ${
+                isListening
+                  ? "bg-red-500 text-white shadow-lg shadow-red-500/50"
+                  : darkMode
+                  ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              } disabled:opacity-50`}
+            >
+              {isListening ? (
+                <MicOff className="w-5 h-5" />
+              ) : (
+                <Mic className="w-5 h-5" />
+              )}
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={sendMessage}
+              disabled={!input.trim() || isLoading}
+              className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity"
+            >
+              {isLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <Send className="w-5 h-5" />
+              )}
+            </motion.button>
+          </div>
+        </div>
+      </div>
     );
   }
 );

@@ -171,6 +171,8 @@ const Dashboard = ({ user }) => {
   });
 
   const [editingExpense, setEditingExpense] = useState(null);
+  const [isSavingExpense, setIsSavingExpense] = useState(false);
+  const [isUpdatingExpense, setIsUpdatingExpense] = useState(false);
 
   const [newCategory, setNewCategory] = useState("");
   const [newCategoryColor, setNewCategoryColor] = useState("#8B5CF6");
