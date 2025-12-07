@@ -33,6 +33,7 @@ import AIAssistant from "./AIAssistant";
 import ExpenseCard from "./ExpenseCard";
 // @ts-ignore - No hay tipos para estos módulos JS
 import VoiceExpenseButton from "./VoiceExpenseButton";
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 // ============================================
 // TYPES & INTERFACES
@@ -1355,21 +1356,167 @@ const MainContent = memo<MainContentProps>(
               exit={{ opacity: 0, x: -20 }}
               transition={getTransition("smooth")}
             >
-              {/* Aquí irían todos los gráficos - Por brevedad, omito el código completo
-                  pero sería similar al original con las optimizaciones de tipos */}
-              <div className={`${cardClass} rounded-2xl p-3 md:p-6 border shadow-lg`}>
-                {categoryTotals.length === 0 ? (
+              {categoryTotals.length === 0 ? (
+                <div className={`${cardClass} rounded-2xl p-3 md:p-6 border shadow-lg`}>
                   <div className="text-center py-8 md:py-12">
                     <AlertTriangle className={`w-12 md:w-16 h-12 md:h-16 ${textSecondaryClass} mx-auto mb-3 md:mb-4`} />
                     <p className={`text-sm md:text-base ${textSecondaryClass}`}>No hay gastos en este período</p>
                   </div>
-                ) : (
-                  <div className="space-y-3 md:space-y-6">
-                    {/* PIE CHART Y DEMÁS GRÁFICOS - Similar al código original */}
-                    <p className={textClass}>Vista de gráficos - Implementación completa similar al original</p>
+                </div>
+              ) : (
+                <div className="space-y-4 md:space-y-6">
+                  {/* Gráfico de Pastel */}
+                  <div className={`${cardClass} rounded-2xl p-3 md:p-6 border shadow-lg`}>
+                    <h3 className={`text-lg md:text-xl font-bold mb-4 ${textClass}`}>
+                      Distribución por Categorías
+                    </h3>
+                    <ResponsiveContainer width="100%" height={isMobile ? 250 : 400}>
+                      <PieChart>
+                        <Pie
+                          data={categoryTotals.map((item) => ({
+                            name: item.category,
+                            value: item.total,
+                            color: categoryColors[item.category] || "#8B5CF6",
+                          }))}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          outerRadius={isMobile ? 80 : 120}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {categoryTotals.map((item, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={categoryColors[item.category] || "#8B5CF6"}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(value: number) => `€${value.toFixed(2)}`}
+                          contentStyle={{
+                            backgroundColor: darkMode ? "#1f2937" : "#ffffff",
+                            border: darkMode ? "1px solid #374151" : "1px solid #e5e7eb",
+                            borderRadius: "8px",
+                            color: darkMode ? "#f3f4f6" : "#111827",
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    {/* Leyenda de categorías */}
+                    <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-3">
+                      {categoryTotals.map((item) => {
+                        const color = categoryColors[item.category] || "#8B5CF6";
+                        const percentage = (item.total / totalExpenses) * 100;
+                        return (
+                          <div
+                            key={item.category}
+                            className="flex items-center gap-2 p-2 rounded-lg"
+                            style={{
+                              backgroundColor: darkMode
+                                ? "rgba(31, 41, 55, 0.5)"
+                                : "rgba(255, 255, 255, 0.5)",
+                            }}
+                          >
+                            <div
+                              className="w-3 h-3 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: color }}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-xs md:text-sm font-medium truncate ${textClass}`}>
+                                {item.category}
+                              </p>
+                              <p className={`text-xs ${textSecondaryClass}`}>
+                                €{item.total.toFixed(2)} ({percentage.toFixed(1)}%)
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                )}
-              </div>
+
+                  {/* Gráfico de Barras */}
+                  <div className={`${cardClass} rounded-2xl p-3 md:p-6 border shadow-lg`}>
+                    <h3 className={`text-lg md:text-xl font-bold mb-4 ${textClass}`}>
+                      Gastos por Categoría
+                    </h3>
+                    <ResponsiveContainer width="100%" height={isMobile ? 300 : 400}>
+                      <BarChart
+                        data={categoryTotals
+                          .sort((a, b) => b.total - a.total)
+                          .map((item) => ({
+                            name: item.category,
+                            value: item.total,
+                            color: categoryColors[item.category] || "#8B5CF6",
+                          }))}
+                        margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                      >
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          stroke={darkMode ? "#374151" : "#e5e7eb"}
+                        />
+                        <XAxis
+                          dataKey="name"
+                          angle={-45}
+                          textAnchor="end"
+                          height={80}
+                          tick={{ fill: darkMode ? "#9ca3af" : "#6b7280", fontSize: isMobile ? 10 : 12 }}
+                        />
+                        <YAxis
+                          tick={{ fill: darkMode ? "#9ca3af" : "#6b7280", fontSize: isMobile ? 10 : 12 }}
+                          tickFormatter={(value) => `€${value.toFixed(0)}`}
+                        />
+                        <Tooltip
+                          formatter={(value: number) => `€${value.toFixed(2)}`}
+                          contentStyle={{
+                            backgroundColor: darkMode ? "#1f2937" : "#ffffff",
+                            border: darkMode ? "1px solid #374151" : "1px solid #e5e7eb",
+                            borderRadius: "8px",
+                            color: darkMode ? "#f3f4f6" : "#111827",
+                          }}
+                        />
+                        <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                          {categoryTotals.map((item, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={categoryColors[item.category] || "#8B5CF6"}
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Resumen de totales */}
+                  <div className={`${cardClass} rounded-2xl p-4 md:p-6 border shadow-lg`}>
+                    <h3 className={`text-lg md:text-xl font-bold mb-4 ${textClass}`}>
+                      Resumen
+                    </h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center py-2 border-b border-opacity-20" style={{ borderColor: darkMode ? "#4b5563" : "#d1d5db" }}>
+                        <span className={`text-sm md:text-base ${textSecondaryClass}`}>Total de gastos:</span>
+                        <span className={`text-base md:text-lg font-bold ${textClass}`}>
+                          €{totalExpenses.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-opacity-20" style={{ borderColor: darkMode ? "#4b5563" : "#d1d5db" }}>
+                        <span className={`text-sm md:text-base ${textSecondaryClass}`}>Número de gastos:</span>
+                        <span className={`text-base md:text-lg font-bold ${textClass}`}>
+                          {filteredExpenses.length}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className={`text-sm md:text-base ${textSecondaryClass}`}>Categorías:</span>
+                        <span className={`text-base md:text-lg font-bold ${textClass}`}>
+                          {categoryTotals.length}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
