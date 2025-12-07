@@ -933,10 +933,39 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
     }
   }, [isListening]);
 
-  // Calcular altura dinámica usando dvh (dynamic viewport height - mejor para móvil)
+  // Calcular altura dinámica - usar vh como fallback para Safari
+  // Safari no soporta bien dvh en algunas versiones, usar vh como fallback
+  const [isSafari, setIsSafari] = useState(false);
+  const [viewportHeight, setViewportHeight] = useState('100vh');
+  
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    // Detectar Safari
+    const safari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    setIsSafari(safari);
+    
+    // Calcular altura del viewport
+    const updateHeight = () => {
+      const vh = window.innerHeight;
+      setViewportHeight(`${vh}px`);
+    };
+    
+    updateHeight();
+    window.addEventListener('resize', updateHeight);
+    
+    return () => window.removeEventListener('resize', updateHeight);
+  }, []);
+  
+  const viewportUnit = isSafari ? 'vh' : 'dvh';
   const containerHeight = keyboardHeight > 0 
-    ? `calc(100dvh - ${keyboardHeight}px - 13rem)` // 13rem = nav (5.5) + input (4.5) + padding (3)
-    : 'calc(100dvh - 13rem)';
+    ? `calc(100${viewportUnit} - ${keyboardHeight}px - 13rem)` // 13rem = nav (5.5) + input (4.5) + padding (3)
+    : `calc(100${viewportUnit} - 13rem)`;
+  
+  // Fallback para Safari usando altura calculada
+  const containerHeightSafari = isSafari && viewportHeight !== '100vh'
+    ? `calc(${viewportHeight} - ${keyboardHeight}px - 13rem)`
+    : containerHeight;
 
   // Preguntas de ejemplo
   const exampleQuestions = [
@@ -952,15 +981,23 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
   };
 
   return (
-    <div className="flex flex-col h-full pb-24"> {/* pb-24 = espacio para nav + input */}
+    <div 
+      className="flex flex-col relative" 
+      style={{ 
+        minHeight: isSafari ? 'calc(100vh - 13rem)' : containerHeight,
+        paddingBottom: '24rem' // espacio para nav + input
+      }}
+    >
       {/* Chat Container */}
       <div 
         className={`flex-1 rounded-lg md:rounded-xl border ${
           darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-200'
         } overflow-hidden flex flex-col`}
         style={{ 
-          height: containerHeight,
-          maxHeight: containerHeight,
+          height: isSafari ? containerHeightSafari : containerHeight,
+          maxHeight: isSafari ? containerHeightSafari : containerHeight,
+          minHeight: '400px', // Altura mínima para Safari
+          flex: '1 1 auto', // Asegurar que crezca
         }}
       >
         
@@ -1089,8 +1126,11 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
         }`}
         style={{
           paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom) + 5rem)', // 5rem = altura de nav
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
+          backdropFilter: isSafari ? 'none' : 'blur(12px)', // Safari puede tener problemas con backdrop-filter
+          WebkitBackdropFilter: isSafari ? 'none' : 'blur(12px)',
+          backgroundColor: isSafari 
+            ? (darkMode ? 'rgba(17, 24, 39, 0.98)' : 'rgba(255, 255, 255, 0.98)')
+            : undefined,
           zIndex: 45, // Mayor que la nav (40)
         }}
       >
