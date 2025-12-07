@@ -272,3 +272,32 @@ textarea {
   animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97);
 }
 
+/* ============================================
+   Animaciones para el indicador de voz
+   ============================================ */
+
+/* Animación de ondas de audio */
+@keyframes audioWave {
+  0%, 100% { height: 1rem; }
+  50% { height: 1.75rem; }
+}
+
+.audio-wave-1 { animation: audioWave 1s ease-in-out infinite; animation-delay: 0s; }
+.audio-wave-2 { animation: audioWave 1s ease-in-out infinite; animation-delay: 0.15s; }
+.audio-wave-3 { animation: audioWave 1s ease-in-out infinite; animation-delay: 0.3s; }
+.audio-wave-4 { animation: audioWave 1s ease-in-out infinite; animation-delay: 0.45s; }
+
+/* Pulso rojo para botón de grabación */
+@keyframes redPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+}
+
+.recording-pulse {
+  animation: redPulse 2s infinite;
+}
+

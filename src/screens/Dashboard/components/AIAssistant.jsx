@@ -56,6 +56,7 @@ const AIAssistant = memo(({
   const inputRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const recognitionRef = useRef(null);
+  const sendMessageRef = useRef(null);
   const keyboardHeight = useKeyboardHeight();
 
   // Auto-scroll simplificado
@@ -249,61 +250,89 @@ const AIAssistant = memo(({
     if (categoryNames.length === 0) return null;
 
     const searchText = (suggestedCategory || description || '').toLowerCase().trim();
-    if (!searchText) return categoryNames[0]; // Si no hay texto, usar la primera
+    if (!searchText) return categoryNames[0];
     
-    // 1. Match exacto (case-insensitive) - devolver la clave EXACTA
-    let match = categoryNames.find(
-      cat => cat.toLowerCase() === searchText
-    );
-    if (match) {
-      // Validar que existe en categories
-      if (categories[match]) return match;
-    }
+    // 1. Match exacto (case-insensitive)
+    let match = categoryNames.find(cat => cat.toLowerCase() === searchText);
+    if (match && categories[match]) return match;
 
-    // 2. Match parcial (contiene) - devolver la clave EXACTA
-    match = categoryNames.find(
-      cat => {
-        const catLower = cat.toLowerCase();
-        return (catLower.includes(searchText) || searchText.includes(catLower)) && categories[cat];
-      }
-    );
+    // 2. Match parcial (contiene)
+    match = categoryNames.find(cat => {
+      const catLower = cat.toLowerCase();
+      return (catLower.includes(searchText) || searchText.includes(catLower)) && categories[cat];
+    });
     if (match) return match;
 
-    // 3. Sinónimos comunes - buscar y devolver la clave EXACTA
+    // 3. Sinónimos AMPLIADOS (más palabras clave)
     const synonyms = {
-      'comida': ['alimentación', 'alimentos', 'supermercado', 'mercado', 'compras', 'grocery'],
-      'transporte': ['transporte', 'gasolina', 'gasoil', 'metro', 'autobús', 'taxi', 'uber', 'cabify'],
-      'restaurante': ['restaurante', 'comer', 'cenar', 'bar', 'café', 'cafetería'],
-      'ocio': ['ocio', 'entretenimiento', 'cine', 'teatro', 'concierto', 'fiesta'],
-      'salud': ['salud', 'médico', 'farmacia', 'hospital', 'dentista'],
-      'ropa': ['ropa', 'vestimenta', 'moda', 'zapatos', 'calzado'],
-      'casa': ['casa', 'hogar', 'vivienda', 'alquiler', 'hipoteca', 'luz', 'agua', 'gas'],
-      'hogar': ['casa', 'hogar', 'vivienda', 'alquiler', 'hipoteca', 'luz', 'agua', 'gas'],
-      'educación': ['educación', 'curso', 'universidad', 'colegio', 'libros'],
-      'tecnología': ['tecnología', 'tech', 'ordenador', 'móvil', 'teléfono', 'internet'],
-      'tabaco': ['tabaco', 'cigarrillos', 'cigarrillo', 'puros'],
+      'comida': ['comida', 'alimentación', 'alimentos', 'supermercado', 'mercado', 'compras', 'grocery', 'mercadona', 'lidl', 'carrefour', 'dia'],
+      'alimentación': ['comida', 'alimentación', 'alimentos', 'supermercado', 'mercado', 'compras', 'grocery', 'mercadona', 'lidl', 'carrefour', 'dia'],
+      'transporte': ['transporte', 'gasolina', 'gasoil', 'diesel', 'metro', 'autobús', 'autobus', 'bus', 'taxi', 'uber', 'cabify', 'bolt', 'tren', 'renfe', 'coche', 'parking', 'aparcamiento'],
+      'restaurante': ['restaurante', 'comer', 'cenar', 'bar', 'café', 'cafetería', 'cafeteria', 'tapas', 'comida rápida', 'fast food', 'mcdonald', 'burger', 'pizza'],
+      'ocio': ['ocio', 'entretenimiento', 'cine', 'teatro', 'concierto', 'fiesta', 'discoteca', 'museo', 'parque', 'spotify', 'netflix', 'hbo'],
+      'salud': ['salud', 'médico', 'medico', 'farmacia', 'hospital', 'dentista', 'seguro médico', 'seguro', 'consulta'],
+      'ropa': ['ropa', 'vestimenta', 'moda', 'zapatos', 'calzado', 'zapatillas', 'camiseta', 'pantalón', 'pantalon', 'zara', 'pull', 'h&m'],
+      'casa': ['casa', 'hogar', 'vivienda', 'alquiler', 'hipoteca', 'luz', 'agua', 'gas', 'electricidad', 'internet', 'wifi', 'basura', 'comunidad'],
+      'hogar': ['casa', 'hogar', 'vivienda', 'alquiler', 'hipoteca', 'luz', 'agua', 'gas', 'electricidad', 'internet', 'wifi', 'basura', 'comunidad', 'muebles', 'ikea', 'leroy'],
+      'educación': ['educación', 'educacion', 'curso', 'universidad', 'colegio', 'libros', 'material escolar', 'matrícula', 'matricula', 'academia', 'clases'],
+      'tecnología': ['tecnología', 'tecnologia', 'tech', 'ordenador', 'móvil', 'movil', 'teléfono', 'telefono', 'internet', 'apple', 'samsung', 'xiaomi', 'amazon'],
+      'tabaco': ['tabaco', 'cigarrillos', 'cigarrillo', 'puros', 'vaper', 'fumar'],
+      'deporte': ['deporte', 'gimnasio', 'gym', 'fitness', 'entrenamiento', 'running', 'fútbol', 'futbol', 'padel', 'pádel', 'piscina'],
+      'mascotas': ['mascota', 'mascotas', 'perro', 'gato', 'veterinario', 'pienso', 'comida perro', 'comida gato'],
+      'viajes': ['viaje', 'viajes', 'vacaciones', 'hotel', 'avión', 'avion', 'vuelo', 'booking', 'airbnb'],
+      'suscripciones': ['suscripción', 'suscripcion', 'spotify', 'netflix', 'hbo', 'amazon prime', 'disney'],
     };
 
-    // Buscar en sinónimos
+    // Buscar en sinónimos (mejorado: busca en ambas direcciones)
     for (const [key, values] of Object.entries(synonyms)) {
-      if (values.some(syn => searchText.includes(syn))) {
-        // Buscar categoría que coincida con la clave del sinónimo
+      // Buscar si el texto contiene algún sinónimo
+      const foundSynonym = values.find(syn => 
+        searchText.includes(syn) || syn.includes(searchText)
+      );
+      
+      if (foundSynonym) {
+        // Buscar categoría que coincida con la clave del sinónimo o con el sinónimo mismo
         match = categoryNames.find(cat => {
           const catLower = cat.toLowerCase();
-          return (catLower.includes(key) || key.includes(catLower)) && categories[cat];
+          return (
+            catLower.includes(key) || 
+            key.includes(catLower) || 
+            catLower.includes(foundSynonym) || 
+            foundSynonym.includes(catLower)
+          ) && categories[cat];
         });
         if (match) return match;
       }
     }
 
-    // 4. Si no encuentra nada, usar la primera categoría válida
+    // 4. Búsqueda fuzzy (tolerante a errores de dictado)
+    // Ejemplo: "suprmercado" → "supermercado"
+    const fuzzyMatch = categoryNames.find(cat => {
+      const catLower = cat.toLowerCase();
+      const searchLower = searchText.toLowerCase();
+      
+      // Calcular similitud básica (caracteres en común)
+      let matches = 0;
+      const minLength = Math.min(catLower.length, searchLower.length);
+      for (let i = 0; i < minLength; i++) {
+        if (catLower[i] === searchLower[i]) matches++;
+      }
+      
+      // Si al menos 70% de caracteres coinciden, considerarlo match
+      const similarity = matches / Math.max(catLower.length, searchLower.length);
+      return similarity > 0.7 && categories[cat];
+    });
+    
+    if (fuzzyMatch) return fuzzyMatch;
+
+    // 5. Si no encuentra nada, usar la primera categoría válida
     return categoryNames.find(cat => categories[cat]) || categoryNames[0];
   };
 
   // Detectar gasto directamente desde el texto (sin IA)
   const detectExpenseDirectly = (text) => {
-    // Extraer fecha si se menciona "mes pasado", "mes anterior", "ayer", etc.
-    let expenseDate = new Date().toISOString().slice(0, 10); // Por defecto hoy
+    // Extraer fecha si se menciona
+    let expenseDate = new Date().toISOString().slice(0, 10);
     
     const datePatterns = [
       { pattern: /(?:mes\s+pasado|mes\s+anterior|último\s+mes)/i, offset: (d) => { d.setMonth(d.getMonth() - 1); return d; } },
@@ -321,13 +350,25 @@ const AIAssistant = memo(({
       }
     }
 
-    // Patrones comunes: "gasté 50€ en X", "añade 20€ de X", "pagué 15€ en X", etc.
+    // Patrones AMPLIADOS para reconocimiento de voz
     const patterns = [
-      /(?:gast[ée]|gastado|gastando)\s+(?:€|euros?)?\s*(\d+(?:[.,]\d+)?)\s*(?:€|euros?)?\s*(?:en|de|por)\s+(.+?)(?:\s|$|\.|,)/i,
-      /(?:añade?|añad[íi]|añadido)\s+(?:un\s+)?gasto\s+(?:de\s+)?(?:€|euros?)?\s*(\d+(?:[.,]\d+)?)\s*(?:€|euros?)?\s*(?:en|de|por|del|de\s+el)\s+(.+?)(?:\s|$|\.|,)/i,
-      /(?:pagu[ée]|pagado|pagando)\s+(?:€|euros?)?\s*(\d+(?:[.,]\d+)?)\s*(?:€|euros?)?\s*(?:en|de|por)\s+(.+?)(?:\s|$|\.|,)/i,
-      /(?:compr[ée]|comprado|comprando)\s+(?:€|euros?)?\s*(\d+(?:[.,]\d+)?)\s*(?:€|euros?)?\s*(?:en|de|por)\s+(.+?)(?:\s|$|\.|,)/i,
-      /(\d+(?:[.,]\d+)?)\s*(?:€|euros?)\s*(?:en|de|por)\s+(.+?)(?:\s|$|\.|,)/i,
+      // "gasté X euros en Y"
+      /(?:gast[ée]|gastado|gastando|he\s+gastado)\s+(?:€|euros?)?\s*(\d+(?:[.,]\d+)?)\s*(?:€|euros?)?\s*(?:en|de|por|del|de\s+el|para)\s+(.+?)(?:\s|$|\.|,)/i,
+      
+      // "añade X euros de Y" / "añadir X euros en Y"
+      /(?:añade?|añad[íi]|añadido|añadir|pon|poner)\s+(?:un\s+)?(?:gasto\s+(?:de\s+)?)?(?:€|euros?)?\s*(\d+(?:[.,]\d+)?)\s*(?:€|euros?)?\s*(?:en|de|por|del|de\s+el|para)\s+(.+?)(?:\s|$|\.|,)/i,
+      
+      // "pagué X euros en Y"
+      /(?:pagu[ée]|pagado|pagando|he\s+pagado)\s+(?:€|euros?)?\s*(\d+(?:[.,]\d+)?)\s*(?:€|euros?)?\s*(?:en|de|por|del|de\s+el|para)\s+(.+?)(?:\s|$|\.|,)/i,
+      
+      // "compré X euros en Y"
+      /(?:compr[ée]|comprado|comprando|he\s+comprado)\s+(?:€|euros?)?\s*(\d+(?:[.,]\d+)?)\s*(?:€|euros?)?\s*(?:en|de|por|del|de\s+el|para)\s+(.+?)(?:\s|$|\.|,)/i,
+      
+      // "X euros en Y" (directo)
+      /(\d+(?:[.,]\d+)?)\s*(?:€|euros?)\s*(?:en|de|por|del|de\s+el|para)\s+(.+?)(?:\s|$|\.|,)/i,
+      
+      // "me he gastado X en Y"
+      /(?:me\s+he\s+gastado|me\s+gast[ée])\s+(?:€|euros?)?\s*(\d+(?:[.,]\d+)?)\s*(?:€|euros?)?\s*(?:en|de|por|del|de\s+el|para)\s+(.+?)(?:\s|$|\.|,)/i,
     ];
 
     for (const pattern of patterns) {
@@ -336,15 +377,19 @@ const AIAssistant = memo(({
         const amount = parseFloat(match[1].replace(',', '.'));
         let description = match[2].trim();
         
-        // Limpiar descripción de referencias temporales
-        description = description.replace(/\s*(?:del|de\s+el)\s+mes\s+(?:pasado|anterior)/i, '');
-        description = description.replace(/\s*el\s+mes\s+(?:pasado|anterior)/i, '');
+        // Limpiar descripción
+        description = description
+          .replace(/\s*(?:del|de\s+el)\s+mes\s+(?:pasado|anterior)/i, '')
+          .replace(/\s*el\s+mes\s+(?:pasado|anterior)/i, '')
+          .replace(/\s*(?:hoy|ayer|anteayer)/i, '')
+          .trim();
         
         if (amount > 0 && description) {
           return { amount, description, date: expenseDate };
         }
       }
     }
+    
     return null;
   };
 
@@ -433,7 +478,7 @@ const AIAssistant = memo(({
   };
 
   // Enviar mensaje a la IA
-  const sendMessage = async () => {
+  const sendMessage = useCallback(async () => {
     if (!input.trim() || isLoading) return;
 
     const userMessage = input.trim();
@@ -741,7 +786,12 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
       setIsLoading(false);
       inputRef.current?.focus();
     }
-  };
+  }, [input, isLoading, t, categories, budgets, addExpense, expenses, allExpenses, income, goals, recurringExpenses, detectExpenseDirectly, findBestCategory, processAIResponse, prepareUserContext]);
+
+  // Guardar referencia a sendMessage para uso en useEffect
+  useEffect(() => {
+    sendMessageRef.current = sendMessage;
+  }, [sendMessage]);
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -756,59 +806,76 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
+      console.warn('Reconocimiento de voz no disponible en este navegador');
       return;
     }
 
     const recognition = new SpeechRecognition();
-    recognition.continuous = true;
+    recognition.continuous = false; // Cambiar a false para mejor precisión
     recognition.interimResults = true;
-    recognition.lang = 'es-ES';
+    recognition.lang = 'es-ES'; // Español de España
+    recognition.maxAlternatives = 3; // Obtener alternativas para mejor precisión
+
+    let finalTranscript = '';
 
     recognition.onstart = () => {
+      console.log('🎤 Reconocimiento de voz iniciado');
       setIsListening(true);
+      finalTranscript = '';
     };
 
     recognition.onresult = (event) => {
       let interimTranscript = '';
-      let finalTranscript = '';
-
+      
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
+        
         if (event.results[i].isFinal) {
           finalTranscript += transcript + ' ';
+          console.log('✅ Transcripción final:', transcript);
         } else {
           interimTranscript += transcript;
+          console.log('⏳ Transcripción provisional:', transcript);
         }
       }
 
-      if (finalTranscript) {
-        setInput(prev => {
-          // Remover cualquier transcripción provisional previa y añadir la final
-          const cleanPrev = prev.replace(interimTranscript, '').trim();
-          return (cleanPrev + ' ' + finalTranscript.trim()).trim();
-        });
-      } else if (interimTranscript) {
-        // Mostrar transcripción provisional
-        setInput(prev => {
-          // Remover transcripción provisional anterior si existe
-          const baseText = prev.replace(interimTranscript, '').trim();
-          return baseText + ' ' + interimTranscript;
-        });
-      }
+      // Actualizar input con transcripción final + provisional
+      setInput((finalTranscript + interimTranscript).trim());
     };
 
     recognition.onerror = (event) => {
-      console.error('Error en reconocimiento de voz:', event.error);
+      console.error('❌ Error en reconocimiento de voz:', event.error);
       setIsListening(false);
+      
       if (event.error === 'no-speech') {
-        // No hacer nada, es normal
+        console.log('No se detectó habla, intenta de nuevo');
       } else if (event.error === 'audio-capture') {
         alert('No se pudo acceder al micrófono. Verifica los permisos.');
+      } else if (event.error === 'not-allowed') {
+        alert('Permisos de micrófono denegados. Por favor, habilita el micrófono en la configuración del navegador.');
+      } else if (event.error === 'network') {
+        console.warn('Error de red en reconocimiento de voz');
       }
     };
 
     recognition.onend = () => {
+      console.log('🛑 Reconocimiento de voz finalizado');
       setIsListening(false);
+      
+      // Auto-enviar si hay texto reconocido y parece un gasto
+      // Usar una función que lea el input actual del estado
+      setTimeout(() => {
+        const inputElement = inputRef.current;
+        if (inputElement && inputElement.value.trim()) {
+          const currentInput = inputElement.value.trim();
+          if (detectExpenseDirectly(currentInput)) {
+            console.log('✨ Gasto detectado automáticamente, enviando...');
+            if (sendMessageRef.current) {
+              sendMessageRef.current();
+            }
+          }
+        }
+      }, 500); // Pequeño delay para UX
     };
 
     recognitionRef.current = recognition;
@@ -816,44 +883,60 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
     return () => {
       if (recognitionRef.current) {
         try {
-          recognitionRef.current.stop();
+          recognitionRef.current.abort();
         } catch (e) {
-          // Ignorar errores al detener
+          console.warn('Error al limpiar reconocimiento:', e);
         }
       }
     };
-  }, []);
+  }, []); // Solo inicializar una vez
 
   // Reconocimiento de voz optimizado
   const toggleListening = useCallback(() => {
     if (!recognitionRef.current) {
-      alert('Tu navegador no soporta reconocimiento de voz');
-      return;
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert('Tu navegador no soporta reconocimiento de voz. Prueba con Chrome, Edge o Safari.');
+        return;
+      }
     }
 
     if (isListening) {
       try {
         recognitionRef.current.stop();
+        console.log('🛑 Deteniendo reconocimiento...');
       } catch (e) {
-        console.warn('Error deteniendo reconocimiento:', e);
+        console.error('Error al detener reconocimiento:', e);
       }
       setIsListening(false);
     } else {
       try {
+        // Limpiar input antes de empezar
+        setInput('');
         recognitionRef.current.start();
-        setIsListening(true);
+        console.log('🎤 Iniciando reconocimiento...');
       } catch (e) {
-        console.error('Error iniciando reconocimiento:', e);
-        alert('No se pudo acceder al micrófono');
+        console.error('Error al iniciar reconocimiento:', e);
         setIsListening(false);
+        if (e.message.includes('already started')) {
+          // Si ya está activo, intentar detenerlo y reiniciarlo
+          recognitionRef.current.stop();
+          setTimeout(() => {
+            try {
+              recognitionRef.current.start();
+            } catch (err) {
+              alert('Error al iniciar el reconocimiento de voz. Recarga la página.');
+            }
+          }, 100);
+        }
       }
     }
   }, [isListening]);
 
   // Calcular altura dinámica usando dvh (dynamic viewport height - mejor para móvil)
   const containerHeight = keyboardHeight > 0 
-    ? `calc(100dvh - ${keyboardHeight}px - 11rem)` // dvh = dynamic viewport height
-    : 'calc(100dvh - 11rem)';
+    ? `calc(100dvh - ${keyboardHeight}px - 13rem)` // 13rem = nav (5.5) + input (4.5) + padding (3)
+    : 'calc(100dvh - 13rem)';
 
   // Preguntas de ejemplo
   const exampleQuestions = [
@@ -869,20 +952,19 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
   };
 
   return (
-    <>
+    <div className="flex flex-col h-full pb-24"> {/* pb-24 = espacio para nav + input */}
       {/* Chat Container */}
       <div 
-        className={`rounded-lg md:rounded-xl border ${
+        className={`flex-1 rounded-lg md:rounded-xl border ${
           darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-200'
-        } overflow-hidden flex flex-col mb-24`} 
+        } overflow-hidden flex flex-col`}
         style={{ 
           height: containerHeight,
-          maxHeight: '100%',
-          display: 'flex',
-          flexDirection: 'column',
+          maxHeight: containerHeight,
         }}
       >
-        {/* Messages Area - Optimizado para iOS */}
+        
+        {/* Messages Area - Scrolleable */}
         <div 
           ref={messagesContainerRef}
           className="flex-1 overflow-y-auto px-3 md:px-4 py-3 md:py-4 space-y-3 md:space-y-4"
@@ -894,51 +976,50 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
         >
           {messages.length === 0 ? (
             // Welcome Screen
-            <div className="flex flex-col items-center text-center px-1 md:px-4 pt-1 md:pt-2">
-              <div className="flex items-center justify-center gap-1.5 md:gap-3 mb-1 md:mb-2">
-                <Sparkles className="w-4 h-4 md:w-6 md:h-6 text-purple-500 flex-shrink-0" />
-                <h3 className={`text-sm md:text-xl font-semibold ${textClass}`}>
+            <div className="flex flex-col items-center text-center px-2 md:px-4 pt-2 md:pt-4">
+              <div className="flex items-center justify-center gap-2 md:gap-3 mb-2 md:mb-3">
+                <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-purple-500 flex-shrink-0" />
+                <h3 className={`text-base md:text-xl font-semibold ${textClass}`}>
                   {t('aiAssistant.welcome') || '¡Hola! Soy tu asistente financiero'}
                 </h3>
               </div>
-              <p className={`text-[10px] md:text-sm ${textSecondaryClass} max-w-md mx-auto px-1 mb-2 md:mb-3`}>
+              <p className={`text-xs md:text-sm ${textSecondaryClass} max-w-md mx-auto mb-3 md:mb-4`}>
                 {t('aiAssistant.welcomeDesc') || 'Puedo ayudarte a analizar tus gastos, darte consejos personalizados, responder tus preguntas sobre finanzas y añadir gastos por ti.'}
               </p>
 
-              {/* Capabilities - Versión compacta */}
-              <div className="grid grid-cols-2 gap-1.5 md:gap-3 w-full max-w-md px-1 mb-3 md:mb-4">
-                {(t('aiAssistant.capabilities') || [
-                  { icon: 'TrendingUp', text: 'Analizar patrones de gasto' },
-                  { icon: 'Plus', text: 'Añadir gastos por texto' },
-                  { icon: 'Target', text: 'Comparar con presupuestos' },
-                  { icon: 'Lightbulb', text: 'Dar consejos personalizados' }
-                ]).map((capability, idx) => (
+              {/* Capabilities */}
+              <div className="grid grid-cols-2 gap-2 md:gap-3 w-full max-w-md mb-4 md:mb-5">
+                {[
+                  { icon: TrendingUp, text: 'Analizar patrones de gasto' },
+                  { icon: Plus, text: 'Añadir gastos por texto o voz' },
+                  { icon: Target, text: 'Comparar con presupuestos' },
+                  { icon: Lightbulb, text: 'Dar consejos personalizados' }
+                ].map((capability, idx) => (
                   <div 
                     key={idx}
-                    className={`flex items-center gap-1 md:gap-2 p-1 md:p-2 rounded-lg ${
+                    className={`flex items-center gap-2 p-2 md:p-3 rounded-lg ${
                       darkMode ? 'bg-gray-700/50' : 'bg-gray-50'
                     }`}
                   >
-                    {capability.icon === 'TrendingUp' && <TrendingUp className="w-3 h-3 md:w-4 md:h-4 text-purple-500 flex-shrink-0" />}
-                    {capability.icon === 'Plus' && <Plus className="w-3 h-3 md:w-4 md:h-4 text-purple-500 flex-shrink-0" />}
-                    {capability.icon === 'Target' && <Target className="w-3 h-3 md:w-4 md:h-4 text-purple-500 flex-shrink-0" />}
-                    {capability.icon === 'Lightbulb' && <Lightbulb className="w-3 h-3 md:w-4 md:h-4 text-purple-500 flex-shrink-0" />}
-                    <span className={`text-[9px] md:text-xs ${textClass} break-words leading-tight`}>{capability.text}</span>
+                    <capability.icon className="w-4 h-4 md:w-5 md:h-5 text-purple-500 flex-shrink-0" />
+                    <span className={`text-[10px] md:text-xs ${textClass} leading-tight`}>
+                      {capability.text}
+                    </span>
                   </div>
                 ))}
               </div>
 
               {/* Preguntas de ejemplo */}
-              <div className="w-full max-w-md px-1">
-                <p className={`text-[10px] md:text-xs ${textSecondaryClass} mb-2 md:mb-3`}>
+              <div className="w-full max-w-md">
+                <p className={`text-xs md:text-sm ${textSecondaryClass} mb-2 md:mb-3 font-medium`}>
                   Prueba preguntando:
                 </p>
-                <div className="flex flex-col gap-1.5 md:gap-2">
+                <div className="flex flex-col gap-2">
                   {exampleQuestions.map((question, idx) => (
                     <button
                       key={idx}
                       onClick={() => handleExampleQuestion(question)}
-                      className={`text-left px-3 md:px-4 py-2 md:py-2.5 rounded-lg text-[11px] md:text-sm transition-all ${
+                      className={`text-left px-3 md:px-4 py-2 md:py-2.5 rounded-lg text-xs md:text-sm transition-all ${
                         darkMode
                           ? 'bg-gray-700/70 hover:bg-gray-700 text-gray-200'
                           : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
@@ -959,7 +1040,7 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
                   className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[90%] md:max-w-[80%] rounded-xl md:rounded-2xl px-2.5 md:px-4 py-1.5 md:py-3 ${
+                    className={`max-w-[85%] md:max-w-[80%] rounded-xl md:rounded-2xl px-3 md:px-4 py-2 md:py-3 ${
                       message.role === 'user'
                         ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
                         : darkMode
@@ -967,7 +1048,9 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
                         : 'bg-gray-100 text-gray-900'
                     }`}
                   >
-                    <p className="text-[11px] md:text-sm whitespace-pre-wrap break-words leading-relaxed">{message.content}</p>
+                    <p className="text-xs md:text-sm whitespace-pre-wrap break-words leading-relaxed">
+                      {message.content}
+                    </p>
                     {message.action === 'expense_added' && (
                       <div className="mt-2 flex items-center gap-2 text-green-500 text-xs font-medium">
                         <Check className="w-4 h-4" />
@@ -981,7 +1064,7 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
               {/* Loading Animation */}
               {isLoading && (
                 <div className="flex justify-start">
-                  <div className={`rounded-2xl px-4 py-3 ${
+                  <div className={`rounded-xl md:rounded-2xl px-4 py-3 ${
                     darkMode ? 'bg-gray-700' : 'bg-gray-100'
                   }`}>
                     <div className="flex gap-1">
@@ -999,59 +1082,123 @@ ${context.recurring ? `🔄 GASTOS RECURRENTES:
         </div>
       </div>
 
-      {/* Input Area - Optimizado */}
+      {/* Input Area - FIXED con z-index alto */}
       <div 
-        className={`fixed bottom-0 inset-x-0 border-t p-3 md:p-4 ${
+        className={`fixed bottom-0 left-0 right-0 border-t p-3 md:p-4 ${
           darkMode ? 'border-gray-700 bg-gray-900/98' : 'border-gray-200 bg-white/98'
         }`}
         style={{
-          paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom))',
+          paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom) + 5rem)', // 5rem = altura de nav
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
-          zIndex: 40,
+          zIndex: 45, // Mayor que la nav (40)
         }}
       >
-        <div className="max-w-4xl mx-auto flex gap-2">
-          <input
-            ref={inputRef}
-            type="text"
-            autoFocus
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder={t('aiAssistant.placeholder') || 'Pregúntame sobre tus gastos...'}
-            disabled={isLoading}
-            className={`flex-1 px-3 md:px-4 py-2.5 md:py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors ${
-              darkMode
-                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
-                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-            } disabled:opacity-50`}
-            style={{ fontSize: '16px' }} // Prevenir zoom en iOS
-          />
-          <button
-            onClick={toggleListening}
-            disabled={isLoading}
-            className={`p-2.5 md:p-3 rounded-lg transition-all ${
-              isListening
-                ? 'bg-red-500 text-white'
-                : darkMode
-                ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            } disabled:opacity-50`}
-            title={isListening ? 'Detener grabación' : 'Grabar voz'}
-          >
-            {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-          </button>
-          <button
-            onClick={sendMessage}
-            disabled={!input.trim() || isLoading}
-            className="px-4 md:px-6 py-2.5 md:py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
-          >
-            {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-          </button>
+        <div className="max-w-4xl mx-auto">
+          {/* Indicador de voz activa */}
+          {isListening && (
+            <div className={`mb-3 p-3 rounded-lg border-2 ${
+              darkMode 
+                ? 'bg-red-500/10 border-red-500/50' 
+                : 'bg-red-50 border-red-200'
+            }`}>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex gap-1">
+                  <div className="w-1 h-4 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
+                  <div className="w-1 h-6 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
+                  <div className="w-1 h-5 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
+                  <div className="w-1 h-7 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: '450ms' }} />
+                </div>
+                <span className={`text-sm font-medium ${
+                  darkMode ? 'text-red-400' : 'text-red-600'
+                }`}>
+                  Escuchando...
+                </span>
+              </div>
+              
+              {/* Texto que se está dictando */}
+              {input && (
+                <p className={`text-sm ${
+                  darkMode ? 'text-gray-300' : 'text-gray-700'
+                }`}>
+                  &quot;{input}&quot;
+                </p>
+              )}
+              
+              {/* Ejemplos de uso */}
+              <div className={`mt-2 pt-2 border-t ${
+                darkMode ? 'border-red-500/20' : 'border-red-200'
+              }`}>
+                <p className={`text-xs ${
+                  darkMode ? 'text-gray-400' : 'text-gray-600'
+                } mb-1`}>
+                  💡 Prueba a decir:
+                </p>
+                <div className="space-y-1">
+                  <p className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    • &quot;Gasté 25 euros en supermercado&quot;
+                  </p>
+                  <p className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    • &quot;Añade un gasto de 15 euros en transporte&quot;
+                  </p>
+                  <p className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    • &quot;Pagué 50 euros en restaurante&quot;
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Input y botones */}
+          <div className="flex gap-2">
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder={t('aiAssistant.placeholder') || 'Pregúntame sobre tus gastos...'}
+              disabled={isLoading}
+              className={`flex-1 px-3 md:px-4 py-2.5 md:py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors ${
+                darkMode
+                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+              } disabled:opacity-50`}
+              style={{ fontSize: '16px' }} // Prevenir zoom en iOS
+            />
+            <button
+              onClick={toggleListening}
+              disabled={isLoading}
+              className={`px-3 md:px-4 py-2.5 md:py-3 rounded-lg transition-all flex-shrink-0 ${
+                isListening
+                  ? 'bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/50'
+                  : darkMode
+                  ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              } disabled:opacity-50`}
+              title={isListening ? 'Detener grabación' : 'Grabar voz'}
+            >
+              {isListening ? (
+                <MicOff className="w-5 h-5 md:w-6 md:h-6" />
+              ) : (
+                <Mic className="w-5 h-5 md:w-6 md:h-6" />
+              )}
+            </button>
+            <button
+              onClick={sendMessage}
+              disabled={!input.trim() || isLoading}
+              className="px-4 md:px-6 py-2.5 md:py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity flex-shrink-0"
+            >
+              {isLoading ? (
+                <Loader2 className="w-5 h-5 md:w-6 md:h-6 animate-spin" />
+              ) : (
+                <Send className="w-5 h-5 md:w-6 md:h-6" />
+              )}
+            </button>
+          </div>
         </div>
       </div>
-    </>
+    </div>
   );
 });
 
