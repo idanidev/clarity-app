@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   BarChart3,
   Bot,
+  Calendar,
   Car,
   ChevronDown,
   ChevronUp,
@@ -19,6 +20,7 @@ import {
   Sparkles,
   Table as TableIcon,
   Target,
+  Trash2,
   UtensilsCrossed,
   Wallet,
   X
@@ -28,6 +30,8 @@ import { getTransition } from "../../../config/framerMotion";
 import { useTranslation } from "../../../contexts/LanguageContext";
 // @ts-ignore - No hay tipos para estos módulos JS
 import { getCategoryColor } from "../../../services/firestoreService";
+// @ts-ignore - No hay tipos para estos módulos JS
+import { getLongTermGoalProgress } from "../../../services/goalsService";
 import AIAssistant from "./AIAssistant";
 // @ts-ignore - No hay tipos para estos módulos JS
 import ExpenseCard from "./ExpenseCard";
@@ -2153,11 +2157,17 @@ const MainContent = memo<MainContentProps>(
               transition={getTransition("smooth")}
               className="space-y-4 sm:space-y-6 animate-in"
             >
-              {/* Implementación de objetivos - Similar al original */}
+              {/* Header - Optimizado para móvil */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                  <h3 className={`text-xl sm:text-2xl md:text-3xl font-bold ${textClass}`}>{t("goals.title")}</h3>
-                  <p className={`text-xs sm:text-sm ${textSecondaryClass} mt-1`}>{t("goals.progress")}</p>
+                  <h3
+                    className={`text-xl sm:text-2xl md:text-3xl font-bold ${textClass}`}
+                  >
+                    {t("goals.title")}
+                  </h3>
+                  <p className={`text-xs sm:text-sm ${textSecondaryClass} mt-1`}>
+                    {t("goals.progress")}
+                  </p>
                 </div>
                 <button
                   onClick={onOpenGoals}
@@ -2165,12 +2175,761 @@ const MainContent = memo<MainContentProps>(
                   style={{ WebkitTapHighlightColor: "transparent" }}
                 >
                   <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="text-sm sm:text-base">Gestionar Objetivos</span>
+                  <span className="text-sm sm:text-base">
+                    Gestionar Objetivos
+                  </span>
                 </button>
               </div>
 
-              {/* Resto de la vista de objetivos */}
-              <p className={textClass}>Vista de objetivos - Implementación completa similar al original</p>
+              {/* Objetivo de Ahorro Mensual - Diseño Simplificado y Visual */}
+              {goals?.totalSavingsGoal > 0 &&
+                income > 0 &&
+                (() => {
+                  const today = new Date();
+                  const currentYear = today.getFullYear();
+                  const currentMonth = today.getMonth() + 1;
+                  const daysInMonth = new Date(
+                    currentYear,
+                    currentMonth,
+                    0
+                  ).getDate();
+                  const daysPassed = today.getDate();
+
+                  const currentMonthExpenses = categoryTotalsForBudgets.reduce(
+                    (sum, item) => sum + item.total,
+                    0
+                  );
+
+                  // Lógica corregida: calcular límite de gasto máximo
+                  const maxSpendingAllowed = income - goals.totalSavingsGoal; // Máximo que puede gastar
+                  const monthlySavings = income - currentMonthExpenses; // Ahorro actual
+                  const overspending = Math.max(
+                    0,
+                    currentMonthExpenses - maxSpendingAllowed
+                  ); // Cuánto se ha pasado
+                  const remainingSpending = Math.max(
+                    0,
+                    maxSpendingAllowed - currentMonthExpenses
+                  ); // Cuánto puede gastar aún
+
+                  // Estados
+                  const hasOverspent = currentMonthExpenses > maxSpendingAllowed; // Se ha pasado del límite
+                  const isOnTrack = monthlySavings >= goals.totalSavingsGoal; // Ha alcanzado el objetivo
+                  const isCloseToLimit =
+                    currentMonthExpenses >= maxSpendingAllowed * 0.9; // Cerca del límite (90%)
+
+                  // Progreso basado en el límite de gasto (no en el ahorro)
+                  const spendingProgress =
+                    maxSpendingAllowed > 0
+                      ? Math.min(
+                          (currentMonthExpenses / maxSpendingAllowed) * 100,
+                          100
+                        )
+                      : 0;
+
+                  return (
+                    <div
+                      className={`relative overflow-hidden rounded-2xl sm:rounded-3xl border-2 ${
+                        darkMode
+                          ? "bg-gradient-to-br from-purple-900/40 via-blue-900/30 to-purple-800/40 border-purple-700/50"
+                          : "bg-gradient-to-br from-purple-50 via-blue-50 to-purple-100 border-purple-200"
+                      } p-4 sm:p-6 md:p-8 shadow-xl transition-all duration-300 animate-in`}
+                      style={{
+                        boxShadow: darkMode
+                          ? "0 10px 40px rgba(139, 92, 246, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.05) inset"
+                          : "0 10px 40px rgba(139, 92, 246, 0.15), 0 0 0 1px rgba(139, 92, 246, 0.1) inset",
+                        animationDelay: "0.1s",
+                      }}
+                    >
+                      {/* Icono decorativo de fondo - Responsive */}
+                      <div
+                        className={`absolute top-2 right-2 sm:top-4 sm:right-4 opacity-10 ${
+                          darkMode ? "text-purple-400" : "text-purple-600"
+                        }`}
+                      >
+                        <Target
+                          className="w-20 h-20 sm:w-32 sm:h-32"
+                          strokeWidth={1}
+                        />
+                      </div>
+
+                      <div className="relative z-10">
+                        <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+                          <div
+                            className={`p-2 sm:p-3 rounded-xl sm:rounded-2xl ${
+                              darkMode ? "bg-purple-600/30" : "bg-purple-100"
+                            }`}
+                          >
+                            <Target
+                              className={`w-5 h-5 sm:w-6 sm:h-6 ${
+                                darkMode ? "text-purple-300" : "text-purple-600"
+                              }`}
+                            />
+                          </div>
+                          <div>
+                            <h4
+                              className={`text-base sm:text-lg font-bold ${textClass}`}
+                            >
+                              Ahorro Mensual
+                            </h4>
+                            <p
+                              className={`text-xs sm:text-sm ${textSecondaryClass}`}
+                            >
+                              Objetivo: €{goals.totalSavingsGoal.toFixed(2)} este
+                              mes
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Números grandes y claros - Optimizado para móvil */}
+                        <div className="mb-4 sm:mb-6">
+                          <div className="flex items-baseline gap-2 sm:gap-3 mb-2">
+                            <span
+                              className={`text-4xl sm:text-5xl md:text-6xl font-bold leading-tight ${
+                                hasOverspent
+                                  ? "text-red-500"
+                                  : isOnTrack
+                                  ? "text-green-500"
+                                  : isCloseToLimit
+                                  ? "text-yellow-500"
+                                  : "text-purple-600"
+                              }`}
+                            >
+                              {hasOverspent
+                                ? `+€${overspending.toFixed(0)}`
+                                : isOnTrack
+                                ? `€${monthlySavings.toFixed(0)}`
+                                : `€${currentMonthExpenses.toFixed(0)}`}
+                            </span>
+                            <span
+                              className={`text-xl sm:text-2xl ${textSecondaryClass}`}
+                            >
+                              / €{maxSpendingAllowed.toFixed(0)}
+                            </span>
+                          </div>
+                          <p
+                            className={`text-xs sm:text-sm font-medium ${
+                              hasOverspent
+                                ? "text-red-400"
+                                : isOnTrack
+                                ? "text-green-500"
+                                : isCloseToLimit
+                                ? "text-yellow-500"
+                                : textSecondaryClass
+                            }`}
+                          >
+                            {hasOverspent
+                              ? `⚠️ Te has pasado €${overspending.toFixed(
+                                  2
+                                )} del límite. No podrás ahorrar ${goals.totalSavingsGoal.toFixed(
+                                  0
+                                )}€ este mes.`
+                              : isOnTrack
+                              ? `✅ ¡Objetivo alcanzado! Has ahorrado €${monthlySavings.toFixed(
+                                  2
+                                )} este mes 🎉`
+                              : isCloseToLimit
+                              ? `⚠️ Cuidado: Te quedan €${remainingSpending.toFixed(
+                                  2
+                                )} disponibles. Estás cerca del límite.`
+                              : `Puedes gastar €${remainingSpending.toFixed(
+                                  2
+                                )} más este mes para alcanzar tu objetivo de ahorro`}
+                          </p>
+                        </div>
+
+                        {/* Barra de progreso grande y visual - Responsive */}
+                        <div className="mb-4">
+                          <div
+                            className={`h-5 sm:h-6 rounded-full overflow-hidden ${
+                              darkMode ? "bg-gray-800/50" : "bg-white/60"
+                            } shadow-inner`}
+                          >
+                            <div
+                              className={`h-full transition-all duration-700 ease-out ${
+                                hasOverspent
+                                  ? "bg-gradient-to-r from-red-500 to-red-600"
+                                  : isOnTrack
+                                  ? "bg-gradient-to-r from-green-500 to-green-600"
+                                  : isCloseToLimit
+                                  ? "bg-gradient-to-r from-yellow-500 to-yellow-600"
+                                  : "bg-gradient-to-r from-purple-600 to-blue-600"
+                              } flex items-center justify-end pr-2`}
+                              style={{
+                                width: `${Math.min(spendingProgress, 100)}%`,
+                              }}
+                            >
+                              {spendingProgress > 15 && (
+                                <span className="text-[10px] sm:text-xs font-bold text-white">
+                                  {spendingProgress.toFixed(0)}%
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex justify-between items-center mt-1">
+                            <p
+                              className={`text-[10px] sm:text-xs ${textSecondaryClass}`}
+                            >
+                              {hasOverspent
+                                ? `⚠️ ${spendingProgress.toFixed(
+                                    0
+                                  )}% del límite (te has pasado)`
+                                : `${spendingProgress.toFixed(
+                                    0
+                                  )}% del límite de gasto usado`}
+                            </p>
+                            {!hasOverspent && (
+                              <p
+                                className={`text-[10px] sm:text-xs font-medium ${
+                                  isCloseToLimit
+                                    ? "text-yellow-500"
+                                    : "text-green-500"
+                                }`}
+                              >
+                                {remainingSpending.toFixed(0)}€ disponibles
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Info rápida - Grid responsive */}
+                        <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                          <div
+                            className={`p-2 sm:p-3 rounded-lg sm:rounded-xl transition-all active:scale-95 ${
+                              darkMode ? "bg-gray-800/50" : "bg-white/60"
+                            }`}
+                          >
+                            <p
+                              className={`text-[10px] sm:text-xs ${textSecondaryClass} mb-1`}
+                            >
+                              Día {daysPassed}/{daysInMonth}
+                            </p>
+                            <p
+                              className={`text-xs sm:text-sm font-semibold ${textClass}`}
+                            >
+                              {((daysPassed / daysInMonth) * 100).toFixed(0)}% del
+                              mes
+                            </p>
+                          </div>
+                          <div
+                            className={`p-2 sm:p-3 rounded-lg sm:rounded-xl transition-all active:scale-95 ${
+                              darkMode ? "bg-gray-800/50" : "bg-white/60"
+                            }`}
+                          >
+                            <p
+                              className={`text-[10px] sm:text-xs ${textSecondaryClass} mb-1`}
+                            >
+                              {hasOverspent ? "Te has pasado" : "Ahorro actual"}
+                            </p>
+                            <p
+                              className={`text-xs sm:text-sm font-semibold ${
+                                hasOverspent
+                                  ? "text-red-500"
+                                  : isOnTrack
+                                  ? "text-green-500"
+                                  : textClass
+                              }`}
+                            >
+                              {hasOverspent
+                                ? `+€${overspending.toFixed(0)}`
+                                : `€${monthlySavings.toFixed(0)}`}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+              {/* Objetivos de Límite de Gasto por Categoría */}
+              {goals?.categoryGoals &&
+                Object.keys(goals.categoryGoals).length > 0 && (
+                  <div className="animate-in" style={{ animationDelay: "0.2s" }}>
+                    <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                      <div
+                        className={`p-1.5 sm:p-2 rounded-lg ${
+                          darkMode ? "bg-orange-600/20" : "bg-orange-100"
+                        }`}
+                      >
+                        <AlertTriangle
+                          className={`w-4 h-4 sm:w-5 sm:h-5 ${
+                            darkMode ? "text-orange-400" : "text-orange-600"
+                          }`}
+                        />
+                      </div>
+                      <h4 className={`text-lg sm:text-xl font-bold ${textClass}`}>
+                        Límites de Gasto
+                      </h4>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                      {Object.entries(goals.categoryGoals).map(
+                        ([category, goalAmount]) => {
+                          const today = new Date();
+                          const currentYear = today.getFullYear();
+                          const currentMonth = today.getMonth() + 1;
+                          const daysInMonth = new Date(
+                            currentYear,
+                            currentMonth,
+                            0
+                          ).getDate();
+                          const daysPassed = today.getDate();
+
+                          const categoryTotal =
+                            categoryTotalsForBudgets.find(
+                              (ct) => ct.category === category
+                            )?.total || 0;
+                          const expectedSpendingByNow =
+                            (goalAmount * daysPassed) / daysInMonth;
+                          const progress =
+                            expectedSpendingByNow > 0
+                              ? Math.min(
+                                  (categoryTotal / expectedSpendingByNow) * 100,
+                                  200
+                                )
+                              : 0;
+                          const dailySpendingRate =
+                            daysPassed > 0 ? categoryTotal / daysPassed : 0;
+                          const projectedMonthlySpending =
+                            dailySpendingRate * daysInMonth;
+
+                          const isExceeded = categoryTotal > goalAmount;
+                          const isOnTrack =
+                            projectedMonthlySpending <= goalAmount;
+                          const isAhead = categoryTotal <= expectedSpendingByNow;
+
+                          const status = isExceeded
+                            ? "exceeded"
+                            : progress >= 100
+                            ? "warning"
+                            : isAhead
+                            ? "ok"
+                            : "warning";
+                          const categoryColor = getCategoryColor(
+                            categories[category]
+                          );
+                          const percentageUsed =
+                            (categoryTotal / goalAmount) * 100;
+
+                          return (
+                            <div
+                              key={category}
+                              className={`relative overflow-hidden rounded-xl sm:rounded-2xl border-2 ${
+                                status === "exceeded"
+                                  ? darkMode
+                                    ? "bg-red-900/20 border-red-500/50"
+                                    : "bg-red-50 border-red-300"
+                                  : status === "warning"
+                                  ? darkMode
+                                    ? "bg-yellow-900/20 border-yellow-500/50"
+                                    : "bg-yellow-50 border-yellow-300"
+                                  : darkMode
+                                  ? "bg-gray-800 border-gray-700"
+                                  : "bg-white border-purple-200"
+                              } p-4 sm:p-5 shadow-lg transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] touch-manipulation`}
+                              style={{ WebkitTapHighlightColor: "transparent" }}
+                            >
+                              {/* Barra de color lateral */}
+                              <div
+                                className="absolute left-0 top-0 bottom-0 w-1"
+                                style={{ backgroundColor: categoryColor }}
+                              />
+
+                              <div className="ml-3">
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                                    <div
+                                      className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0"
+                                      style={{
+                                        backgroundColor: `${categoryColor}20`,
+                                      }}
+                                    >
+                                      <span className="text-base sm:text-lg">
+                                        📊
+                                      </span>
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p
+                                        className={`font-bold text-base sm:text-lg ${textClass} truncate`}
+                                      >
+                                        {category}
+                                      </p>
+                                      <p
+                                        className={`text-[10px] sm:text-xs ${textSecondaryClass}`}
+                                      >
+                                        No gastar más de €{goalAmount.toFixed(0)}
+                                        /mes
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div
+                                    className={`px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold flex-shrink-0 ${
+                                      status === "exceeded"
+                                        ? "bg-red-500 text-white"
+                                        : status === "warning"
+                                        ? "bg-yellow-500 text-white"
+                                        : "bg-green-500 text-white"
+                                    }`}
+                                  >
+                                    {status === "exceeded"
+                                      ? "⚠️"
+                                      : status === "warning"
+                                      ? "⚠️"
+                                      : "✓"}
+                                  </div>
+                                </div>
+
+                                {/* Números grandes - Responsive */}
+                                <div className="mb-3 sm:mb-4">
+                                  <div className="flex items-baseline gap-1.5 sm:gap-2 mb-1">
+                                    <span
+                                      className={`text-2xl sm:text-3xl font-bold ${
+                                        status === "exceeded"
+                                          ? "text-red-500"
+                                          : status === "warning"
+                                          ? "text-yellow-500"
+                                          : "text-green-500"
+                                      }`}
+                                    >
+                                      €{categoryTotal.toFixed(0)}
+                                    </span>
+                                    <span
+                                      className={`text-sm sm:text-lg ${textSecondaryClass}`}
+                                    >
+                                      / €{goalAmount.toFixed(0)}
+                                    </span>
+                                  </div>
+                                  <p
+                                    className={`text-xs sm:text-sm font-medium ${
+                                      status === "exceeded"
+                                        ? "text-red-500"
+                                        : status === "warning"
+                                        ? "text-yellow-500"
+                                        : "text-green-500"
+                                    }`}
+                                  >
+                                    {isExceeded
+                                      ? `Has superado por €${(
+                                          categoryTotal - goalAmount
+                                        ).toFixed(2)}`
+                                      : `Te quedan €${Math.max(
+                                          0,
+                                          goalAmount - categoryTotal
+                                        ).toFixed(2)} disponibles`}
+                                  </p>
+                                </div>
+
+                                {/* Barra de progreso - Responsive */}
+                                <div
+                                  className={`h-3 sm:h-4 rounded-full overflow-hidden mb-3 ${
+                                    darkMode ? "bg-gray-700/50" : "bg-gray-200"
+                                  }`}
+                                >
+                                  <div
+                                    className={`h-full transition-all duration-500 ${
+                                      status === "exceeded"
+                                        ? "bg-gradient-to-r from-red-500 to-red-600"
+                                        : status === "warning"
+                                        ? "bg-gradient-to-r from-yellow-500 to-yellow-600"
+                                        : "bg-gradient-to-r from-green-500 to-green-600"
+                                    }`}
+                                    style={{
+                                      width: `${Math.min(percentageUsed, 100)}%`,
+                                    }}
+                                  />
+                                </div>
+
+                                {/* Info rápida */}
+                                <div className="flex justify-between items-center text-xs">
+                                  <span className={textSecondaryClass}>
+                                    {percentageUsed.toFixed(0)}% usado
+                                  </span>
+                                  {!isOnTrack && !isExceeded && (
+                                    <span
+                                      className={`font-medium ${
+                                        darkMode
+                                          ? "text-orange-400"
+                                          : "text-orange-600"
+                                      }`}
+                                    >
+                                      Proyección: €
+                                      {projectedMonthlySpending.toFixed(0)}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+                      )}
+                    </div>
+                  </div>
+                )}
+
+              {/* Objetivos a Largo Plazo */}
+              {goals?.longTermGoals &&
+                goals.longTermGoals.filter(
+                  (g) => g && g.name && (g.status === "active" || !g.status)
+                ).length > 0 && (
+                  <div className="animate-in" style={{ animationDelay: "0.3s" }}>
+                    <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                      <div
+                        className={`p-1.5 sm:p-2 rounded-lg ${
+                          darkMode ? "bg-blue-600/20" : "bg-blue-100"
+                        }`}
+                      >
+                        <Target
+                          className={`w-4 h-4 sm:w-5 sm:h-5 ${
+                            darkMode ? "text-blue-400" : "text-blue-600"
+                          }`}
+                        />
+                      </div>
+                      <h4 className={`text-lg sm:text-xl font-bold ${textClass}`}>
+                        Objetivos a Largo Plazo
+                      </h4>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                      {goals.longTermGoals
+                        .filter(
+                          (g) =>
+                            g &&
+                            g.name &&
+                            (g.status === "active" ||
+                              !g.status ||
+                              g.status !== "completed")
+                        )
+                        .map((goal) => {
+                          if (!goal || !goal.name) return null;
+
+                          // Manejo seguro de datos
+                          const currentAmount =
+                            parseFloat(goal.currentAmount) || 0;
+                          const targetAmount = parseFloat(goal.targetAmount) || 0;
+                          if (targetAmount === 0) return null; // No mostrar objetivos sin objetivo definido
+
+                          const progress = getLongTermGoalProgress(goal);
+                          const isComplete = currentAmount >= targetAmount;
+                          const progressPercentage = progress.progress || 0;
+
+                          return (
+                            <div
+                              key={goal.id}
+                              className={`relative overflow-hidden rounded-xl sm:rounded-2xl border-2 ${
+                                isComplete
+                                  ? darkMode
+                                    ? "bg-green-900/20 border-green-500/50"
+                                    : "bg-green-50 border-green-300"
+                                  : progressPercentage >= 80
+                                  ? darkMode
+                                    ? "bg-yellow-900/20 border-yellow-500/50"
+                                    : "bg-yellow-50 border-yellow-300"
+                                  : darkMode
+                                  ? "bg-gray-800 border-gray-700"
+                                  : "bg-white border-purple-200"
+                              } p-4 sm:p-6 shadow-lg transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] touch-manipulation`}
+                              style={{ WebkitTapHighlightColor: "transparent" }}
+                            >
+                              {/* Icono grande de fondo - Responsive */}
+                              <div
+                                className={`absolute top-2 right-2 sm:top-4 sm:right-4 opacity-10 ${
+                                  darkMode ? "text-purple-400" : "text-purple-600"
+                                }`}
+                              >
+                                <Target
+                                  className="w-16 h-16 sm:w-24 sm:h-24"
+                                  strokeWidth={1}
+                                />
+                              </div>
+
+                              <div className="relative z-10">
+                                <div className="flex items-start justify-between mb-3 sm:mb-4">
+                                  <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                                    <span className="text-3xl sm:text-4xl flex-shrink-0">
+                                      {goal.icon || "🎯"}
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                      <h4
+                                        className={`font-bold text-base sm:text-lg ${textClass} truncate`}
+                                      >
+                                        {goal.name}
+                                      </h4>
+                                      {progress.daysRemaining !== null && (
+                                        <p
+                                          className={`text-[10px] sm:text-xs flex items-center gap-1 ${textSecondaryClass} mt-1`}
+                                        >
+                                          <Calendar className="w-3 h-3 flex-shrink-0" />
+                                          <span className="truncate">
+                                            {progress.daysRemaining} días
+                                            restantes
+                                          </span>
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {isComplete && (
+                                    <div className="px-2 sm:px-3 py-1 rounded-full bg-green-500 text-white text-[10px] sm:text-xs font-bold flex-shrink-0">
+                                      ✓
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Números grandes - Responsive */}
+                                <div className="mb-3 sm:mb-4">
+                                  <div className="flex items-baseline gap-1.5 sm:gap-2 mb-1">
+                                    <span
+                                      className={`text-3xl sm:text-4xl font-bold ${
+                                        isComplete
+                                          ? "text-green-500"
+                                          : progressPercentage >= 80
+                                          ? "text-yellow-500"
+                                          : "text-purple-600"
+                                      }`}
+                                    >
+                                      €{currentAmount.toFixed(0)}
+                                    </span>
+                                    <span
+                                      className={`text-lg sm:text-xl ${textSecondaryClass}`}
+                                    >
+                                      / €{targetAmount.toFixed(0)}
+                                    </span>
+                                  </div>
+                                  <p
+                                    className={`text-xs sm:text-sm font-medium ${
+                                      isComplete
+                                        ? "text-green-500"
+                                        : progressPercentage >= 80
+                                        ? "text-yellow-500"
+                                        : textSecondaryClass
+                                    }`}
+                                  >
+                                    {isComplete
+                                      ? "¡Objetivo completado! 🎉"
+                                      : `Faltan €${progress.remaining.toFixed(
+                                          2
+                                        )}`}
+                                  </p>
+                                </div>
+
+                                {/* Barra de progreso grande - Responsive */}
+                                <div
+                                  className={`h-4 sm:h-5 rounded-full overflow-hidden mb-3 sm:mb-4 ${
+                                    darkMode ? "bg-gray-700/50" : "bg-gray-200"
+                                  }`}
+                                >
+                                  <div
+                                    className={`h-full transition-all duration-700 ease-out ${
+                                      isComplete
+                                        ? "bg-gradient-to-r from-green-500 to-green-600"
+                                        : progressPercentage >= 80
+                                        ? "bg-gradient-to-r from-yellow-500 to-yellow-600"
+                                        : "bg-gradient-to-r from-purple-600 to-blue-600"
+                                    } flex items-center justify-end pr-2`}
+                                    style={{
+                                      width: `${Math.min(
+                                        progressPercentage,
+                                        100
+                                      )}%`,
+                                    }}
+                                  >
+                                    {progressPercentage > 20 && (
+                                      <span className="text-[10px] sm:text-xs font-bold text-white">
+                                        {progressPercentage.toFixed(0)}%
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                {progressPercentage <= 20 && (
+                                  <p
+                                    className={`text-[10px] sm:text-xs text-center mb-3 sm:mb-4 ${textSecondaryClass}`}
+                                  >
+                                    {progressPercentage.toFixed(0)}% completado
+                                  </p>
+                                )}
+
+                                {/* Info rápida - Responsive */}
+                                <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                                  <div
+                                    className={`p-2 rounded-lg transition-all active:scale-95 ${
+                                      darkMode ? "bg-gray-700/50" : "bg-gray-100"
+                                    }`}
+                                  >
+                                    <p
+                                      className={`text-[10px] sm:text-xs ${textSecondaryClass} mb-1`}
+                                    >
+                                      Mensual
+                                    </p>
+                                    <p
+                                      className={`text-xs sm:text-sm font-bold ${textClass}`}
+                                    >
+                                      €
+                                      {(
+                                        goal.monthlyContribution ||
+                                        progress.monthlyContribution ||
+                                        0
+                                      ).toFixed(0)}
+                                    </p>
+                                  </div>
+                                  <div
+                                    className={`p-2 rounded-lg transition-all active:scale-95 ${
+                                      darkMode ? "bg-gray-700/50" : "bg-gray-100"
+                                    }`}
+                                  >
+                                    <p
+                                      className={`text-[10px] sm:text-xs ${textSecondaryClass} mb-1`}
+                                    >
+                                      Restante
+                                    </p>
+                                    <p
+                                      className={`text-xs sm:text-sm font-bold ${textClass}`}
+                                    >
+                                      €{progress.remaining.toFixed(0)}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+
+              {/* Estado vacío */}
+              {(!goals?.totalSavingsGoal || goals.totalSavingsGoal === 0) &&
+                (!goals?.categoryGoals ||
+                  Object.keys(goals.categoryGoals).length === 0) &&
+                (!goals?.longTermGoals ||
+                  goals.longTermGoals.filter(
+                    (g) =>
+                      g &&
+                      g.name &&
+                      (g.status === "active" ||
+                        !g.status ||
+                        g.status !== "completed")
+                  ).length === 0) && (
+                  <div
+                    className={`text-center py-16 rounded-2xl border ${
+                      darkMode
+                        ? "bg-gray-800 border-gray-700"
+                        : "bg-white border-purple-200"
+                    }`}
+                  >
+                    <Target
+                      className={`w-20 h-20 ${textSecondaryClass} mx-auto mb-4 opacity-50`}
+                    />
+                    <p className={`text-xl font-semibold ${textClass} mb-2`}>
+                      No tienes objetivos configurados
+                    </p>
+                    <p className={`${textSecondaryClass} mb-6`}>
+                      Crea límites de gasto o objetivos de ahorro para comenzar
+                    </p>
+                    <button
+                      onClick={onOpenGoals}
+                      className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all"
+                    >
+                      Crear Objetivo
+                    </button>
+                  </div>
+                )}
             </motion.div>
           )}
         </AnimatePresence>
