@@ -71,7 +71,7 @@ const DeleteConfirmationDialog = lazy(() => import("./components/DeleteConfirmat
 const EditExpenseModal = lazy(() => import("./components/EditExpenseModal"));
 const GoalsModal = lazy(() => import("./components/GoalsModal"));
 const RecurringExpensesModal = lazy(() => import("./components/RecurringExpensesModal"));
-const SettingsModal = lazy(() => import("./components/SettingsModal"));
+const SettingsModal = lazy(() => import("./components/SettingsModal.tsx"));
 const TipsModal = lazy(() => import("./components/TipsModal"));
 const OnboardingModal = lazy(() => import("./components/OnboardingModal"));
 

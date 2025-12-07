@@ -1,9 +1,61 @@
 import { useState, useEffect } from "react";
-import { Bell, DollarSign, Globe, Moon, Sun, X, TestTube, Calendar, RotateCcw } from "lucide-react";
+import { Bell, DollarSign, Globe, Moon, Sun, X, Calendar, RotateCcw } from "lucide-react";
 import { useLanguage, useTranslation } from "../../../contexts/LanguageContext";
-import { showTestNotification, areNotificationsEnabled } from "../../../services/pushNotificationService";
+// @ts-ignore - No hay tipos para este módulo JS
 import { restoreCategoriesFromExpenses } from "../../../services/firestoreService";
+// @ts-ignore - No hay tipos para este módulo JS
 import { useDisableBodyScroll } from "../../../hooks/useDisableBodyScroll";
+
+interface NotificationSettings {
+  budgetAlerts?: {
+    enabled: boolean;
+    at80?: boolean;
+    at90?: boolean;
+    at100?: boolean;
+  };
+  recurringReminders?: {
+    enabled: boolean;
+  };
+  customReminders?: {
+    enabled: boolean;
+    message?: string;
+    hour?: number;
+    minute?: number;
+  };
+  weeklyReminder?: {
+    enabled: boolean;
+    dayOfWeek?: number;
+    hour?: number;
+    minute?: number;
+    message?: string;
+  };
+  monthlyIncomeReminder?: {
+    enabled: boolean;
+    dayOfMonth?: number;
+  };
+  pushNotifications?: {
+    enabled: boolean;
+  };
+}
+
+interface SettingsModalProps {
+  visible: boolean;
+  darkMode: boolean;
+  cardClass: string;
+  textClass: string;
+  textSecondaryClass: string;
+  toggleDarkMode: () => void;
+  onClose: () => void;
+  income: number | null;
+  onSaveIncome: (income: number | null) => void;
+  notificationSettings?: NotificationSettings;
+  onSaveNotificationSettings: (settings: NotificationSettings) => void;
+  onRequestPushPermission?: () => void;
+  showNotification: (message: string, type?: "success" | "error" | "info") => void;
+  userId?: string;
+}
+
+type ActiveTab = "general" | "notifications";
 
 const SettingsModal = ({
   visible,
@@ -20,10 +72,10 @@ const SettingsModal = ({
   onRequestPushPermission,
   showNotification,
   userId,
-}) => {
+}: SettingsModalProps) => {
   const { t } = useTranslation();
   const { language, changeLanguage, availableLanguages } = useLanguage();
-  const [localIncome, setLocalIncome] = useState(() => {
+  const [localIncome, setLocalIncome] = useState<number | string>(() => {
     // Si income es null, undefined o 0, mostrar campo vacío
     if (income === null || income === undefined || income === 0) {
       return "";
@@ -39,8 +91,9 @@ const SettingsModal = ({
       setLocalIncome(income);
     }
   }, [income]);
-  const [localNotificationSettings, setLocalNotificationSettings] = useState(() => {
-    const defaultSettings = {
+
+  const [localNotificationSettings, setLocalNotificationSettings] = useState<NotificationSettings>(() => {
+    const defaultSettings: NotificationSettings = {
       budgetAlerts: { enabled: true, at80: true, at90: true, at100: true },
       recurringReminders: { enabled: true },
       customReminders: { enabled: true, message: "No olvides registrar tus gastos", hour: 20, minute: 0 },
@@ -87,7 +140,8 @@ const SettingsModal = ({
     
     return defaultSettings;
   });
-  const [activeTab, setActiveTab] = useState("general"); // "general" | "notifications"
+
+  const [activeTab, setActiveTab] = useState<ActiveTab>("general");
   const [isRestoring, setIsRestoring] = useState(false);
 
   // Deshabilitar scroll del body cuando el modal está abierto
@@ -122,7 +176,8 @@ const SettingsModal = ({
       }
     } catch (error) {
       console.error("Error al restaurar categorías:", error);
-      showNotification("Error al restaurar categorías: " + error.message, "error");
+      const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+      showNotification("Error al restaurar categorías: " + errorMessage, "error");
     } finally {
       setIsRestoring(false);
     }
@@ -130,7 +185,7 @@ const SettingsModal = ({
 
   const handleSaveIncome = () => {
     // Si está vacío o es 0, guardar null (no configurado)
-    const incomeToSave = localIncome === "" || localIncome === 0 || localIncome === "0" ? null : parseFloat(localIncome);
+    const incomeToSave = localIncome === "" || localIncome === 0 || localIncome === "0" ? null : parseFloat(String(localIncome));
     onSaveIncome(incomeToSave);
   };
 
@@ -200,7 +255,7 @@ const SettingsModal = ({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-6 pb-safe space-y-6">
+        <div className="flex-1 overflow-y-auto px-6 py-6 pb-24 space-y-6">
           {activeTab === "general" && (
             <>
               {/* Ingresos */}
@@ -455,7 +510,7 @@ const SettingsModal = ({
                         ...localNotificationSettings,
                         weeklyReminder: {
                           ...localNotificationSettings.weeklyReminder,
-                          enabled: !localNotificationSettings.weeklyReminder?.enabled,
+                          enabled: !(localNotificationSettings.weeklyReminder?.enabled ?? false),
                         },
                       });
                     }}
@@ -486,6 +541,7 @@ const SettingsModal = ({
                           setLocalNotificationSettings({
                             ...localNotificationSettings,
                             weeklyReminder: {
+                              enabled: localNotificationSettings.weeklyReminder?.enabled ?? false,
                               ...localNotificationSettings.weeklyReminder,
                               dayOfWeek: parseInt(e.target.value),
                             },
@@ -520,6 +576,7 @@ const SettingsModal = ({
                             setLocalNotificationSettings({
                               ...localNotificationSettings,
                               weeklyReminder: {
+                                enabled: localNotificationSettings.weeklyReminder?.enabled ?? false,
                                 ...localNotificationSettings.weeklyReminder,
                                 hour: parseInt(e.target.value),
                               },
@@ -551,6 +608,7 @@ const SettingsModal = ({
                             setLocalNotificationSettings({
                               ...localNotificationSettings,
                               weeklyReminder: {
+                                enabled: localNotificationSettings.weeklyReminder?.enabled ?? false,
                                 ...localNotificationSettings.weeklyReminder,
                                 minute: parseInt(e.target.value),
                               },
@@ -605,7 +663,7 @@ const SettingsModal = ({
                         ...localNotificationSettings,
                         monthlyIncomeReminder: {
                           ...localNotificationSettings.monthlyIncomeReminder,
-                          enabled: !localNotificationSettings.monthlyIncomeReminder?.enabled,
+                          enabled: !(localNotificationSettings.monthlyIncomeReminder?.enabled ?? false),
                         },
                       });
                     }}
@@ -636,6 +694,7 @@ const SettingsModal = ({
                           setLocalNotificationSettings({
                             ...localNotificationSettings,
                             monthlyIncomeReminder: {
+                              enabled: localNotificationSettings.monthlyIncomeReminder?.enabled ?? false,
                               ...localNotificationSettings.monthlyIncomeReminder,
                               dayOfMonth: parseInt(e.target.value),
                             },
@@ -671,7 +730,7 @@ const SettingsModal = ({
           )}
 
           {/* Botón guardar */}
-          <div className={`mt-6 pt-6 border-t ${
+          <div className={`mt-6 pt-6 mb-6 border-t ${
             darkMode ? "border-gray-700" : "border-gray-200"
           }`}>
             {activeTab === "general" ? (
@@ -697,3 +756,4 @@ const SettingsModal = ({
 };
 
 export default SettingsModal;
+

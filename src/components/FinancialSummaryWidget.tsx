@@ -74,6 +74,7 @@ const FinancialSummaryWidget: React.FC<FinancialSummaryWidgetProps> = ({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.95 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              onMouseDown={(e) => e.stopPropagation()}
               className={`
                 absolute right-0 top-full mt-2 w-72 z-40
                 rounded-2xl shadow-2xl p-4 border
