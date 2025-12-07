@@ -669,29 +669,27 @@ const SettingsModal = ({
 
             </>
           )}
-        </div>
 
-        {/* Botón guardar sticky en la parte inferior */}
-        <div className={`sticky bottom-0 px-6 py-4 pb-safe border-t ${
-          darkMode
-            ? "bg-gray-800/95 border-gray-700"
-            : "bg-white/95 border-purple-100"
-        } backdrop-blur`}>
-          {activeTab === "general" ? (
-            <button
-              onClick={handleSaveIncome}
-              className="w-full px-6 py-3 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all"
-            >
-              {t("common.save")}
-            </button>
-          ) : (
-            <button
-              onClick={handleSaveNotifications}
-              className="w-full px-6 py-3 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all"
-            >
-              {t("common.save")}
-            </button>
-          )}
+          {/* Botón guardar */}
+          <div className={`mt-6 pt-6 border-t ${
+            darkMode ? "border-gray-700" : "border-gray-200"
+          }`}>
+            {activeTab === "general" ? (
+              <button
+                onClick={handleSaveIncome}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all"
+              >
+                {t("common.save")}
+              </button>
+            ) : (
+              <button
+                onClick={handleSaveNotifications}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all"
+              >
+                {t("common.save")}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
