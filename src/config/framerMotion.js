@@ -1,7 +1,3 @@
-// Configuración global de Framer Motion optimizada
-// Nota: Este archivo puede usarse con o sin framer-motion instalado
-
-// Variantes de animación reutilizables
 export const fadeInUp = {
   initial: { opacity: 0, y: 20 },
   animate: { opacity: 1, y: 0 },
@@ -33,8 +29,8 @@ export const slideInLeft = {
 };
 
 // Transiciones predefinidas
-export const getTransition = (type = 'default') => {
-  if (typeof window === 'undefined') {
+export const getTransition = (type = "default") => {
+  if (typeof window === "undefined") {
     return { duration: 0.3 };
   }
 
@@ -43,24 +39,24 @@ export const getTransition = (type = 'default') => {
 
   const transitions = {
     default: {
-      type: 'spring',
+      type: "spring",
       stiffness: 300,
       damping: 30,
       duration,
     },
     fast: {
-      type: 'spring',
+      type: "spring",
       stiffness: 500,
       damping: 35,
       duration: isMobile ? 0.15 : 0.2,
     },
     smooth: {
-      type: 'tween',
+      type: "tween",
       ease: [0.4, 0, 0.2, 1],
       duration,
     },
     bounce: {
-      type: 'spring',
+      type: "spring",
       stiffness: 400,
       damping: 20,
       bounce: isMobile ? 0 : 0.3,
@@ -70,4 +66,3 @@ export const getTransition = (type = 'default') => {
 
   return transitions[type] || transitions.default;
 };
-
