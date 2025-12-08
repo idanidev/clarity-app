@@ -65,6 +65,7 @@ const FinancialSummaryWidget: React.FC<FinancialSummaryWidgetProps> = ({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowDetails(false)}
+              onMouseDown={() => setShowDetails(false)}
               className="fixed inset-0 z-30"
             />
 
