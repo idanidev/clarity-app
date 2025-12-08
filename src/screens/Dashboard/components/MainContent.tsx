@@ -4,23 +4,23 @@ import {
   BarChart3,
   Bot,
   Calendar,
-  Car,
+  // Car,
   ChevronDown,
   ChevronUp,
-  Dumbbell,
+  // Dumbbell,
   Filter,
-  Gamepad2,
-  Heart,
-  Home,
+  // Gamepad2,
+  // Heart,
+  // Home,
   LucideIcon,
   Plus,
-  Repeat,
+  // Repeat,
   Search,
-  ShoppingBag,
+  // ShoppingBag,
   Sparkles,
   Table as TableIcon,
   Target,
-  UtensilsCrossed,
+  // UtensilsCrossed,
   Wallet,
   X
 } from "lucide-react";
@@ -268,7 +268,7 @@ const MainContent = memo<MainContentProps>(
     categoryTotals,
     categoryTotalsForBudgets,
     budgets,
-    recentExpenses,
+    // recentExpenses,
     recurringExpenses = [],
     goals,
     income,
@@ -296,22 +296,22 @@ const MainContent = memo<MainContentProps>(
     // ============================================
     // MEMOIZED VALUES
     // ============================================
-    const categoryIcons: { [key: string]: LucideIcon } = useMemo(
-      () => ({
-        Salud: Heart,
-        Gimnasio: Dumbbell,
-        Ocio: Gamepad2,
-        Suscripciones: Repeat,
-        Comida: UtensilsCrossed,
-        Transporte: Car,
-        Compras: ShoppingBag,
-        Hogar: Home,
-        "Coche/Moto": Car,
-        Alimentacion: UtensilsCrossed,
-        Educacion: Repeat,
-      }),
-      []
-    );
+    // const categoryIcons: { [key: string]: LucideIcon } = useMemo(
+    //   () => ({
+    //     Salud: Heart,
+    //     Gimnasio: Dumbbell,
+    //     Ocio: Gamepad2,
+    //     Suscripciones: Repeat,
+    //     Comida: UtensilsCrossed,
+    //     Transporte: Car,
+    //     Compras: ShoppingBag,
+    //     Hogar: Home,
+    //     "Coche/Moto": Car,
+    //     Alimentacion: UtensilsCrossed,
+    //     Educacion: Repeat,
+    //   }),
+    //   []
+    // );
 
     const averageDaily = useMemo(() => {
       if (filteredExpenses.length === 0) return 0;
@@ -372,27 +372,27 @@ const MainContent = memo<MainContentProps>(
       filteredExpenses,
     ]);
 
-    const frequencyLabels = useMemo(
-      () => ({
-        monthly: t("recurring.frequencyMonthly"),
-        quarterly: t("recurring.frequencyQuarterly"),
-        semiannual: t("recurring.frequencySemiannual"),
-        annual: t("recurring.frequencyAnnual"),
-      }),
-      [t]
-    );
+    // const frequencyLabels = useMemo(
+    //   () => ({
+    //     monthly: t("recurring.frequencyMonthly"),
+    //     quarterly: t("recurring.frequencyQuarterly"),
+    //     semiannual: t("recurring.frequencySemiannual"),
+    //     annual: t("recurring.frequencyAnnual"),
+    //   }),
+    //   [t]
+    // );
 
-    const recurringFrequencyMap = useMemo(() => {
-      return (recurringExpenses || []).reduce(
-        (acc: { [key: string]: string }, recurring) => {
-          if (recurring?.id) {
-            acc[recurring.id] = recurring.frequency || "monthly";
-          }
-          return acc;
-        },
-        {}
-      );
-    }, [recurringExpenses]);
+    // const recurringFrequencyMap = useMemo(() => {
+    //   return (recurringExpenses || []).reduce(
+    //     (acc: { [key: string]: string }, recurring) => {
+    //       if (recurring?.id) {
+    //         acc[recurring.id] = recurring.frequency || "monthly";
+    //       }
+    //       return acc;
+    //     },
+    //     {}
+    //   );
+    // }, [recurringExpenses]);
 
     const goalsSummary = useMemo<GoalsSummary | null>(() => {
       if (!goals?.totalSavingsGoal || !income || income === 0) {
@@ -472,24 +472,24 @@ const MainContent = memo<MainContentProps>(
       setSearchQuery("");
     }, []);
 
-    const handlePieClick = useCallback(
-      (data: any, index: number) => {
-        if (activeIndex === index) {
-          setActiveIndex(null);
-          setClickedCategory(null);
-        } else {
-          setActiveIndex(index);
-          setClickedCategory(data);
-        }
-      },
-      [activeIndex]
-    );
+    // const handlePieClick = useCallback(
+    //   (data: any, index: number) => {
+    //     if (activeIndex === index) {
+    //       setActiveIndex(null);
+    //       setClickedCategory(null);
+    //     } else {
+    //       setActiveIndex(index);
+    //       setClickedCategory(data);
+    //     }
+    //   },
+    //   [activeIndex]
+    // );
 
-    const handleCloseTooltip = useCallback((e: React.MouseEvent) => {
-      e.stopPropagation();
-      setActiveIndex(null);
-      setClickedCategory(null);
-    }, []);
+    // const handleCloseTooltip = useCallback((e: React.MouseEvent) => {
+    //   e.stopPropagation();
+    //   setActiveIndex(null);
+    //   setClickedCategory(null);
+    // }, []);
 
     // ============================================
     // RENDER
@@ -662,8 +662,7 @@ const MainContent = memo<MainContentProps>(
             addExpense={onAddExpenseFromAI}
             showNotification={showNotification}
             hasFilterButton={activeView === "table" || activeView === "chart"}
-            // @ts-expect-error Variable 'expenses' might be undefined; ensure it's supplied correctly.
-            expenses={expenses}
+            expenses={allExpenses}
           />
         )}
         {/* Panel de filtros avanzados para móvil - Bottom sheet style */}
@@ -1394,9 +1393,9 @@ const MainContent = memo<MainContentProps>(
                           .flat()
                           .reduce((sum, exp) => sum + exp.amount, 0);
                         const isExpanded = expandedCategories[category];
-                        const expenseCount =
-                          Object.values(subcategories).flat().length;
-                        const CategoryIcon = categoryIcons[category] || Wallet;
+                        // const expenseCount =
+                        //   Object.values(subcategories).flat().length;
+                        // const CategoryIcon = categoryIcons[category] || Wallet;
 
                         const filteredSubcategories = Object.entries(
                           subcategories
@@ -1601,7 +1600,7 @@ const MainContent = memo<MainContentProps>(
                       <ResponsiveContainer width="100%" height={400}>
                         <PieChart>
                           <defs>
-                            {categoryTotals.map((item, index) => {
+                            {categoryTotals.map((_item, index) => {
                               return (
                                 <filter
                                   key={`shadow-${index}`}
@@ -1649,7 +1648,6 @@ const MainContent = memo<MainContentProps>(
                             animationBegin={0}
                             animationDuration={800}
                             animationEasing="ease-out"
-                            activeIndex={activeIndex}
                             onClick={(data, index) => {
                               if (activeIndex === index) {
                                 setActiveIndex(null);
@@ -2421,7 +2419,7 @@ const MainContent = memo<MainContentProps>(
               </div>
 
               {/* Objetivo de Ahorro Mensual - Diseño Simplificado y Visual */}
-              {goals?.totalSavingsGoal > 0 &&
+              {(goals?.totalSavingsGoal ?? 0) > 0 &&
                 income > 0 &&
                 (() => {
                   const today = new Date();
@@ -2440,7 +2438,8 @@ const MainContent = memo<MainContentProps>(
                   );
 
                   // Lógica corregida: calcular límite de gasto máximo
-                  const maxSpendingAllowed = income - goals.totalSavingsGoal; // Máximo que puede gastar
+                  const savingsGoal = goals?.totalSavingsGoal ?? 0;
+                  const maxSpendingAllowed = income - savingsGoal; // Máximo que puede gastar
                   const monthlySavings = income - currentMonthExpenses; // Ahorro actual
                   const overspending = Math.max(
                     0,
@@ -2454,7 +2453,7 @@ const MainContent = memo<MainContentProps>(
                   // Estados
                   const hasOverspent =
                     currentMonthExpenses > maxSpendingAllowed; // Se ha pasado del límite
-                  const isOnTrack = monthlySavings >= goals.totalSavingsGoal; // Ha alcanzado el objetivo
+                  const isOnTrack = monthlySavings >= savingsGoal; // Ha alcanzado el objetivo
                   const isCloseToLimit =
                     currentMonthExpenses >= maxSpendingAllowed * 0.9; // Cerca del límite (90%)
 
@@ -2515,7 +2514,7 @@ const MainContent = memo<MainContentProps>(
                             <p
                               className={`text-xs sm:text-sm ${textSecondaryClass}`}
                             >
-                              Objetivo: €{goals.totalSavingsGoal.toFixed(2)}{" "}
+                              Objetivo: €{savingsGoal.toFixed(2)}{" "}
                               este mes
                             </p>
                           </div>
@@ -2561,7 +2560,7 @@ const MainContent = memo<MainContentProps>(
                             {hasOverspent
                               ? `⚠️ Te has pasado €${overspending.toFixed(
                                   2
-                                )} del límite. No podrás ahorrar ${goals.totalSavingsGoal.toFixed(
+                                )} del límite. No podrás ahorrar ${savingsGoal.toFixed(
                                   0
                                 )}€ este mes.`
                               : isOnTrack
@@ -2957,9 +2956,9 @@ const MainContent = memo<MainContentProps>(
 
                           // Manejo seguro de datos
                           const currentAmount =
-                            parseFloat(goal.currentAmount) || 0;
+                            typeof goal.currentAmount === 'number' ? goal.currentAmount : (parseFloat(String(goal.currentAmount)) || 0);
                           const targetAmount =
-                            parseFloat(goal.targetAmount) || 0;
+                            typeof goal.targetAmount === 'number' ? goal.targetAmount : (parseFloat(String(goal.targetAmount)) || 0);
                           if (targetAmount === 0) return null; // No mostrar objetivos sin objetivo definido
 
                           const progress = getLongTermGoalProgress(goal);
