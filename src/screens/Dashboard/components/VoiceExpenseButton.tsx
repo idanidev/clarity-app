@@ -92,6 +92,8 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
     const [interimTranscript, setInterimTranscript] = useState<string>("");
     const [currentExampleIndex, setCurrentExampleIndex] = useState<number>(0);
     const recognitionRef = useRef<any>(null);
+    const lastSpeechTimeRef = useRef<number>(Date.now());
+    const pauseTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     // ============================================
     // Rotar ejemplos cada 3 segundos mientras graba
@@ -320,9 +322,37 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
     // ============================================
     // DETECCIÓN de gastos
     // ============================================
-    const detectExpenseFromText = useCallback(
+    const detectMultipleExpensesFromText = useCallback(
+      (text: string): DetectedExpense[] => {
+        console.log("🔍 Analizando múltiples gastos:", text);
+        
+        // Dividir el texto por separadores comunes
+        // Incluye: "y", comas, puntos, punto y coma, "también", "además", "luego"
+        const segments = text
+          .split(/\s+y\s+|,\s*|;\s*|\.\s+|\\s+también\s+|\\s+además\s+|\\s+luego\s+/)
+          .map(s => s.trim())
+          .filter(s => s.length > 0);
+        
+        console.log("📝 Segmentos encontrados:", segments);
+        
+        const detectedExpenses: DetectedExpense[] = [];
+        
+        segments.forEach((segment, index) => {
+          const detected = detectSingleExpenseFromText(segment);
+          if (detected) {
+            console.log(`✅ Gasto ${index + 1} detectado:`, detected);
+            detectedExpenses.push(detected);
+          }
+        });
+        
+        return detectedExpenses;
+      },
+      [categories, learnedPatterns]
+    );
+
+    const detectSingleExpenseFromText = useCallback(
       (text: string): DetectedExpense | null => {
-        console.log("🔍 Analizando:", text);
+        console.log("🔍 Analizando gasto individual:", text);
 
         let expenseDate = new Date().toISOString().slice(0, 10);
 
@@ -458,6 +488,15 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
       []
     );
 
+    // Mantener compatibilidad con código existente
+    const detectExpenseFromText = useCallback(
+      (text: string): DetectedExpense | null => {
+        const expenses = detectMultipleExpensesFromText(text);
+        return expenses.length > 0 ? expenses[0] : null;
+      },
+      [detectMultipleExpensesFromText]
+    );
+
     // ============================================
     // Procesar transcripción
     // ============================================
@@ -475,48 +514,67 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
             return;
           }
 
-          const detected = detectExpenseFromText(text);
+          // Detectar múltiples gastos
+          const detectedExpenses = detectMultipleExpensesFromText(text);
 
-          if (!detected) {
+          if (detectedExpenses.length === 0) {
             showNotification?.(
-              '❌ No entendí. Prueba: "nueve coma sesenta en tabaco"',
+              '❌ No entendí. Prueba: "veinte en tabaco y diez en comida"',
               "error"
             );
             setIsProcessing(false);
             return;
           }
 
-          const categorization = findBestCategory(detected.description);
+          console.log(`💰 ${detectedExpenses.length} gasto(s) detectado(s)`);
 
-          if (!categorization) {
-            showNotification?.("❌ No se pudo categorizar", "error");
-            setIsProcessing(false);
-            return;
+          let successCount = 0;
+          const results: string[] = [];
+
+          // Procesar cada gasto detectado
+          for (const detected of detectedExpenses) {
+            const categorization = findBestCategory(detected.description);
+
+            if (!categorization) {
+              console.warn(`⚠️ No se pudo categorizar: ${detected.description}`);
+              continue;
+            }
+
+            const expenseData: ExpenseData = {
+              name: detected.description,
+              amount: detected.amount,
+              category: categorization.category,
+              subcategory: categorization.subcategory || "",
+              date: detected.date,
+              paymentMethod: "Tarjeta",
+              isRecurring: false,
+              recurringId: null,
+            };
+
+            console.log("💾 Guardando gasto:", expenseData);
+            await addExpense(expenseData);
+
+            const categoryDetails = categorization.subcategory
+              ? `${categorization.category} (${categorization.subcategory})`
+              : categorization.category;
+
+            results.push(`${detected.amount}€ → ${categoryDetails}`);
+            successCount++;
           }
 
-          const expenseData: ExpenseData = {
-            name: detected.description,
-            amount: detected.amount,
-            category: categorization.category,
-            subcategory: categorization.subcategory || "",
-            date: detected.date,
-            paymentMethod: "Tarjeta",
-            isRecurring: false,
-            recurringId: null,
-          };
-
-          await addExpense(expenseData);
           setTranscript("");
           setInterimTranscript("");
 
-          showNotification?.(
-            `✅ ${detected.amount}€ → ${categorization.category}${
-              categorization.subcategory
-                ? ` (${categorization.subcategory})`
-                : ""
-            }\n${categorization.reason}`,
-            "success"
-          );
+          // Mostrar resultado
+          if (successCount > 0) {
+            const message = successCount === 1 
+              ? `✅ ${results[0]}`
+              : `✅ ${successCount} gastos:\n${results.join('\n')}`;
+            
+            showNotification?.(message, "success");
+          } else {
+            showNotification?.("❌ No se pudo guardar ningún gasto", "error");
+          }
 
           if (recognitionRef.current) {
             recognitionRef.current.stop();
@@ -573,13 +631,38 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
           }
         }
 
+        // Actualizar timestamp de última palabra detectada
+        lastSpeechTimeRef.current = Date.now();
+
+        // Limpiar timer de pausa anterior
+        if (pauseTimerRef.current) {
+          clearTimeout(pauseTimerRef.current);
+          pauseTimerRef.current = null;
+        }
+
         setInterimTranscript(interimText);
 
         if (finalText && !isProcessing) {
-          const textToProcess = finalText.trim();
-          setTranscript((prev) => prev + finalText);
+          setTranscript((prev) => {
+            const newTranscript = prev + finalText;
+            
+            // Si ya hay texto previo y no termina en separador, añadir uno
+            if (prev.trim() && !prev.trim().match(/[,;]$/)) {
+              return prev.trim() + ', ' + finalText;
+            }
+            return newTranscript;
+          });
           setInterimTranscript("");
-          processTranscript(textToProcess);
+          
+          // No procesar inmediatamente, esperar a ver si hay más gastos
+          // Configurar timer para procesar después de 2 segundos de silencio
+          pauseTimerRef.current = setTimeout(() => {
+            const fullTranscript = transcript + finalText;
+            if (fullTranscript.trim()) {
+              console.log("🎤 Pausa detectada, procesando múltiples gastos");
+              processTranscript(fullTranscript.trim());
+            }
+          }, 2000);
         }
       };
 
@@ -594,6 +677,12 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
 
       recognition.onend = () => {
         setIsListening(false);
+        
+        // Limpiar timer de pausa al terminar
+        if (pauseTimerRef.current) {
+          clearTimeout(pauseTimerRef.current);
+          pauseTimerRef.current = null;
+        }
       };
 
       recognitionRef.current = recognition;
