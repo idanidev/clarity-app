@@ -1,0 +1,149 @@
+/* ============================================
+   ESTILOS MÓVIL-FIRST PARA CAPACITOR
+   ============================================ */
+
+/* Safe Area Variables (para iOS notch y home indicator) */
+:root {
+  --sat: env(safe-area-inset-top);
+  --sar: env(safe-area-inset-right);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
+}
+
+/* Touch targets mínimo 44x44px (Apple HIG) */
+.btn-mobile,
+button:not(.icon-only) {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Prevenir zoom en inputs iOS */
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"],
+input[type="date"],
+input[type="time"],
+textarea,
+select {
+  font-size: 16px; /* 16px+ previene auto-zoom en iOS */
+}
+
+/* Scroll suave iOS */
+.scrollable,
+.overflow-y-auto,
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Quitar highlight azul en tap */
+button,
+a,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+/* Mejorar feedback táctil */
+button:active,
+a:active,
+[role="button"]:active {
+  opacity: 0.7;
+  transform: scale(0.98);
+  transition: opacity 0.1s, transform 0.1s;
+}
+
+/* Safe area padding para contenido principal */
+.safe-area-top {
+  padding-top: var(--sat, 0px);
+}
+
+.safe-area-bottom {
+  padding-bottom: var(--sab, 0px);
+}
+
+.safe-area-left {
+  padding-left: var(--sal, 0px);
+}
+
+.safe-area-right {
+  padding-right: var(--sar, 0px);
+}
+
+/* Safe area para elementos fijos */
+.fixed-bottom-safe {
+  bottom: calc(var(--sab, 0px) + 1rem);
+}
+
+.fixed-top-safe {
+  top: calc(var(--sat, 0px) + 1rem);
+}
+
+/* Mejorar inputs en móvil */
+input,
+textarea,
+select {
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 0.5rem;
+}
+
+/* Prevenir selección de texto accidental en botones */
+button,
+[role="button"] {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Mejorar scrollbars en iOS */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Ajustes para modales en móvil */
+.modal-content {
+  max-height: calc(100vh - var(--sat, 0px) - var(--sab, 0px) - 2rem);
+}
+
+/* Mejorar visibilidad de labels en móvil */
+label {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+/* Ajustes para formularios en móvil */
+form {
+  padding-bottom: calc(var(--sab, 0px) + 1rem);
+}
+
+/* Prevenir pull-to-refresh accidental en iOS */
+body {
+  overscroll-behavior-y: contain;
+}
+
+/* Mejorar contraste en modo oscuro móvil */
+@media (prefers-color-scheme: dark) {
+  input,
+  textarea,
+  select {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: #ffffff;
+  }
+}
+

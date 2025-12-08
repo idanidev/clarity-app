@@ -1,12 +1,15 @@
 import { useEffect, useState, useRef } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { motion, AnimatePresence } from "framer-motion";
+import { SplashScreen } from "@capacitor/splash-screen";
+import { Capacitor } from "@capacitor/core";
 import Auth from "./screens/Auth/Auth";
 import { auth } from "./firebase";
 import Dashboard from "./screens/Dashboard/Dashboard";
 import { LanguageProvider, useTranslation } from "./contexts/LanguageContext";
 import { saveUserLanguage } from "./services/firestoreService";
 import { fadeIn, getTransition } from "./config/framerMotion";
+import { useStatusBar } from "./hooks/useSafeArea";
 
 const LoadingScreen = () => {
   const { t } = useTranslation();
