@@ -1,9 +1,33 @@
 import { X, Plus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+// @ts-ignore - No hay tipos para este módulo JS
 import { getCategorySubcategories } from "../../../services/firestoreService";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, FormEvent } from "react";
 import { useDisableBodyScroll } from "../../../hooks/useDisableBodyScroll";
 import { scaleIn, getTransition } from "../../../config/framerMotion";
+import { Input, Button } from "../../../components/ui";
+import { isValidAmount, isNotEmpty, isValidDate } from "../../../utils/validation";
+import { parseCurrency } from "../../../utils/currency";
+import type { ExpenseInput, Categories } from "../../../types";
+
+interface AddExpenseModalProps {
+  visible: boolean;
+  darkMode: boolean;
+  cardClass: string;
+  textClass: string;
+  inputClass: string;
+  categories: Categories;
+  newExpense: Partial<ExpenseInput>;
+  onChange: (expense: Partial<ExpenseInput>) => void;
+  onSubmit: (e: FormEvent) => Promise<void>;
+  onClose: () => void;
+  onAddCategory?: (categoryName: string) => Promise<void>;
+  onAddSubcategory?: (subcategoryName: string) => Promise<void>;
+}
+
+interface FormErrors {
+  [key: string]: string;
+}
 
 const AddExpenseModal = ({
   visible,
@@ -18,12 +42,13 @@ const AddExpenseModal = ({
   onClose,
   onAddCategory,
   onAddSubcategory,
-}) => {
+}: AddExpenseModalProps) => {
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [showNewSubcategory, setShowNewSubcategory] = useState(false);
   const [newSubcategoryName, setNewSubcategoryName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
   
   // Deshabilitar scroll del body cuando el modal está abierto
   useDisableBodyScroll(visible);
@@ -35,28 +60,74 @@ const AddExpenseModal = ({
       setNewCategoryName("");
       setShowNewSubcategory(false);
       setNewSubcategoryName("");
+      setErrors({});
     }
   }, [visible]);
 
   const textSecondaryClass = darkMode ? "text-gray-400" : "text-gray-600";
 
-  const handleChange = (field, value) => {
+  const handleChange = useCallback((field: string, value: any) => {
+    // Limpiar error del campo cuando el usuario empieza a escribir
+    setErrors(prev => {
+      if (prev[field]) {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      }
+      return prev;
+    });
+    
     onChange({
       ...newExpense,
       [field]: value,
     });
-  };
+  }, [newExpense, onChange]);
+
+  // Validar formulario
+  const validateForm = useCallback(() => {
+    const newErrors: FormErrors = {};
+
+    if (!isNotEmpty(newExpense.name || "")) {
+      newErrors.name = "El nombre del gasto es requerido";
+    }
+
+    const amount = typeof newExpense.amount === 'string' 
+      ? parseCurrency(newExpense.amount) 
+      : (newExpense.amount || 0);
+    
+    if (!isValidAmount(amount)) {
+      newErrors.amount = "El monto debe ser mayor a 0";
+    }
+
+    if (!newExpense.category || !isNotEmpty(newExpense.category)) {
+      newErrors.category = "Debes seleccionar una categoría";
+    }
+
+    if (!isValidDate(newExpense.date || "")) {
+      newErrors.date = "La fecha no es válida";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }, [newExpense]);
 
   // Manejar el submit del formulario con validación de categorías/subcategorías nuevas
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
     // Evitar envíos múltiples si el usuario pulsa varias veces
     if (isSubmitting) return;
-    setIsSubmitting(true);
 
-    let finalCategory = newExpense.category;
-    let finalSubcategory = newExpense.subcategory;
+    // Validar formulario
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrors({});
+
+    let finalCategory = newExpense.category || "";
+    let finalSubcategory = newExpense.subcategory || "";
     let needsUpdate = false;
     
     // Si hay una categoría nueva escrita pero no creada, verificar primero si ya existe
@@ -107,6 +178,7 @@ const AddExpenseModal = ({
               await new Promise(resolve => setTimeout(resolve, 200));
             } catch (error) {
               console.error("Error creando categoría:", error);
+              setIsSubmitting(false);
               return; // No continuar si falla la creación
             }
           }
@@ -116,7 +188,7 @@ const AddExpenseModal = ({
     
     // Verificar que tenemos una categoría válida antes de continuar
     if (!finalCategory || finalCategory === "") {
-      // Si no hay categoría seleccionada ni en creación, no permitir enviar
+      setIsSubmitting(false);
       return;
     }
     
@@ -136,7 +208,7 @@ const AddExpenseModal = ({
       const subcategoryNameTrimmed = newSubcategoryName.trim();
       // Obtener la categoría actualizada (puede haber cambiado)
       const currentCategoryData = categories[finalCategory] || 
-        categories[Object.keys(categories).find(c => c.toLowerCase() === finalCategory.toLowerCase())];
+        categories[Object.keys(categories).find(c => c.toLowerCase() === finalCategory.toLowerCase()) || ""];
       
       if (currentCategoryData) {
         const subcategories = getCategorySubcategories(currentCategoryData);
@@ -164,6 +236,7 @@ const AddExpenseModal = ({
             await new Promise(resolve => setTimeout(resolve, 200));
           } catch (error) {
             console.error("Error creando subcategoría:", error);
+            setIsSubmitting(false);
             return; // No continuar si falla la creación
           }
         }
@@ -175,7 +248,7 @@ const AddExpenseModal = ({
       onChange({
         ...newExpense,
         category: finalCategory,
-        subcategory: finalSubcategory || newExpense.subcategory,
+        subcategory: finalSubcategory || newExpense.subcategory || "",
       });
       // Esperar a que se actualice el estado antes de enviar
       await new Promise(resolve => setTimeout(resolve, 150));
@@ -184,6 +257,13 @@ const AddExpenseModal = ({
     try {
       // Enviar el formulario
       await onSubmit(e);
+      // Limpiar errores si todo salió bien
+      setErrors({});
+    } catch (error) {
+      console.error("Error al añadir gasto:", error);
+      setErrors({ 
+        submit: error instanceof Error ? error.message : "Error al añadir el gasto" 
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -233,40 +313,45 @@ const AddExpenseModal = ({
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4">
-          <div>
-            <label className={`block text-sm font-medium ${textClass} mb-2`}>
-              Nombre del gasto
-            </label>
-            <input
-              type="text"
-              value={newExpense.name}
-              onChange={(e) => handleChange("name", e.target.value)}
-              className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
-              required
-              placeholder="Ej: Compra supermercado"
-            />
-          </div>
+          {/* Error general */}
+          {errors.submit && (
+            <div className={`p-4 rounded-xl ${
+              darkMode 
+                ? "bg-red-900/20 text-red-400 border border-red-800" 
+                : "bg-red-50 text-red-600 border border-red-200"
+            }`}>
+              {errors.submit}
+            </div>
+          )}
 
-          <div>
-            <label className={`block text-sm font-medium ${textClass} mb-2`}>
-              Cantidad
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={newExpense.amount}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value === "" || parseFloat(value) >= 0) {
-                  handleChange("amount", value);
-                }
-              }}
-              className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
-              required
-              placeholder="0.00"
-            />
-          </div>
+          <Input
+            label="Nombre del gasto"
+            type="text"
+            value={newExpense.name || ""}
+            onChange={(e) => handleChange("name", e.target.value)}
+            error={errors.name}
+            placeholder="Ej: Compra supermercado"
+            required
+            className={darkMode ? "dark" : ""}
+          />
+
+          <Input
+            label="Cantidad"
+            type="number"
+            step="0.01"
+            min="0"
+            value={newExpense.amount || ""}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value === "" || parseFloat(value) >= 0) {
+                handleChange("amount", value);
+              }
+            }}
+            error={errors.amount}
+            placeholder="0.00"
+            required
+            className={darkMode ? "dark" : ""}
+          />
 
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -366,7 +451,7 @@ const AddExpenseModal = ({
               </div>
             ) : (
               <select
-                value={newExpense.category}
+                value={newExpense.category || ""}
                 onClick={(e) => e.stopPropagation()}
                 onMouseDown={(e) => e.stopPropagation()}
                 onTouchStart={(e) => e.stopPropagation()}
@@ -457,7 +542,7 @@ const AddExpenseModal = ({
                 </div>
               ) : (
                 <select
-                  value={newExpense.subcategory}
+                  value={newExpense.subcategory || ""}
                   onClick={(e) => e.stopPropagation()}
                   onMouseDown={(e) => e.stopPropagation()}
                   onTouchStart={(e) => e.stopPropagation()}
@@ -476,25 +561,22 @@ const AddExpenseModal = ({
             </div>
           )}
 
-          <div>
-            <label className={`block text-sm font-medium ${textClass} mb-2`}>
-              Fecha
-            </label>
-            <input
-              type="date"
-              value={newExpense.date}
-              onChange={(e) => handleChange("date", e.target.value)}
-              className={`w-full px-4 py-3 rounded-xl border ${inputClass} focus:ring-2 focus:border-transparent`}
-              required
-            />
-          </div>
+          <Input
+            label="Fecha"
+            type="date"
+            value={newExpense.date || ""}
+            onChange={(e) => handleChange("date", e.target.value)}
+            error={errors.date}
+            required
+            className={darkMode ? "dark" : ""}
+          />
 
           <div>
             <label className={`block text-sm font-medium ${textClass} mb-2`}>
               Método de pago
             </label>
             <select
-              value={newExpense.paymentMethod}
+              value={newExpense.paymentMethod || "Tarjeta"}
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
               onTouchStart={(e) => e.stopPropagation()}
@@ -508,12 +590,16 @@ const AddExpenseModal = ({
             </select>
           </div>
 
-          <button
+          <Button
             type="submit"
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all"
+            variant="primary"
+            size="lg"
+            isLoading={isSubmitting}
+            disabled={isSubmitting}
+            className="w-full"
           >
-            Añadir Gasto
-          </button>
+            {isSubmitting ? "Añadiendo..." : "Añadir Gasto"}
+          </Button>
         </form>
             </div>
           </motion.div>
@@ -524,3 +610,4 @@ const AddExpenseModal = ({
 };
 
 export default AddExpenseModal;
+

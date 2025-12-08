@@ -583,42 +583,72 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
     const detectSingleExpense = useCallback(
       (text: string): DetectedExpense | null => {
         const expenseDate = extractDate(text);
+        
+        // Limpiar el texto
+        const cleanText = text.trim();
 
-        const patterns: RegExp[] = [
-          /(?:añade?|añad[íi])\s+(.+?)\s+(?:en|de|a|para)\s+(.+?)(?:\s|$|[.,;])/i,
-          /^(.+?)\s+(?:a|en|de|para)\s+(.+?)$/i,
-          /(?:gast[ée]|pagu[ée])\s+(.+?)\s+(?:en|de|a|para)\s+(.+?)(?:\s|$|[.,;])/i,
-          /(.+?)\s+(?:en|de|a|para)\s+(.+?)(?:\s|$|[.,;])/i,
+        // Patrón mejorado: detecta número al inicio seguido de "en" o "de" y descripción
+        // Ejemplos: "2 en regalo laura", "20 en cena", "5 euros en café"
+        const improvedPatterns: RegExp[] = [
+          // Patrón 1: "NÚMERO en DESCRIPCIÓN" (más común)
+          /^(\d+(?:[.,]\d+)?)\s*(?:€|euros?|eur)?\s*(?:en|de|a|para)\s+(.+?)$/i,
+          // Patrón 2: "NÚMERO DESCRIPCIÓN" (sin preposición)
+          /^(\d+(?:[.,]\d+)?)\s*(?:€|euros?|eur)?\s+(.+?)$/i,
+          // Patrón 3: "DESCRIPCIÓN NÚMERO" (menos común)
+          /^(.+?)\s+(\d+(?:[.,]\d+)?)\s*(?:€|euros?|eur)?$/i,
+          // Patrón 4: Con verbos al inicio
+          /(?:añade?|añad[íi]|gast[ée]|pagu[ée])\s+(\d+(?:[.,]\d+)?)\s*(?:€|euros?|eur)?\s*(?:en|de|a|para)\s+(.+?)(?:\s|$|[.,;])/i,
         ];
 
-        for (const pattern of patterns) {
-          const match = text.match(pattern);
+        for (const pattern of improvedPatterns) {
+          const match = cleanText.match(pattern);
           if (!match) continue;
-
-          const part1 = match[1].trim();
-          const part2 = match[2].trim();
-
-          const num1 = convertTextToNumber(part1);
-          const num2 = convertTextToNumber(part2);
 
           let amount: number | null = null;
           let description = "";
 
-          if (!isNaN(num1) && num1 > 0) {
-            amount = num1;
-            description = part2;
-          } else if (!isNaN(num2) && num2 > 0) {
-            amount = num2;
-            description = part1;
+          // Determinar qué grupo es el número y cuál la descripción
+          if (pattern.source.includes('^(.+?)\\s+(\\d+')) {
+            // Patrón 3: descripción primero, número después
+            description = match[1].trim();
+            const numStr = match[2].replace(',', '.');
+            amount = parseFloat(numStr);
+          } else {
+            // Patrones 1, 2, 4: número primero
+            const numStr = match[1].replace(',', '.');
+            amount = parseFloat(numStr);
+            description = match[2]?.trim() || match[3]?.trim() || "";
           }
 
-          if (amount && description) {
+          // Validar que tenemos monto y descripción
+          if (amount && !isNaN(amount) && amount > 0 && description.length > 0) {
+            // Limpiar la descripción
             description = description
               .replace(/\s*(?:ayer|anteayer|hace\s+\d+\s+días?)/i, "")
-              .replace(/\s*(?:€|euros?)\s*$/i, "")
+              .replace(/\s*(?:€|euros?|eur)\s*$/i, "")
+              .replace(/^\s*(?:en|de|a|para)\s+/i, "") // Quitar preposiciones al inicio
               .trim();
 
-            return { amount, description, date: expenseDate };
+            if (description.length > 0) {
+              return { amount, description, date: expenseDate };
+            }
+          }
+        }
+
+        // Fallback: intentar detectar número al inicio del texto
+        const numberAtStart = cleanText.match(/^(\d+(?:[.,]\d+)?)/);
+        if (numberAtStart) {
+          const amount = parseFloat(numberAtStart[1].replace(',', '.'));
+          if (amount > 0) {
+            // Todo lo que sigue al número es la descripción
+            const description = cleanText
+              .substring(numberAtStart[0].length)
+              .replace(/^\s*(?:€|euros?|eur)?\s*(?:en|de|a|para)?\s*/i, "")
+              .trim();
+            
+            if (description.length > 0) {
+              return { amount, description, date: expenseDate };
+            }
           }
         }
 
@@ -629,16 +659,85 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
 
     const detectMultipleExpenses = useCallback(
       (text: string): DetectedExpense[] => {
-        const segments = text
-          .split(/\s+y\s+|,\s*|;\s*|\s+también\s+|\s+además\s+/i)
-          .map((s) => s.trim())
-          .filter((s) => s.length > 3);
+        // Primero, detectar si hay múltiples números en el texto
+        const numberMatches = text.match(/\d+(?:[.,]\d+)?/g);
+        const hasMultipleNumbers = numberMatches && numberMatches.length > 1;
+
+        let segments: string[] = [];
+        
+        if (hasMultipleNumbers && numberMatches) {
+          // Si hay múltiples números, dividir el texto basándose en esos números
+          // Estrategia: encontrar cada número y su contexto hasta el siguiente separador o número
+          const separators = /\s+y\s+|,\s*|;\s*|\s+también\s+|\s+además\s+|\s+luego\s+|\s+después\s+/i;
+          
+          // Primero intentar dividir por separadores tradicionales
+          const separatorSplit = text.split(separators).map(s => s.trim()).filter(s => s.length > 0);
+          
+          // Si los separadores dividieron correctamente (cada segmento tiene un número), usarlos
+          const segmentsWithNumbers = separatorSplit.filter(seg => /\d+(?:[.,]\d+)?/.test(seg));
+          
+          if (segmentsWithNumbers.length > 1) {
+            segments = segmentsWithNumbers;
+          } else {
+            // Si no, dividir manualmente por números
+            let lastIndex = 0;
+            const newSegments: string[] = [];
+            
+            for (let i = 0; i < numberMatches.length; i++) {
+              const numStr = numberMatches[i];
+              const numIndex = text.indexOf(numStr, lastIndex);
+              
+              if (numIndex === -1) continue;
+              
+              // Buscar el final del segmento: siguiente número o separador
+              let segmentEnd = text.length;
+              
+              // Buscar siguiente número
+              if (i + 1 < numberMatches.length) {
+                const nextNumIndex = text.indexOf(numberMatches[i + 1], numIndex + numStr.length);
+                if (nextNumIndex !== -1) {
+                  segmentEnd = nextNumIndex;
+                }
+              }
+              
+              // Buscar separadores antes del siguiente número
+              const separatorMatch = text.substring(numIndex, segmentEnd).match(separators);
+              if (separatorMatch && separatorMatch.index !== undefined) {
+                segmentEnd = numIndex + separatorMatch.index + separatorMatch[0].length;
+              }
+              
+              // Extraer el segmento
+              const segment = text.substring(i === 0 ? 0 : numIndex, segmentEnd).trim();
+              if (segment.length > 0) {
+                newSegments.push(segment);
+              }
+              
+              lastIndex = segmentEnd;
+            }
+            
+            segments = newSegments.filter(s => s.length > 0);
+          }
+        } else {
+          // Si solo hay un número o ninguno, usar separadores tradicionales
+          segments = text
+            .split(/\s+y\s+|,\s*|;\s*|\s+también\s+|\s+además\s+|\s+luego\s+|\s+después\s+/i)
+            .map((s) => s.trim())
+            .filter((s) => s.length > 3);
+        }
 
         const detected: DetectedExpense[] = [];
 
         for (const segment of segments) {
           const expense = detectSingleExpense(segment);
-          if (expense) detected.push(expense);
+          if (expense && expense.amount > 0) {
+            detected.push(expense);
+          }
+        }
+
+        // Log para debugging
+        if (detected.length > 1) {
+          console.log('🎤 Múltiples gastos detectados:', detected);
+          console.log('📝 Segmentos procesados:', segments);
         }
 
         return detected;

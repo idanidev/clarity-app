@@ -27,12 +27,12 @@ import {
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { getTransition } from "../../../config/framerMotion";
 import { useTranslation } from "../../../contexts/LanguageContext";
+import { formatCurrency } from "../../../utils/currency";
 // @ts-ignore - No hay tipos para estos módulos JS
 import { getCategoryColor } from "../../../services/firestoreService";
 // @ts-ignore - No hay tipos para estos módulos JS
 import { getLongTermGoalProgress } from "../../../services/goalsService";
 import AIAssistant from "./AIAssistant";
-// @ts-ignore - No hay tipos para estos módulos JS
 import ExpenseCard from "./ExpenseCard";
 // @ts-ignore - No hay tipos para estos módulos JS
 import {
@@ -509,7 +509,7 @@ const MainContent = memo<MainContentProps>(
               <StatCard
                 icon={Target}
                 label={t("common.total")}
-                value={`€${totalExpenses.toFixed(2)}`}
+                value={formatCurrency(totalExpenses)}
                 darkMode={darkMode}
                 textClass={textClass}
                 textSecondaryClass={textSecondaryClass}
@@ -527,7 +527,7 @@ const MainContent = memo<MainContentProps>(
               <StatCard
                 icon={BarChart3}
                 label={t("common.average")}
-                value={`€${averageDaily.toFixed(2)}`}
+                value={formatCurrency(averageDaily)}
                 darkMode={darkMode}
                 textClass={textClass}
                 textSecondaryClass={textSecondaryClass}
@@ -587,7 +587,7 @@ const MainContent = memo<MainContentProps>(
                           : "text-purple-600"
                       } leading-tight`}
                     >
-                      €{goalsSummary.savings.toFixed(2)}
+                      {formatCurrency(goalsSummary.savings)}
                     </p>
                     <p
                       className={`text-[8px] md:text-xs ${textSecondaryClass} mt-0.5`}
@@ -1490,14 +1490,14 @@ const MainContent = memo<MainContentProps>(
                                   <span
                                     className={`text-sm sm:text-base font-bold ${textClass}`}
                                   >
-                                    €{filteredTotal.toFixed(2)}
+                                    {formatCurrency(filteredTotal)}
                                   </span>
                                   {searchQuery.trim() &&
                                     categoryTotal !== filteredTotal && (
                                       <span
                                         className={`text-xs ${textSecondaryClass} line-through opacity-60`}
                                       >
-                                        €{categoryTotal.toFixed(2)}
+                                        {formatCurrency(categoryTotal)}
                                       </span>
                                     )}
                                 </div>
@@ -1700,7 +1700,7 @@ const MainContent = memo<MainContentProps>(
                           <p
                             className={`text-3xl font-bold ${textClass} leading-tight`}
                           >
-                            €{totalExpenses.toFixed(2)}
+                            {formatCurrency(totalExpenses)}
                           </p>
                         </div>
                       </div>
@@ -1748,7 +1748,7 @@ const MainContent = memo<MainContentProps>(
                                     darkMode ? "text-white" : "text-purple-900"
                                   }`}
                                 >
-                                  €{clickedCategory.value?.toFixed(2)}
+                                  {clickedCategory.value ? formatCurrency(clickedCategory.value) : '€0.00'}
                                 </p>
                                 <p
                                   className={`text-sm ${
@@ -1814,7 +1814,7 @@ const MainContent = memo<MainContentProps>(
                                     <p
                                       className={`text-[10px] md:text-xs font-bold ${textClass}`}
                                     >
-                                      €{item.total.toFixed(2)}
+                                      {formatCurrency(item.total)}
                                     </p>
                                     <p
                                       className={`text-[10px] md:text-xs ${textSecondaryClass}`}
@@ -1890,7 +1890,7 @@ const MainContent = memo<MainContentProps>(
                                   <span
                                     className={`text-sm md:text-base font-semibold ${textClass}`}
                                   >
-                                    €{categoryTotal.toFixed(2)}
+                                    {formatCurrency(categoryTotal)}
                                   </span>
                                   {isExpanded ? (
                                     <ChevronUp
@@ -1944,7 +1944,7 @@ const MainContent = memo<MainContentProps>(
                                             <span
                                               className={`text-xs md:text-sm font-semibold flex-shrink-0 ml-2 ${textSecondaryClass}`}
                                             >
-                                              €{spent.toFixed(2)}
+                                              {formatCurrency(spent)}
                                             </span>
                                           </div>
                                           <div
@@ -2514,7 +2514,7 @@ const MainContent = memo<MainContentProps>(
                             <p
                               className={`text-xs sm:text-sm ${textSecondaryClass}`}
                             >
-                              Objetivo: €{savingsGoal.toFixed(2)}{" "}
+                              Objetivo: {formatCurrency(savingsGoal)}{" "}
                               este mes
                             </p>
                           </div>
@@ -2543,7 +2543,7 @@ const MainContent = memo<MainContentProps>(
                             <span
                               className={`text-xl sm:text-2xl ${textSecondaryClass}`}
                             >
-                              / €{maxSpendingAllowed.toFixed(0)}
+                              / {formatCurrency(maxSpendingAllowed).replace('.00', '')}
                             </span>
                           </div>
                           <p
@@ -2836,12 +2836,12 @@ const MainContent = memo<MainContentProps>(
                                           : "text-green-500"
                                       }`}
                                     >
-                                      €{categoryTotal.toFixed(0)}
+                                      {formatCurrency(categoryTotal).replace('.00', '')}
                                     </span>
                                     <span
                                       className={`text-sm sm:text-lg ${textSecondaryClass}`}
                                     >
-                                      / €{goalAmount.toFixed(0)}
+                                      / {formatCurrency(goalAmount).replace('.00', '')}
                                     </span>
                                   </div>
                                   <p
@@ -3041,12 +3041,12 @@ const MainContent = memo<MainContentProps>(
                                           : "text-purple-600"
                                       }`}
                                     >
-                                      €{currentAmount.toFixed(0)}
+                                      {formatCurrency(currentAmount).replace('.00', '')}
                                     </span>
                                     <span
                                       className={`text-lg sm:text-xl ${textSecondaryClass}`}
                                     >
-                                      / €{targetAmount.toFixed(0)}
+                                      / {formatCurrency(targetAmount).replace('.00', '')}
                                     </span>
                                   </div>
                                   <p
@@ -3142,7 +3142,7 @@ const MainContent = memo<MainContentProps>(
                                     <p
                                       className={`text-xs sm:text-sm font-bold ${textClass}`}
                                     >
-                                      €{progress.remaining.toFixed(0)}
+                                      {formatCurrency(progress.remaining).replace('.00', '')}
                                     </p>
                                   </div>
                                 </div>

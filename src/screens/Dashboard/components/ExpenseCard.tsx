@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { memo, useState, MouseEvent } from "react";
 import { useSwipeable } from "react-swipeable";
 import {
   Heart,
@@ -14,9 +14,13 @@ import {
   Trash2,
   CreditCard,
   Wallet,
+  LucideIcon,
 } from "lucide-react";
+import { formatCurrency } from "../../../utils/currency";
+import { formatDate } from "../../../utils/date";
+import type { Expense } from "../../../types";
 
-const categoryIcons = {
+const categoryIcons: Record<string, LucideIcon> = {
   Salud: Heart,
   Gimnasio: Dumbbell,
   Ocio: Gamepad2,
@@ -30,7 +34,18 @@ const categoryIcons = {
   Educacion: Repeat,
 };
 
-const paymentStyles = {
+type PaymentMethod = 'Tarjeta' | 'Efectivo' | 'Transferencia' | 'Bizum';
+
+interface PaymentStyle {
+  bg: string;
+  border: string;
+  text: string;
+  bgLight: string;
+  borderLight: string;
+  textLight: string;
+}
+
+const paymentStyles: Record<PaymentMethod, PaymentStyle> = {
   Tarjeta: {
     bg: "bg-blue-500/20",
     border: "border-blue-400/30",
@@ -65,12 +80,23 @@ const paymentStyles = {
   },
 };
 
-const ExpenseCard = memo(({ expense, onEdit, onDelete, darkMode, isMobile = false }) => {
-  const [showActions, setShowActions] = useState("none");
+interface ExpenseCardProps {
+  expense: Expense;
+  onEdit?: (expense: Expense) => void;
+  onDelete?: (expense: Expense) => void;
+  darkMode: boolean;
+  isMobile?: boolean;
+}
+
+type ActionType = "none" | "edit" | "delete";
+
+const ExpenseCard = memo(({ expense, onEdit, onDelete, darkMode, isMobile = false }: ExpenseCardProps) => {
+  const [showActions, setShowActions] = useState<ActionType>("none");
   const [swipeOffset, setSwipeOffset] = useState(0);
 
   const CategoryIcon = categoryIcons[expense.category] || Wallet;
-  const paymentStyle = paymentStyles[expense.paymentMethod] || paymentStyles.Tarjeta;
+  const paymentMethod = (expense.paymentMethod || 'Tarjeta') as PaymentMethod;
+  const paymentStyle = paymentStyles[paymentMethod] || paymentStyles.Tarjeta;
 
   const handlers = useSwipeable({
     onSwipedLeft: () => {
@@ -99,7 +125,7 @@ const ExpenseCard = memo(({ expense, onEdit, onDelete, darkMode, isMobile = fals
     touchEventOptions: { passive: false },
   });
 
-  const handleActionClick = (action) => {
+  const handleActionClick = (action: ActionType) => {
     setShowActions("none");
     if (action === "edit" && onEdit) {
       onEdit(expense);
@@ -109,8 +135,8 @@ const ExpenseCard = memo(({ expense, onEdit, onDelete, darkMode, isMobile = fals
   };
 
   // Cerrar acciones de swipe al hacer click fuera
-  const handleCardClick = (e) => {
-    if (isMobile && showActions !== "none" && !e.target.closest('button')) {
+  const handleCardClick = (e: MouseEvent<HTMLDivElement>) => {
+    if (isMobile && showActions !== "none" && !(e.target as HTMLElement).closest('button')) {
       setShowActions("none");
     }
   };
@@ -211,10 +237,7 @@ const ExpenseCard = memo(({ expense, onEdit, onDelete, darkMode, isMobile = fals
             <div className="flex items-center gap-1.5 flex-wrap text-[11px] sm:text-xs text-gray-400 mt-0.5">
               <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
               <span className="whitespace-nowrap">
-                {new Date(expense.date).toLocaleDateString("es-ES", {
-                  day: "numeric",
-                  month: "short",
-                })}
+                {formatDate(expense.date)}
               </span>
               <span className={`text-[11px] sm:text-xs px-1.5 py-0.5 rounded-full border flex-shrink-0 font-medium ${
                 darkMode 
@@ -240,7 +263,7 @@ const ExpenseCard = memo(({ expense, onEdit, onDelete, darkMode, isMobile = fals
             <p className={`text-sm sm:text-base font-bold whitespace-nowrap ${
               darkMode ? "text-white" : "text-gray-900"
             }`}>
-              €{expense.amount.toFixed(2)}
+              {formatCurrency(expense.amount)}
             </p>
             
             {/* Botones solo en desktop, en móvil se usa swipe */}
@@ -278,3 +301,4 @@ const ExpenseCard = memo(({ expense, onEdit, onDelete, darkMode, isMobile = fals
 ExpenseCard.displayName = "ExpenseCard";
 
 export default ExpenseCard;
+

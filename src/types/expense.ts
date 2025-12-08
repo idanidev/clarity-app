@@ -6,8 +6,9 @@ export interface Expense {
   category: string;
   subcategory?: string;
   date: string; // YYYY-MM-DD format
-  paymentMethod: 'Tarjeta' | 'Efectivo' | 'Transferencia';
+  paymentMethod: 'Tarjeta' | 'Efectivo' | 'Transferencia' | 'Bizum';
   isRecurring?: boolean;
+  recurring?: boolean;
   recurringId?: string | null;
   createdAt: string;
   updatedAt: string;

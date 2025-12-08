@@ -64,7 +64,7 @@ import {
 import AchievementsSection from "../../components/AchievementsSection";
 import LongTermGoalsSection from "../../components/LongTermGoalsSection";
 // Lazy loading para componentes pesados
-const AddExpenseModal = lazy(() => import("./components/AddExpenseModal"));
+const AddExpenseModal = lazy(() => import("./components/AddExpenseModal.tsx"));
 const CategoriesModal = lazy(() => import("./components/CategoriesModal"));
 const ChangelogModal = lazy(() => import("./components/ChangelogModal"));
 const DeleteConfirmationDialog = lazy(() => import("./components/DeleteConfirmationDialog"));
