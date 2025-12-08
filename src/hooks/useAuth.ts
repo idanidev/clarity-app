@@ -59,25 +59,52 @@ export const useAuth = (): AuthHook => {
 
   // Escuchar cambios de autenticación de Firebase
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+    // Timeout de seguridad para evitar loading infinito
+    const timeoutId = setTimeout(() => {
       setLoading(false);
-    });
+    }, 3000); // 3 segundos máximo
 
-    return () => unsubscribe();
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      (currentUser) => {
+        clearTimeout(timeoutId);
+        setUser(currentUser);
+        setLoading(false);
+      },
+      (error) => {
+        // Manejar errores de autenticación
+        console.error("Auth state error:", error);
+        clearTimeout(timeoutId);
+        setLoading(false);
+      }
+    );
+
+    return () => {
+      clearTimeout(timeoutId);
+      unsubscribe();
+    };
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
     setLoading(true);
     setError(null);
+    
+    // Timeout de seguridad para evitar loading infinito
+    const timeoutId = setTimeout(() => {
+      setLoading(false);
+      setError("auth/timeout");
+    }, 10000); // 10 segundos máximo
+    
     try {
       const result = await signInWithEmailAndPassword(auth, email, password);
+      clearTimeout(timeoutId);
+      setLoading(false);
       return result.user;
     } catch (err: any) {
+      clearTimeout(timeoutId);
       setError(err.code || "auth/unknown-error");
-      throw err;
-    } finally {
       setLoading(false);
+      throw err;
     }
   }, []);
 

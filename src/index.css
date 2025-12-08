@@ -223,6 +223,23 @@ select {
   }
 }
 
+/* Clases safe-area para uso directo */
+.safe-area-top {
+  padding-top: max(1rem, env(safe-area-inset-top, 0px));
+}
+
+.safe-area-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+}
+
+.safe-area-left {
+  padding-left: max(1rem, env(safe-area-inset-left, 0px));
+}
+
+.safe-area-right {
+  padding-right: max(1rem, env(safe-area-inset-right, 0px));
+}
+
 /* Animación para notificaciones */
 @keyframes slideInFromRight {
   from {

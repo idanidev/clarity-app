@@ -14,15 +14,13 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     build: {
       outDir: 'dist',
+      rollupOptions: {
+        external: ['@capacitor-community/native-biometric'],
+      },
     },
     resolve: {
       alias: {
         '@': resolve(__dirname, './src'),
-      },
-    },
-    build: {
-      rollupOptions: {
-        external: ['@capacitor-community/native-biometric'],
       },
     },
     server: {

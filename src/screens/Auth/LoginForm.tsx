@@ -27,12 +27,19 @@ const LoginForm = ({ onForgotPassword }: LoginFormProps) => {
   const [formError, setFormError] = useState<string | null>(null);
   const [showBiometricSetup, setShowBiometricSetup] = useState(false);
   const [nativeBiometricAvailable, setNativeBiometricAvailable] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { isShaking, shake } = useShake();
 
   // Verificar disponibilidad de biométrico nativo
   useEffect(() => {
     if (isIOS) {
-      checkBiometricAvailable().then(setNativeBiometricAvailable);
+      // Hacer la verificación de forma no bloqueante
+      checkBiometricAvailable()
+        .then(setNativeBiometricAvailable)
+        .catch((error) => {
+          console.log("Biometric check failed (non-blocking):", error);
+          setNativeBiometricAvailable(false);
+        });
     }
   }, []);
 
@@ -78,18 +85,55 @@ const LoginForm = ({ onForgotPassword }: LoginFormProps) => {
       return;
     }
 
+    // Prevenir múltiples submits
+    if (isSubmitting || loading) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    // Timeout de seguridad adicional
+    const timeoutId = setTimeout(() => {
+      setIsSubmitting(false);
+      setFormError("Tiempo de espera agotado. Verifica tu conexión e intenta de nuevo.");
+      hapticError().catch(() => {});
+    }, 15000); // 15 segundos máximo
+
     try {
       const loggedUser = await signIn(values.email, values.password);
-      hapticSuccess();
+      clearTimeout(timeoutId);
+      
+      // Haptic solo si está disponible (no bloquear si falla)
+      hapticSuccess().catch(() => {});
 
       // Mostrar setup de biometría si está disponible y no está configurado
       if (loggedUser && (webAuthnAvailable || nativeBiometricAvailable) && !hasBiometricCredentials()) {
         setShowBiometricSetup(true);
       }
-    } catch {
-      hapticError();
-      setFormError("No se ha podido iniciar sesión. Revisa tus datos.");
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      console.error("Login error:", error);
+      // Haptic solo si está disponible (no bloquear si falla)
+      hapticError().catch(() => {});
+      
+      // Mensaje de error más específico
+      let errorMessage = "No se ha podido iniciar sesión. Revisa tus datos.";
+      if (error?.code === "auth/timeout") {
+        errorMessage = "Tiempo de espera agotado. Verifica tu conexión e intenta de nuevo.";
+      } else if (error?.code === "auth/network-request-failed") {
+        errorMessage = "Error de conexión. Verifica tu internet e intenta de nuevo.";
+      } else if (error?.code === "auth/user-not-found") {
+        errorMessage = "Usuario no encontrado. Verifica tu email.";
+      } else if (error?.code === "auth/wrong-password") {
+        errorMessage = "Contraseña incorrecta.";
+      } else if (error?.code === "auth/invalid-email") {
+        errorMessage = "Email inválido.";
+      }
+      
+      setFormError(errorMessage);
       shake();
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -100,7 +144,8 @@ const LoginForm = ({ onForgotPassword }: LoginFormProps) => {
     try {
       const success = await authenticate("Accede a Clarity con Face ID");
       if (success) {
-        hapticSuccess();
+        // Haptic solo si está disponible (no bloquear si falla)
+        hapticSuccess().catch(() => {});
         // Aquí deberías cargar las credenciales guardadas y hacer login automático
         // Por ahora solo mostramos un mensaje
         setFormError(null);
@@ -110,11 +155,11 @@ const LoginForm = ({ onForgotPassword }: LoginFormProps) => {
         //   await signIn(savedEmail, savedPassword); // Necesitarías guardar password de forma segura
         // }
       } else {
-        hapticError();
+        hapticError().catch(() => {});
       }
     } catch (error) {
       console.error("Error en autenticación biométrica:", error);
-      hapticError();
+      hapticError().catch(() => {});
     }
   };
 
@@ -201,10 +246,10 @@ const LoginForm = ({ onForgotPassword }: LoginFormProps) => {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || isSubmitting}
             className="group w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3.5 rounded-xl shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            {loading ? (
+            {(loading || isSubmitting) ? (
               <>
                 <motion.div
                   animate={{ rotate: 360 }}

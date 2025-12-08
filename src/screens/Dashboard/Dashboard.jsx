@@ -3,6 +3,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { auth, messaging } from "../../firebase";
 import { exportToCSV } from "../../utils/exportUtils";
 import { hapticSuccess, hapticError, hapticMedium } from "../../utils/haptics";
+import { useStatusBar } from "../../hooks/useSafeArea";
 import {
   addExpense as addExpenseDB,
   addRecurringExpense,
@@ -106,6 +107,9 @@ const Dashboard = ({ user }) => {
   const [notification, setNotification] = useState(null);
 
   const [darkMode, setDarkMode] = useState(false);
+  
+  // Actualizar StatusBar cuando cambia dark mode (solo en nativo)
+  useStatusBar(darkMode);
   const [showSettings, setShowSettings] = useState(false);
   const [showManagement, setShowManagement] = useState(false);
   const [showRecurring, setShowRecurring] = useState(false);
@@ -1796,7 +1800,7 @@ const Dashboard = ({ user }) => {
   }
 
   return (
-    <div className={`min-h-screen ${bgClass} transition-colors duration-300`}>
+    <div className={`min-h-screen ${bgClass} transition-colors duration-300 safe-area-top safe-area-bottom`}>
       <Header
         darkMode={darkMode}
         textClass={textClass}
