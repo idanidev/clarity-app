@@ -59,27 +59,25 @@ const FinancialSummaryWidget: React.FC<FinancialSummaryWidgetProps> = ({
       <AnimatePresence>
         {showDetails && (
           <>
-            {/* Backdrop */}
+            {/* Backdrop - Cierra al hacer clic */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowDetails(false)}
-              onMouseDown={() => setShowDetails(false)}
               className="fixed inset-0 z-30"
             />
 
-            {/* Panel de detalles */}
+            {/* Panel de detalles - También cierra al hacer clic */}
             <motion.div
               initial={{ opacity: 0, y: -10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.95 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              onClick={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => setShowDetails(false)}
               className={`
                 absolute right-0 top-full mt-2 w-72 z-40
-                rounded-2xl shadow-2xl p-4 border
+                rounded-2xl shadow-2xl p-4 border cursor-pointer
                 ${darkMode 
                   ? 'bg-gray-800 border-gray-700' 
                   : 'bg-white border-gray-200'
@@ -92,8 +90,7 @@ const FinancialSummaryWidget: React.FC<FinancialSummaryWidgetProps> = ({
                   Resumen del Mes
                 </h3>
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
+                  onClick={() => {
                     setShowDetails(false);
                     onEditIncome();
                   }}
@@ -109,7 +106,7 @@ const FinancialSummaryWidget: React.FC<FinancialSummaryWidgetProps> = ({
               </div>
 
               {/* Ingresos */}
-              <div className="space-y-3" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">

@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
-import { Bell, DollarSign, Globe, Moon, Sun, X, Calendar, RotateCcw } from "lucide-react";
+import { Bell, DollarSign, Globe, Moon, Sun, X, Calendar, RotateCcw, Mic } from "lucide-react";
 import { useLanguage, useTranslation } from "../../../contexts/LanguageContext";
 // @ts-ignore - No hay tipos para este módulo JS
 import { restoreCategoriesFromExpenses } from "../../../services/firestoreService";
 // @ts-ignore - No hay tipos para este módulo JS
 import { useDisableBodyScroll } from "../../../hooks/useDisableBodyScroll";
+import VoiceSettingsPanel from "./VoiceSettingsPanel";
+import { VoiceSettings, DEFAULT_VOICE_SETTINGS } from "./VoiceExpenseButton";
 
 interface NotificationSettings {
   budgetAlerts?: {
@@ -53,9 +55,11 @@ interface SettingsModalProps {
   onRequestPushPermission?: () => void;
   showNotification: (message: string, type?: "success" | "error" | "info") => void;
   userId?: string;
+  voiceSettings?: VoiceSettings;
+  onSaveVoiceSettings?: (settings: VoiceSettings) => void;
 }
 
-type ActiveTab = "general" | "notifications";
+type ActiveTab = "general" | "notifications" | "voice";
 
 const SettingsModal = ({
   visible,
@@ -72,6 +76,8 @@ const SettingsModal = ({
   onRequestPushPermission,
   showNotification,
   userId,
+  voiceSettings = DEFAULT_VOICE_SETTINGS,
+  onSaveVoiceSettings,
 }: SettingsModalProps) => {
   const { t } = useTranslation();
   const { language, changeLanguage, availableLanguages } = useLanguage();
@@ -142,6 +148,7 @@ const SettingsModal = ({
   });
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("general");
+  const [localVoiceSettings, setLocalVoiceSettings] = useState<VoiceSettings>(voiceSettings);
   const [isRestoring, setIsRestoring] = useState(false);
 
   // Deshabilitar scroll del body cuando el modal está abierto
@@ -191,6 +198,13 @@ const SettingsModal = ({
 
   const handleSaveNotifications = () => {
     onSaveNotificationSettings(localNotificationSettings);
+  };
+
+  const handleSaveVoiceSettings = () => {
+    if (onSaveVoiceSettings) {
+      onSaveVoiceSettings(localVoiceSettings);
+      showNotification("✅ Ajustes de voz guardados", "success");
+    }
   };
 
   return (
@@ -252,6 +266,21 @@ const SettingsModal = ({
           >
             <Bell className="w-4 h-4" />
             {t("settings.notifications")}
+          </button>
+          <button
+            onClick={() => setActiveTab("voice")}
+            className={`px-4 py-2 rounded-t-lg text-base font-medium transition-all flex items-center gap-2 whitespace-nowrap ${
+              activeTab === "voice"
+                ? darkMode
+                  ? "bg-gray-700 text-white border-b-2 border-purple-500"
+                  : "bg-purple-50 text-purple-600 border-b-2 border-purple-500"
+                : darkMode
+                ? "text-gray-400 hover:text-gray-200"
+                : "text-gray-600 hover:text-purple-600"
+            }`}
+          >
+            <Mic className="w-4 h-4" />
+            Voz
           </button>
         </div>
 
@@ -729,6 +758,14 @@ const SettingsModal = ({
             </>
           )}
 
+          {activeTab === "voice" && (
+            <VoiceSettingsPanel
+              darkMode={darkMode}
+              settings={localVoiceSettings}
+              onSettingsChange={setLocalVoiceSettings}
+            />
+          )}
+
           {/* Botón guardar */}
           <div className={`mt-6 pt-6 mb-6 border-t ${
             darkMode ? "border-gray-700" : "border-gray-200"
@@ -740,9 +777,16 @@ const SettingsModal = ({
               >
                 {t("common.save")}
               </button>
-            ) : (
+            ) : activeTab === "notifications" ? (
               <button
                 onClick={handleSaveNotifications}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all"
+              >
+                {t("common.save")}
+              </button>
+            ) : (
+              <button
+                onClick={handleSaveVoiceSettings}
                 className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all"
               >
                 {t("common.save")}

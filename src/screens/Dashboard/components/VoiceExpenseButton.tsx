@@ -1,13 +1,4 @@
-import {
-  CheckCircle2,
-  Loader2,
-  Mic,
-  MicOff,
-  Settings,
-  TrendingUp,
-  X,
-  Zap
-} from "lucide-react";
+import { CheckCircle2, Loader2, Mic, MicOff, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 // ============================================
@@ -77,14 +68,14 @@ interface LearnedPattern {
   };
 }
 
-interface VoiceSettings {
+export interface VoiceSettings {
   silenceTimeout: number;
   autoConfirm: boolean;
   vibration: boolean;
   showSuggestions: boolean;
 }
 
-interface VoiceStats {
+export interface VoiceStats {
   totalVoiceExpenses: number;
   accuracy: number;
   lastUsed: string;
@@ -101,16 +92,17 @@ interface VoiceExpenseButtonProps {
   ) => void;
   hasFilterButton?: boolean;
   expenses?: Expense[];
+  voiceSettings?: VoiceSettings;
 }
 
 // ============================================
 // CONSTANTS
 // ============================================
-const DEFAULT_SETTINGS: VoiceSettings = {
+export const DEFAULT_VOICE_SETTINGS: VoiceSettings = {
   silenceTimeout: 2000,
-  autoConfirm: false, // 🎯 Mejora 1: Requiere confirmación
-  vibration: true, // 📳 Mejora 3: Vibración habilitada
-  showSuggestions: true, // 🎯 Mejora 5: Sugerencias activas
+  autoConfirm: false,
+  vibration: true,
+  showSuggestions: true,
 };
 
 const NUMBER_WORDS: { [key: string]: number } = {
@@ -171,8 +163,6 @@ const VOICE_EXAMPLES = [
 // ============================================
 // UTILITY FUNCTIONS
 // ============================================
-
-// 📳 Mejora 3: Vibración háptica
 const vibrate = (pattern: number | number[]) => {
   if (navigator.vibrate) {
     navigator.vibrate(pattern);
@@ -239,40 +229,14 @@ const extractDate = (text: string): string => {
   return today.toISOString().slice(0, 10);
 };
 
-// 💾 Mejora 4: Persistencia
+// Storage
 const STORAGE_KEYS = {
   DRAFT: "clarity_voice_draft",
-  SETTINGS: "clarity_voice_settings",
   STATS: "clarity_voice_stats",
   OFFLINE_QUEUE: "clarity_offline_expenses",
 };
 
-const saveToDraft = (transcript: string) => {
-  if (transcript.trim()) {
-    localStorage.setItem(STORAGE_KEYS.DRAFT, transcript);
-  }
-};
-
-const loadFromDraft = (): string => {
-  return localStorage.getItem(STORAGE_KEYS.DRAFT) || "";
-};
-
-const clearDraft = () => {
-  localStorage.removeItem(STORAGE_KEYS.DRAFT);
-};
-
-// ⚙️ Mejora 7: Configuración
-const loadSettings = (): VoiceSettings => {
-  const saved = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-  return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
-};
-
-const saveSettings = (settings: VoiceSettings) => {
-  localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
-};
-
-// 📊 Mejora 6: Stats
-const loadStats = (): VoiceStats => {
+export const loadVoiceStats = (): VoiceStats => {
   const saved = localStorage.getItem(STORAGE_KEYS.STATS);
   return saved
     ? JSON.parse(saved)
@@ -284,11 +248,10 @@ const loadStats = (): VoiceStats => {
       };
 };
 
-const saveStats = (stats: VoiceStats) => {
+export const saveVoiceStats = (stats: VoiceStats) => {
   localStorage.setItem(STORAGE_KEYS.STATS, JSON.stringify(stats));
 };
 
-// 🔌 Mejora 8: Offline Queue
 const loadOfflineQueue = (): ExpenseData[] => {
   const saved = localStorage.getItem(STORAGE_KEYS.OFFLINE_QUEUE);
   return saved ? JSON.parse(saved) : [];
@@ -309,6 +272,7 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
     showNotification,
     hasFilterButton = true,
     expenses = [],
+    voiceSettings = DEFAULT_VOICE_SETTINGS,
   }) => {
     // State
     const [isListening, setIsListening] = useState(false);
@@ -316,28 +280,14 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
     const [transcript, setTranscript] = useState("");
     const [interimTranscript, setInterimTranscript] = useState("");
     const [currentExampleIndex, setCurrentExampleIndex] = useState(0);
-
-    // 🎯 Mejora 1: Confirmación
     const [pendingExpenses, setPendingExpenses] = useState<PreviewExpense[]>(
       []
     );
     const [showConfirmation, setShowConfirmation] = useState(false);
-
-    // ⚙️ Mejora 7: Settings
-    const [settings, setSettings] = useState<VoiceSettings>(loadSettings());
-    const [showSettings, setShowSettings] = useState(false);
-
-    // 📊 Mejora 6: Stats
-    const [stats, setStats] = useState<VoiceStats>(loadStats());
-    const [showStats, setShowStats] = useState(false);
-
-    // 🔌 Mejora 8: Offline
     const [offlineQueue, setOfflineQueue] = useState<ExpenseData[]>(
       loadOfflineQueue()
     );
     const [isOnline, setIsOnline] = useState(navigator.onLine);
-
-    // 🎯 Mejora 5: Sugerencias
     const [suggestions, setSuggestions] = useState<string[]>([]);
 
     // Refs
@@ -345,7 +295,7 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
     const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     // ============================================
-    // 🔌 Mejora 8: Detectar conexión
+    // DETECTAR CONEXIÓN Y SINCRONIZAR
     // ============================================
     useEffect(() => {
       const handleOnline = () => {
@@ -369,9 +319,6 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
       };
     }, [offlineQueue.length]);
 
-    // ============================================
-    // 🔌 Mejora 8: Sincronizar offline
-    // ============================================
     const syncOfflineExpenses = useCallback(async () => {
       if (!isOnline || offlineQueue.length === 0) return;
 
@@ -382,7 +329,7 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
         try {
           await addExpense(expense);
           synced++;
-          vibrate(50); // Feedback por cada sincronización
+          if (voiceSettings.vibration) vibrate(50);
         } catch (error) {
           remaining.push(expense);
         }
@@ -394,7 +341,13 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
       if (synced > 0) {
         showNotification?.(`✅ ${synced} gastos sincronizados`, "success");
       }
-    }, [isOnline, offlineQueue, addExpense, showNotification]);
+    }, [
+      isOnline,
+      offlineQueue,
+      addExpense,
+      voiceSettings.vibration,
+      showNotification,
+    ]);
 
     // ============================================
     // ROTAR EJEMPLOS
@@ -408,20 +361,23 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
     }, [isListening]);
 
     // ============================================
-    // 💾 Mejora 4: Persistencia de draft
+    // PERSISTENCIA
     // ============================================
     useEffect(() => {
       if (transcript) {
-        saveToDraft(transcript);
+        localStorage.setItem(STORAGE_KEYS.DRAFT, transcript);
       }
     }, [transcript]);
 
-    // Cargar draft al montar
     useEffect(() => {
-      const draft = loadFromDraft();
+      const draft = localStorage.getItem(STORAGE_KEYS.DRAFT);
       if (draft) {
         setTranscript(draft);
       }
+    }, []);
+
+    const clearDraft = useCallback(() => {
+      localStorage.removeItem(STORAGE_KEYS.DRAFT);
     }, []);
 
     // ============================================
@@ -465,46 +421,41 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
     }, [expenses]);
 
     // ============================================
-    // 🎯 Mejora 5: Generar sugerencias
+    // SUGERENCIAS
     // ============================================
     const generateSuggestions = useCallback(
       (partialText: string): string[] => {
-        if (!settings.showSuggestions || !partialText || partialText.length < 2)
+        if (
+          !voiceSettings.showSuggestions ||
+          !partialText ||
+          partialText.length < 2
+        )
           return [];
 
         const suggestions: Set<string> = new Set();
         const text = partialText.toLowerCase();
 
-        // Sugerencias de categorías
         Object.keys(categories).forEach((cat) => {
-          if (cat.toLowerCase().startsWith(text)) {
-            suggestions.add(cat);
-          }
+          if (cat.toLowerCase().startsWith(text)) suggestions.add(cat);
         });
 
-        // Sugerencias de subcategorías
         Object.values(categories).forEach((catData) => {
           catData.subcategories?.forEach((sub) => {
-            if (sub.toLowerCase().startsWith(text)) {
-              suggestions.add(sub);
-            }
+            if (sub.toLowerCase().startsWith(text)) suggestions.add(sub);
           });
         });
 
-        // Sugerencias de patrones aprendidos
         Object.keys(learnedPatterns).forEach((keyword) => {
-          if (keyword.startsWith(text)) {
-            suggestions.add(keyword);
-          }
+          if (keyword.startsWith(text)) suggestions.add(keyword);
         });
 
         return Array.from(suggestions).slice(0, 3);
       },
-      [categories, learnedPatterns, settings.showSuggestions]
+      [categories, learnedPatterns, voiceSettings.showSuggestions]
     );
 
     // ============================================
-    // CATEGORIZACIÓN INTELIGENTE
+    // CATEGORIZACIÓN
     // ============================================
     const findBestCategory = useCallback(
       (description: string): Categorization | null => {
@@ -722,23 +673,21 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
 
         setPendingExpenses(previews);
 
-        // 📳 Mejora 3: Vibrar al detectar
-        if (previews.length > 0 && settings.vibration) {
+        if (previews.length > 0 && voiceSettings.vibration) {
           vibrate(50);
         }
       },
-      [detectMultipleExpenses, findBestCategory, settings.vibration]
+      [detectMultipleExpenses, findBestCategory, voiceSettings.vibration]
     );
 
     // ============================================
-    // 🎯 Mejora 2: Corrección inline
+    // EDICIÓN
     // ============================================
     const updateExpenseCategory = useCallback(
       (index: number, category: string) => {
         setPendingExpenses((prev) => {
           const updated = [...prev];
           updated[index].category = category;
-          // Resetear subcategoría si cambia categoría
           updated[index].subcategory = "";
           return updated;
         });
@@ -760,10 +709,9 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
     const removeExpense = useCallback(
       (index: number) => {
         setPendingExpenses((prev) => prev.filter((_, i) => i !== index));
-        // 📳 Mejora 3: Vibrar al eliminar
-        if (settings.vibration) vibrate(100);
+        if (voiceSettings.vibration) vibrate(100);
       },
-      [settings.vibration]
+      [voiceSettings.vibration]
     );
 
     // ============================================
@@ -792,11 +740,9 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
 
           try {
             if (isOnline) {
-              // Online: guardar directamente
               await addExpense(expenseData);
               successCount++;
             } else {
-              // 🔌 Mejora 8: Offline queue
               const newQueue = [...offlineQueue, expenseData];
               setOfflineQueue(newQueue);
               saveOfflineQueue(newQueue);
@@ -813,23 +759,23 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
           }
         }
 
-        // 📊 Mejora 6: Actualizar stats
+        // Actualizar stats
+        const currentStats = loadVoiceStats();
         const newStats: VoiceStats = {
-          totalVoiceExpenses: stats.totalVoiceExpenses + successCount,
+          totalVoiceExpenses: currentStats.totalVoiceExpenses + successCount,
           accuracy:
             pendingExpenses.reduce((sum, e) => sum + e.confidence, 0) /
             pendingExpenses.length,
           lastUsed: new Date().toISOString(),
-          avgConfidence: stats.avgConfidence
-            ? (stats.avgConfidence +
+          avgConfidence: currentStats.avgConfidence
+            ? (currentStats.avgConfidence +
                 pendingExpenses.reduce((sum, e) => sum + e.confidence, 0) /
                   pendingExpenses.length) /
               2
             : pendingExpenses.reduce((sum, e) => sum + e.confidence, 0) /
               pendingExpenses.length,
         };
-        setStats(newStats);
-        saveStats(newStats);
+        saveVoiceStats(newStats);
 
         // Limpiar todo
         setTranscript("");
@@ -838,15 +784,14 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
         setShowConfirmation(false);
         clearDraft();
 
-        // 📳 Mejora 3: Vibrar al éxito
-        if (settings.vibration) vibrate([100, 50, 100]);
+        if (voiceSettings.vibration) vibrate([100, 50, 100]);
 
         if (successCount > 0) {
           const message = isOnline
             ? successCount === 1
               ? `✅ ${results[0]}`
               : `✅ ${successCount} gastos añadidos:\n${results.join("\n")}`
-            : `💾 ${successCount} gastos guardados offline (se sincronizarán cuando haya conexión)`;
+            : `💾 ${successCount} gastos guardados offline`;
 
           showNotification?.(message, "success");
         } else {
@@ -859,8 +804,7 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
       } catch (error) {
         console.error("Error:", error);
         showNotification?.("❌ Error al añadir gastos", "error");
-        // 📳 Mejora 3: Vibrar al error
-        if (settings.vibration) vibrate(200);
+        if (voiceSettings.vibration) vibrate(200);
       } finally {
         setIsProcessing(false);
       }
@@ -868,10 +812,10 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
       pendingExpenses,
       addExpense,
       showNotification,
-      stats,
-      settings,
+      voiceSettings,
       isOnline,
       offlineQueue,
+      clearDraft,
     ]);
 
     // ============================================
@@ -914,7 +858,6 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
 
         setInterimTranscript(interimText);
 
-        // 🎯 Mejora 5: Generar sugerencias
         if (interimText) {
           const lastWord = interimText.split(" ").pop() || "";
           setSuggestions(generateSuggestions(lastWord));
@@ -932,15 +875,13 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
           setInterimTranscript("");
           setSuggestions([]);
 
-          // Auto-confirmar o esperar silencio
-          if (settings.autoConfirm) {
+          if (voiceSettings.autoConfirm) {
             silenceTimerRef.current = setTimeout(() => {
               const fullTranscript = transcript + " " + finalText;
               updatePreview(fullTranscript.trim());
               setShowConfirmation(true);
-            }, settings.silenceTimeout);
+            }, voiceSettings.silenceTimeout);
           } else {
-            // Mostrar confirmación inmediatamente
             setShowConfirmation(true);
           }
         }
@@ -976,7 +917,7 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
     }, [
       isProcessing,
       showNotification,
-      settings,
+      voiceSettings,
       transcript,
       updatePreview,
       generateSuggestions,
@@ -996,14 +937,21 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
         setIsListening(false);
       } else {
         try {
+          // 🔥 FIX: RESETEAR TODO AL ABRIR
+          setTranscript("");
+          setInterimTranscript("");
+          setPendingExpenses([]);
+          setShowConfirmation(false);
+          setSuggestions([]);
+          clearDraft();
+
           recognitionRef.current.start();
-          // 📳 Mejora 3: Vibrar al iniciar
-          if (settings.vibration) vibrate(50);
+          if (voiceSettings.vibration) vibrate(50);
         } catch (error) {
           showNotification?.("❌ Error al iniciar micrófono", "error");
         }
       }
-    }, [isListening, showNotification, settings.vibration]);
+    }, [isListening, showNotification, voiceSettings.vibration, clearDraft]);
 
     // ============================================
     // RENDER
@@ -1013,23 +961,32 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
 
     return (
       <>
-        {/* Botón Principal */}
+        {/* Botón Principal - Estilo Minimalista */}
         <button
           onClick={toggleListening}
           disabled={isProcessing}
-          className={`fixed right-4 z-40 md:hidden p-4 rounded-full shadow-2xl backdrop-blur-xl border transition-all active:scale-95 ${
-            isProcessing
-              ? darkMode
-                ? "bg-purple-600/25 border-purple-500/40 text-white"
-                : "bg-purple-600/25 border-purple-400/40 text-white"
-              : isListening
-              ? darkMode
-                ? "bg-red-600/25 border-red-500/40 text-white animate-pulse"
-                : "bg-red-600/25 border-red-400/40 text-white animate-pulse"
-              : darkMode
-              ? "bg-gray-800/25 backdrop-blur-xl border-gray-700/40 text-gray-300"
-              : "bg-white/25 backdrop-blur-xl border-white/40 text-purple-600"
-          } ${isProcessing ? "cursor-wait" : ""}`}
+          className={`
+            fixed right-4 z-40 md:hidden
+            w-14 h-14 rounded-full
+            flex items-center justify-center
+            shadow-lg
+            transition-all duration-200
+            active:scale-95
+            ${
+              isProcessing
+                ? darkMode
+                  ? "bg-purple-500 text-white"
+                  : "bg-purple-500 text-white"
+                : isListening
+                ? darkMode
+                  ? "bg-red-500 text-white animate-pulse"
+                  : "bg-red-500 text-white animate-pulse"
+                : darkMode
+                ? "bg-gray-800 text-gray-200 hover:bg-gray-700"
+                : "bg-white text-gray-700 hover:bg-gray-50"
+            }
+            ${isProcessing ? "cursor-wait" : ""}
+          `}
           style={{
             bottom: hasFilterButton
               ? "calc(9.5rem + env(safe-area-inset-bottom))"
@@ -1037,39 +994,28 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
           }}
         >
           {isProcessing ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
+            <Loader2 className="w-6 h-6 animate-spin" />
           ) : isListening ? (
-            <MicOff className="w-5 h-5" />
+            <MicOff className="w-6 h-6" />
           ) : (
-            <Mic className="w-5 h-5" />
+            <Mic className="w-6 h-6" />
           )}
         </button>
 
-        {/* Botón Settings */}
-        <button
-          onClick={() => setShowSettings(true)}
-          className={`fixed right-16 z-40 md:hidden p-3 rounded-full shadow-lg backdrop-blur-xl border transition-all active:scale-95 ${
-            darkMode
-              ? "bg-gray-800/25 border-gray-700/40 text-gray-300"
-              : "bg-white/25 border-white/40 text-purple-600"
-          }`}
-          style={{
-            bottom: hasFilterButton
-              ? "calc(9.5rem + env(safe-area-inset-bottom))"
-              : "calc(5.5rem + env(safe-area-inset-bottom))",
-          }}
-        >
-          <Settings className="w-4 h-4" />
-        </button>
-
-        {/* Indicador offline */}
+        {/* Indicador offline - Minimalista */}
         {!isOnline && (
           <div
-            className={`fixed left-4 z-40 px-3 py-1.5 rounded-full backdrop-blur-xl border shadow-lg text-xs font-medium ${
-              darkMode
-                ? "bg-yellow-600/25 border-yellow-500/40 text-yellow-300"
-                : "bg-yellow-100 border-yellow-300 text-yellow-800"
-            }`}
+            className={`
+              fixed left-4 z-40
+              px-3 py-1.5 rounded-full
+              text-xs font-medium
+              shadow-lg
+              ${
+                darkMode
+                  ? "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30"
+                  : "bg-yellow-50 text-yellow-800 border border-yellow-200"
+              }
+            `}
             style={{
               bottom: hasFilterButton
                 ? "calc(9.5rem + env(safe-area-inset-bottom))"
@@ -1077,65 +1023,64 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
             }}
           >
             📴 Sin conexión{" "}
-            {offlineQueue.length > 0 && `(${offlineQueue.length} pendientes)`}
+            {offlineQueue.length > 0 && `(${offlineQueue.length})`}
           </div>
         )}
 
         {/* Modal de Grabación */}
         {isListening && !showConfirmation && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
             <div
-              className={`relative max-w-lg w-full rounded-2xl shadow-2xl border backdrop-blur-xl transition-all ${
-                darkMode
-                  ? "bg-gray-800/95 border-gray-700/50"
-                  : "bg-white/95 border-white/50"
-              }`}
+              className={`
+                relative max-w-lg w-full rounded-3xl shadow-2xl
+                transition-all
+                ${darkMode ? "bg-gray-900" : "bg-white"}
+              `}
             >
               <div className="absolute top-4 right-4 flex items-center gap-2">
-                <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
                 <span
                   className={`text-xs font-medium ${
                     darkMode ? "text-gray-400" : "text-gray-600"
                   }`}
                 >
-                  Grabando...
+                  Grabando
                 </span>
               </div>
 
-              <div className="p-6 pt-12 space-y-4">
+              <div className="p-8 pt-12 space-y-6">
                 <div className="flex items-center justify-center">
                   <div
-                    className={`p-4 rounded-full ${
-                      darkMode ? "bg-red-600/20" : "bg-red-100"
+                    className={`p-6 rounded-full ${
+                      darkMode ? "bg-red-500/10" : "bg-red-50"
                     }`}
                   >
                     <Mic
-                      className={`w-8 h-8 ${
-                        darkMode ? "text-red-400" : "text-red-600"
+                      className={`w-10 h-10 ${
+                        darkMode ? "text-red-400" : "text-red-500"
                       } animate-pulse`}
                     />
                   </div>
                 </div>
 
-                <div className="text-center">
+                <div className="text-center space-y-3">
                   <p
-                    className={`text-sm font-medium mb-2 ${
+                    className={`text-sm font-medium ${
                       darkMode ? "text-gray-400" : "text-gray-600"
                     }`}
                   >
                     {hasText ? "Transcripción:" : "Habla ahora..."}
                   </p>
                   <div
-                    className={`min-h-[80px] p-4 rounded-xl ${
-                      darkMode ? "bg-gray-700/50" : "bg-gray-50"
-                    } border ${
-                      darkMode ? "border-gray-600" : "border-gray-200"
-                    }`}
+                    className={`
+                      min-h-[100px] p-4 rounded-2xl
+                      ${darkMode ? "bg-gray-800" : "bg-gray-50"}
+                    `}
                   >
                     {hasText ? (
                       <>
                         <p
-                          className={`text-lg font-medium ${
+                          className={`text-lg ${
                             darkMode ? "text-gray-100" : "text-gray-900"
                           }`}
                         >
@@ -1150,17 +1095,19 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
                             </span>
                           )}
                         </p>
-                        {/* 🎯 Mejora 5: Sugerencias */}
                         {suggestions.length > 0 && (
-                          <div className="mt-2 flex gap-2 flex-wrap">
+                          <div className="mt-3 flex gap-2 flex-wrap">
                             {suggestions.map((sug, idx) => (
                               <span
                                 key={idx}
-                                className={`text-xs px-2 py-1 rounded ${
-                                  darkMode
-                                    ? "bg-blue-600/20 text-blue-300"
-                                    : "bg-blue-100 text-blue-700"
-                                }`}
+                                className={`
+                                  text-xs px-3 py-1 rounded-full
+                                  ${
+                                    darkMode
+                                      ? "bg-blue-500/20 text-blue-300"
+                                      : "bg-blue-100 text-blue-700"
+                                  }
+                                `}
                               >
                                 💡 {sug}
                               </span>
@@ -1178,13 +1125,10 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
                           Esperando...
                         </p>
                         <div
-                          className={`p-3 rounded-lg ${
-                            darkMode ? "bg-yellow-500/10" : "bg-yellow-50"
-                          } border ${
-                            darkMode
-                              ? "border-yellow-500/20"
-                              : "border-yellow-200"
-                          }`}
+                          className={`
+                            p-3 rounded-xl
+                            ${darkMode ? "bg-yellow-500/10" : "bg-yellow-50"}
+                          `}
                         >
                           <p
                             className={`text-sm font-medium ${
@@ -1211,15 +1155,14 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
                         ? "Gasto detectado:"
                         : `${pendingExpenses.length} gastos detectados:`}
                     </p>
-                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
                       {pendingExpenses.map((expense, idx) => (
                         <div
                           key={idx}
-                          className={`flex items-center gap-2 p-2 rounded-lg ${
-                            darkMode
-                              ? "bg-green-600/10 border border-green-500/20"
-                              : "bg-green-50 border border-green-200"
-                          }`}
+                          className={`
+                            flex items-center gap-2 p-3 rounded-xl
+                            ${darkMode ? "bg-green-500/10" : "bg-green-50"}
+                          `}
                         >
                           <CheckCircle2
                             className={`w-4 h-4 flex-shrink-0 ${
@@ -1254,29 +1197,25 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
           </div>
         )}
 
-        {/* 🎯 Mejora 1: Modal de Confirmación con Edición */}
+        {/* Modal de Confirmación */}
         {showConfirmation && pendingExpenses.length > 0 && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
             <div
-              className={`relative max-w-lg w-full rounded-2xl shadow-2xl border ${
-                darkMode
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-white border-gray-200"
-              } max-h-[80vh] overflow-y-auto`}
+              className={`
+                relative max-w-lg w-full rounded-3xl shadow-2xl
+                max-h-[80vh] overflow-y-auto
+                ${darkMode ? "bg-gray-900" : "bg-white"}
+              `}
             >
               <div
-                className="sticky top-0 p-4 border-b flex items-center justify-between"
-                style={
-                  darkMode
-                    ? {
-                        backgroundColor: "rgb(31, 41, 55)",
-                        borderColor: "rgb(55, 65, 81)",
-                      }
-                    : {
-                        backgroundColor: "white",
-                        borderColor: "rgb(229, 231, 235)",
-                      }
-                }
+                className={`
+                  sticky top-0 p-4 border-b flex items-center justify-between
+                  ${
+                    darkMode
+                      ? "bg-gray-900 border-gray-800"
+                      : "bg-white border-gray-200"
+                  }
+                `}
               >
                 <h3
                   className={`text-lg font-semibold ${
@@ -1288,11 +1227,14 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
                 </h3>
                 <button
                   onClick={() => setShowConfirmation(false)}
-                  className={`p-2 rounded-lg transition-colors ${
-                    darkMode
-                      ? "hover:bg-gray-700 text-gray-400"
-                      : "hover:bg-gray-100 text-gray-600"
-                  }`}
+                  className={`
+                    p-2 rounded-xl transition-colors
+                    ${
+                      darkMode
+                        ? "hover:bg-gray-800 text-gray-400"
+                        : "hover:bg-gray-100 text-gray-600"
+                    }
+                  `}
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1302,11 +1244,10 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
                 {pendingExpenses.map((expense, idx) => (
                   <div
                     key={idx}
-                    className={`p-4 rounded-xl border ${
-                      darkMode
-                        ? "bg-gray-700/50 border-gray-600"
-                        : "bg-gray-50 border-gray-200"
-                    }`}
+                    className={`
+                      p-4 rounded-2xl
+                      ${darkMode ? "bg-gray-800" : "bg-gray-50"}
+                    `}
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
@@ -1327,18 +1268,20 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
                       </div>
                       <button
                         onClick={() => removeExpense(idx)}
-                        className={`p-2 rounded-lg transition-colors ${
-                          darkMode
-                            ? "hover:bg-red-600/20 text-red-400"
-                            : "hover:bg-red-50 text-red-600"
-                        }`}
+                        className={`
+                          p-2 rounded-xl transition-colors
+                          ${
+                            darkMode
+                              ? "hover:bg-red-500/20 text-red-400"
+                              : "hover:bg-red-50 text-red-600"
+                          }
+                        `}
                       >
                         <X className="w-4 h-4" />
                       </button>
                     </div>
 
-                    {/* 🎯 Mejora 2: Selectores de categoría y subcategoría */}
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <div>
                         <label
                           className={`text-xs font-medium mb-1 block ${
@@ -1352,11 +1295,14 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
                           onChange={(e) =>
                             updateExpenseCategory(idx, e.target.value)
                           }
-                          className={`w-full px-3 py-2 rounded-lg border text-sm ${
-                            darkMode
-                              ? "bg-gray-600 border-gray-500 text-gray-100"
-                              : "bg-white border-gray-300 text-gray-900"
-                          }`}
+                          className={`
+                            w-full px-3 py-2 rounded-xl text-sm
+                            ${
+                              darkMode
+                                ? "bg-gray-700 text-gray-100"
+                                : "bg-white border border-gray-200 text-gray-900"
+                            }
+                          `}
                         >
                           {Object.keys(categories).map((cat) => (
                             <option key={cat} value={cat}>
@@ -1382,11 +1328,14 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
                               onChange={(e) =>
                                 updateExpenseSubcategory(idx, e.target.value)
                               }
-                              className={`w-full px-3 py-2 rounded-lg border text-sm ${
+                              className={`
+                              w-full px-3 py-2 rounded-xl text-sm
+                              ${
                                 darkMode
-                                  ? "bg-gray-600 border-gray-500 text-gray-100"
-                                  : "bg-white border-gray-300 text-gray-900"
-                              }`}
+                                  ? "bg-gray-700 text-gray-100"
+                                  : "bg-white border border-gray-200 text-gray-900"
+                              }
+                            `}
                             >
                               <option value="">Sin subcategoría</option>
                               {categories[expense.category].subcategories!.map(
@@ -1400,9 +1349,12 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
                           </div>
                         )}
 
-                      {/* Indicador de confianza */}
                       <div className="flex items-center gap-2 text-xs">
-                        <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                        <div
+                          className={`flex-1 h-1.5 rounded-full overflow-hidden ${
+                            darkMode ? "bg-gray-700" : "bg-gray-200"
+                          }`}
+                        >
                           <div
                             className={`h-full ${
                               expense.confidence > 70
@@ -1427,44 +1379,45 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
                 ))}
               </div>
 
-              {/* Botones de acción */}
               <div
-                className="sticky bottom-0 p-4 border-t flex gap-3"
-                style={
-                  darkMode
-                    ? {
-                        backgroundColor: "rgb(31, 41, 55)",
-                        borderColor: "rgb(55, 65, 81)",
-                      }
-                    : {
-                        backgroundColor: "white",
-                        borderColor: "rgb(229, 231, 235)",
-                      }
-                }
+                className={`
+                  sticky bottom-0 p-4 border-t flex gap-3
+                  ${
+                    darkMode
+                      ? "bg-gray-900 border-gray-800"
+                      : "bg-white border-gray-200"
+                  }
+                `}
               >
                 <button
                   onClick={() => {
                     setShowConfirmation(false);
                     setPendingExpenses([]);
                   }}
-                  className={`flex-1 px-4 py-3 rounded-xl font-medium transition-colors ${
-                    darkMode
-                      ? "bg-gray-700 hover:bg-gray-600 text-gray-100"
-                      : "bg-gray-100 hover:bg-gray-200 text-gray-900"
-                  }`}
+                  className={`
+                    flex-1 px-4 py-3 rounded-xl font-medium transition-colors
+                    ${
+                      darkMode
+                        ? "bg-gray-800 hover:bg-gray-700 text-gray-100"
+                        : "bg-gray-100 hover:bg-gray-200 text-gray-900"
+                    }
+                  `}
                 >
-                  ❌ Cancelar
+                  Cancelar
                 </button>
                 <button
                   onClick={confirmAndSave}
                   disabled={isProcessing}
-                  className={`flex-1 px-4 py-3 rounded-xl font-medium transition-colors ${
-                    isProcessing
-                      ? "bg-gray-400 cursor-wait"
-                      : darkMode
-                      ? "bg-green-600 hover:bg-green-500 text-white"
-                      : "bg-green-500 hover:bg-green-600 text-white"
-                  }`}
+                  className={`
+                    flex-1 px-4 py-3 rounded-xl font-medium transition-colors
+                    ${
+                      isProcessing
+                        ? "bg-gray-400 cursor-wait"
+                        : darkMode
+                        ? "bg-green-600 hover:bg-green-500 text-white"
+                        : "bg-green-500 hover:bg-green-600 text-white"
+                    }
+                  `}
                 >
                   {isProcessing ? (
                     <span className="flex items-center justify-center gap-2">
@@ -1472,382 +1425,13 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
                       Guardando...
                     </span>
                   ) : (
-                    `✅ Guardar ${pendingExpenses.length > 1 ? "Todo" : ""} (${
-                      pendingExpenses.length
-                    })`
+                    `Guardar ${
+                      pendingExpenses.length > 1
+                        ? `(${pendingExpenses.length})`
+                        : ""
+                    }`
                   )}
                 </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ⚙️ Mejora 7: Modal de Settings */}
-        {showSettings && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div
-              className={`relative max-w-md w-full rounded-2xl shadow-2xl border ${
-                darkMode
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-white border-gray-200"
-              }`}
-            >
-              <div
-                className="p-4 border-b flex items-center justify-between"
-                style={
-                  darkMode
-                    ? { borderColor: "rgb(55, 65, 81)" }
-                    : { borderColor: "rgb(229, 231, 235)" }
-                }
-              >
-                <h3
-                  className={`text-lg font-semibold ${
-                    darkMode ? "text-gray-100" : "text-gray-900"
-                  }`}
-                >
-                  ⚙️ Configuración de Voz
-                </h3>
-                <button
-                  onClick={() => setShowSettings(false)}
-                  className={`p-2 rounded-lg ${
-                    darkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
-                  }`}
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="p-4 space-y-4">
-                {/* Auto-confirmar */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p
-                      className={`font-medium ${
-                        darkMode ? "text-gray-200" : "text-gray-900"
-                      }`}
-                    >
-                      Confirmación automática
-                    </p>
-                    <p
-                      className={`text-xs ${
-                        darkMode ? "text-gray-400" : "text-gray-600"
-                      }`}
-                    >
-                      Guardar sin preguntar después de{" "}
-                      {settings.silenceTimeout / 1000}s
-                    </p>
-                  </div>
-                  <label className="relative inline-block w-12 h-6">
-                    <input
-                      type="checkbox"
-                      checked={settings.autoConfirm}
-                      onChange={(e) => {
-                        const newSettings = {
-                          ...settings,
-                          autoConfirm: e.target.checked,
-                        };
-                        setSettings(newSettings);
-                        saveSettings(newSettings);
-                      }}
-                      className="sr-only peer"
-                    />
-                    <div
-                      className={`w-12 h-6 rounded-full transition-colors peer-checked:bg-green-500 ${
-                        darkMode ? "bg-gray-600" : "bg-gray-300"
-                      }`}
-                    ></div>
-                    <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-6"></div>
-                  </label>
-                </div>
-
-                {/* Vibración */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p
-                      className={`font-medium ${
-                        darkMode ? "text-gray-200" : "text-gray-900"
-                      }`}
-                    >
-                      📳 Vibración
-                    </p>
-                    <p
-                      className={`text-xs ${
-                        darkMode ? "text-gray-400" : "text-gray-600"
-                      }`}
-                    >
-                      Feedback táctil al detectar gastos
-                    </p>
-                  </div>
-                  <label className="relative inline-block w-12 h-6">
-                    <input
-                      type="checkbox"
-                      checked={settings.vibration}
-                      onChange={(e) => {
-                        const newSettings = {
-                          ...settings,
-                          vibration: e.target.checked,
-                        };
-                        setSettings(newSettings);
-                        saveSettings(newSettings);
-                        if (e.target.checked) vibrate(50);
-                      }}
-                      className="sr-only peer"
-                    />
-                    <div
-                      className={`w-12 h-6 rounded-full transition-colors peer-checked:bg-green-500 ${
-                        darkMode ? "bg-gray-600" : "bg-gray-300"
-                      }`}
-                    ></div>
-                    <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-6"></div>
-                  </label>
-                </div>
-
-                {/* Sugerencias */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p
-                      className={`font-medium ${
-                        darkMode ? "text-gray-200" : "text-gray-900"
-                      }`}
-                    >
-                      💡 Sugerencias inteligentes
-                    </p>
-                    <p
-                      className={`text-xs ${
-                        darkMode ? "text-gray-400" : "text-gray-600"
-                      }`}
-                    >
-                      Mostrar sugerencias mientras hablas
-                    </p>
-                  </div>
-                  <label className="relative inline-block w-12 h-6">
-                    <input
-                      type="checkbox"
-                      checked={settings.showSuggestions}
-                      onChange={(e) => {
-                        const newSettings = {
-                          ...settings,
-                          showSuggestions: e.target.checked,
-                        };
-                        setSettings(newSettings);
-                        saveSettings(newSettings);
-                      }}
-                      className="sr-only peer"
-                    />
-                    <div
-                      className={`w-12 h-6 rounded-full transition-colors peer-checked:bg-green-500 ${
-                        darkMode ? "bg-gray-600" : "bg-gray-300"
-                      }`}
-                    ></div>
-                    <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-6"></div>
-                  </label>
-                </div>
-
-                {/* Tiempo de silencio */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <p
-                      className={`font-medium ${
-                        darkMode ? "text-gray-200" : "text-gray-900"
-                      }`}
-                    >
-                      ⏱️ Tiempo de silencio
-                    </p>
-                    <span
-                      className={`text-sm ${
-                        darkMode ? "text-gray-400" : "text-gray-600"
-                      }`}
-                    >
-                      {settings.silenceTimeout / 1000}s
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="1000"
-                    max="5000"
-                    step="500"
-                    value={settings.silenceTimeout}
-                    onChange={(e) => {
-                      const newSettings = {
-                        ...settings,
-                        silenceTimeout: parseInt(e.target.value),
-                      };
-                      setSettings(newSettings);
-                      saveSettings(newSettings);
-                    }}
-                    className="w-full"
-                  />
-                  <p
-                    className={`text-xs mt-1 ${
-                      darkMode ? "text-gray-400" : "text-gray-600"
-                    }`}
-                  >
-                    Espera entre múltiples gastos
-                  </p>
-                </div>
-
-                {/* 📊 Mejora 6: Stats button */}
-                <button
-                  onClick={() => {
-                    setShowSettings(false);
-                    setShowStats(true);
-                  }}
-                  className={`w-full py-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-2 ${
-                    darkMode
-                      ? "bg-blue-600/20 hover:bg-blue-600/30 text-blue-400"
-                      : "bg-blue-50 hover:bg-blue-100 text-blue-600"
-                  }`}
-                >
-                  <TrendingUp className="w-4 h-4" />
-                  Ver Estadísticas
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 📊 Mejora 6: Modal de Stats */}
-        {showStats && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div
-              className={`relative max-w-md w-full rounded-2xl shadow-2xl border ${
-                darkMode
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-white border-gray-200"
-              }`}
-            >
-              <div
-                className="p-4 border-b flex items-center justify-between"
-                style={
-                  darkMode
-                    ? { borderColor: "rgb(55, 65, 81)" }
-                    : { borderColor: "rgb(229, 231, 235)" }
-                }
-              >
-                <h3
-                  className={`text-lg font-semibold ${
-                    darkMode ? "text-gray-100" : "text-gray-900"
-                  }`}
-                >
-                  📊 Estadísticas de Voz
-                </h3>
-                <button
-                  onClick={() => setShowStats(false)}
-                  className={`p-2 rounded-lg ${
-                    darkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
-                  }`}
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="p-6 space-y-6">
-                <div
-                  className={`p-4 rounded-xl ${
-                    darkMode ? "bg-green-600/10" : "bg-green-50"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={`text-sm font-medium ${
-                        darkMode ? "text-green-400" : "text-green-700"
-                      }`}
-                    >
-                      Total de gastos por voz
-                    </span>
-                    <span
-                      className={`text-2xl font-bold ${
-                        darkMode ? "text-green-400" : "text-green-600"
-                      }`}
-                    >
-                      {stats.totalVoiceExpenses}
-                    </span>
-                  </div>
-                </div>
-
-                <div
-                  className={`p-4 rounded-xl ${
-                    darkMode ? "bg-blue-600/10" : "bg-blue-50"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span
-                      className={`text-sm font-medium ${
-                        darkMode ? "text-blue-400" : "text-blue-700"
-                      }`}
-                    >
-                      Precisión promedio
-                    </span>
-                    <span
-                      className={`text-2xl font-bold ${
-                        darkMode ? "text-blue-400" : "text-blue-600"
-                      }`}
-                    >
-                      {stats.avgConfidence.toFixed(0)}%
-                    </span>
-                  </div>
-                  <div className="w-full h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-blue-500 transition-all"
-                      style={{ width: `${stats.avgConfidence}%` }}
-                    />
-                  </div>
-                </div>
-
-                <div
-                  className={`p-4 rounded-xl ${
-                    darkMode ? "bg-purple-600/10" : "bg-purple-50"
-                  }`}
-                >
-                  <span
-                    className={`text-sm font-medium ${
-                      darkMode ? "text-purple-400" : "text-purple-700"
-                    }`}
-                  >
-                    Última vez usado
-                  </span>
-                  <p
-                    className={`text-sm mt-1 ${
-                      darkMode ? "text-purple-300" : "text-purple-600"
-                    }`}
-                  >
-                    {stats.lastUsed
-                      ? new Date(stats.lastUsed).toLocaleString("es-ES")
-                      : "Nunca"}
-                  </p>
-                </div>
-
-                <div
-                  className={`p-4 rounded-xl ${
-                    darkMode ? "bg-yellow-600/10" : "bg-yellow-50"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <Zap
-                      className={`w-5 h-5 ${
-                        darkMode ? "text-yellow-400" : "text-yellow-600"
-                      }`}
-                    />
-                    <span
-                      className={`text-sm font-medium ${
-                        darkMode ? "text-yellow-400" : "text-yellow-700"
-                      }`}
-                    >
-                      Velocidad
-                    </span>
-                  </div>
-                  <p
-                    className={`text-xs ${
-                      darkMode ? "text-yellow-300" : "text-yellow-600"
-                    }`}
-                  >
-                    Añades gastos{" "}
-                    {stats.totalVoiceExpenses > 10
-                      ? "3x más rápido"
-                      : "2x más rápido"}{" "}
-                    que manualmente
-                  </p>
-                </div>
               </div>
             </div>
           </div>

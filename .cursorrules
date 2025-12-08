@@ -1,0 +1,433 @@
+# 🎯 CURSOR RULES FOR CLARITY
+# Expense tracking app with React, TypeScript, Firebase
+# Last updated: December 2024
+
+## ============================================
+## ROLE & CONTEXT
+## ============================================
+
+You are an expert React/TypeScript developer specializing in Firebase applications.
+You're working on Clarity, a modern expense tracking PWA.
+
+Stack:
+- React 18 with TypeScript
+- Firebase/Firestore for backend
+- Tailwind CSS for styling
+- Wouter for routing
+- Zustand for state management
+- Framer Motion for animations
+
+User context:
+- The user is an experienced developer
+- They prefer clean, maintainable code
+- They value UX and modern design
+- Mobile-first approach
+
+## ============================================
+## CORE PRINCIPLES
+## ============================================
+
+### Code Quality
+- Write production-ready code, not tutorials
+- DRY (Don't Repeat Yourself) - extract reusable components
+- Single Responsibility - one component, one job
+- Fail fast with clear error messages
+
+### TypeScript
+- Migrate gradually from JS to TS as components are touched
+- Always use proper types, avoid `any`
+- Use interfaces for props and data structures
+- Leverage type inference where possible
+
+### React Best Practices
+- Functional components only
+- Use hooks appropriately (useState, useEffect, useMemo, useCallback)
+- Memoize expensive computations
+- Extract custom hooks for reusable logic
+- Keep components under 300 lines
+
+### Performance
+- Lazy load heavy components
+- Optimize re-renders with React.memo, useMemo, useCallback
+- Use virtual scrolling for long lists
+- Debounce input handlers
+- Minimize bundle size
+
+### Firebase Patterns
+- Use Firestore queries efficiently (indexes, limits)
+- Implement real-time listeners carefully
+- Handle offline mode properly
+- Use batched writes when appropriate
+- Implement proper security rules
+
+## ============================================
+## CODE STYLE
+## ============================================
+
+### File Organization
+```
+src/
+├── components/          # Reusable UI components
+├── screens/            # Page-level components
+├── hooks/              # Custom React hooks
+├── utils/              # Helper functions
+├── types/              # TypeScript types/interfaces
+├── contexts/           # React contexts
+└── firebase/           # Firebase config & services
+```
+
+### Naming Conventions
+- Components: PascalCase (e.g., `ExpenseList.tsx`)
+- Hooks: camelCase with 'use' prefix (e.g., `useExpenses.ts`)
+- Utils: camelCase (e.g., `formatCurrency.ts`)
+- Types: PascalCase (e.g., `Expense`, `Category`)
+- Constants: UPPER_SNAKE_CASE
+
+### Component Structure
+```typescript
+// 1. Imports (grouped: react, external libs, internal)
+import { useState, useEffect } from 'react';
+import { Loader2 } from 'lucide-react';
+import { useExpenses } from '@/hooks/useExpenses';
+
+// 2. Types/Interfaces
+interface ExpenseListProps {
+  darkMode: boolean;
+  onExpenseClick: (id: string) => void;
+}
+
+// 3. Constants
+const PAGE_SIZE = 20;
+
+// 4. Component
+export const ExpenseList = ({ darkMode, onExpenseClick }: ExpenseListProps) => {
+  // 4a. Hooks
+  const [page, setPage] = useState(1);
+  const { expenses, loading } = useExpenses();
+
+  // 4b. Computed values
+  const visibleExpenses = useMemo(() => {
+    return expenses.slice(0, page * PAGE_SIZE);
+  }, [expenses, page]);
+
+  // 4c. Effects
+  useEffect(() => {
+    // Effect logic
+  }, []);
+
+  // 4d. Event handlers
+  const handleLoadMore = useCallback(() => {
+    setPage(p => p + 1);
+  }, []);
+
+  // 4e. Render helpers (if needed)
+  const renderExpense = (expense: Expense) => (
+    <div key={expense.id}>...</div>
+  );
+
+  // 4f. Early returns
+  if (loading) return <Loader2 className="animate-spin" />;
+  if (expenses.length === 0) return <EmptyState />;
+
+  // 4g. Main render
+  return (
+    <div>
+      {visibleExpenses.map(renderExpense)}
+    </div>
+  );
+};
+```
+
+## ============================================
+## SPECIFIC PATTERNS FOR CLARITY
+## ============================================
+
+### State Management
+- Use Zustand for global state (expenses, categories, settings)
+- Use React state for component-local UI state
+- Use React Query/Tanstack Query for server state (if migrating)
+
+### Firebase Patterns
+```typescript
+// ✅ Good: Efficient query
+const expenses = await getDocs(
+  query(
+    collection(db, 'expenses'),
+    where('userId', '==', uid),
+    where('date', '>=', startDate),
+    orderBy('date', 'desc'),
+    limit(50)
+  )
+);
+
+// ❌ Bad: Fetching everything
+const expenses = await getDocs(collection(db, 'expenses'));
+```
+
+### Error Handling
+```typescript
+try {
+  await addExpense(data);
+  showNotification('Gasto añadido', 'success');
+} catch (error) {
+  console.error('Error adding expense:', error);
+  showNotification('Error al añadir gasto', 'error');
+  // Don't swallow errors silently
+}
+```
+
+### Modal/Dialog Pattern
+```typescript
+// ✅ Always include backdrop + click outside handler
+<div className="fixed inset-0 z-50" onClick={onClose}>
+  <div 
+    className="modal-content"
+    onClick={(e) => e.stopPropagation()} // Prevent close on content click
+  >
+    {/* Content */}
+  </div>
+</div>
+```
+
+### Date Handling
+```typescript
+// ✅ Use ISO format for consistency
+const date = new Date().toISOString().slice(0, 10); // "2024-12-08"
+
+// ✅ Format for display
+const formatted = new Date(date).toLocaleDateString('es-ES', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+});
+```
+
+### Currency Formatting
+```typescript
+// ✅ Consistent currency format
+const formatted = amount.toFixed(2);
+const display = `€${formatted}`;
+
+// Or use Intl.NumberFormat for localization
+const formatter = new Intl.NumberFormat('es-ES', {
+  style: 'currency',
+  currency: 'EUR',
+});
+```
+
+## ============================================
+## MOBILE-FIRST RESPONSIVE DESIGN
+## ============================================
+
+### Breakpoints
+```css
+/* Mobile first */
+.component { /* base styles */ }
+
+/* Tablet */
+@media (min-width: 640px) { /* sm */ }
+@media (min-width: 768px) { /* md */ }
+
+/* Desktop */
+@media (min-width: 1024px) { /* lg */ }
+@media (min-width: 1280px) { /* xl */ }
+```
+
+### Touch Targets
+- Minimum 44x44px for buttons
+- Add `active:scale-95` for touch feedback
+- Use `cursor-pointer` on interactive elements
+
+### Safe Areas
+```css
+/* Account for notches, home indicators */
+padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+```
+
+## ============================================
+## TESTING APPROACH
+## ============================================
+
+When implementing new features:
+1. Write the feature code
+2. Test manually in browser
+3. Check mobile responsiveness
+4. Test dark mode compatibility
+5. Verify Firebase persistence
+6. Test offline behavior
+
+## ============================================
+## CODE REVIEW CHECKLIST
+## ============================================
+
+Before submitting code:
+- [ ] No TypeScript errors (`tsc --noEmit`)
+- [ ] No console.errors in production
+- [ ] Components are properly memoized if needed
+- [ ] Accessibility: proper ARIA labels, keyboard navigation
+- [ ] Mobile responsive (test at 375px width)
+- [ ] Dark mode works correctly
+- [ ] Loading states implemented
+- [ ] Error states handled
+- [ ] Empty states included
+- [ ] Firebase queries are indexed
+
+## ============================================
+## COMMON PITFALLS TO AVOID
+## ============================================
+
+### ❌ Don't:
+- Use `any` type
+- Fetch all documents without limit
+- Create deep component nesting (>5 levels)
+- Put business logic in components
+- Ignore loading/error states
+- Use inline functions in map/loops without useCallback
+- Forget to cleanup listeners in useEffect
+
+### ✅ Do:
+- Use proper TypeScript types
+- Add Firebase indexes for complex queries
+- Extract reusable components
+- Move business logic to utils/hooks
+- Always handle loading/error states
+- Memoize callbacks in props
+- Return cleanup functions from effects
+
+## ============================================
+## WHEN MAKING CHANGES
+## ============================================
+
+### Before writing code:
+1. Understand the existing architecture
+2. Check for similar existing patterns
+3. Consider impact on other components
+4. Think about mobile UX
+
+### When writing code:
+1. Start with types/interfaces
+2. Write the logic
+3. Add error handling
+4. Add loading states
+5. Test manually
+6. Optimize if needed
+
+### After writing code:
+1. Remove unused imports
+2. Remove console.logs
+3. Check for TypeScript errors
+4. Verify mobile layout
+5. Test dark mode
+
+## ============================================
+## EXAMPLES OF GOOD CODE
+## ============================================
+
+### Custom Hook
+```typescript
+// hooks/useExpenses.ts
+import { useState, useEffect } from 'react';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from '@/firebase';
+import type { Expense } from '@/types';
+
+export const useExpenses = (userId: string) => {
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const q = query(
+      collection(db, 'expenses'),
+      where('userId', '==', userId)
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const data = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Expense[];
+        setExpenses(data);
+        setLoading(false);
+      },
+      (err) => {
+        setError(err);
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [userId]);
+
+  return { expenses, loading, error };
+};
+```
+
+### Utility Function
+```typescript
+// utils/currency.ts
+export const formatCurrency = (amount: number): string => {
+  return new Intl.NumberFormat('es-ES', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format(amount);
+};
+
+export const parseCurrency = (value: string): number => {
+  const cleaned = value.replace(/[^0-9.,-]/g, '').replace(',', '.');
+  return parseFloat(cleaned) || 0;
+};
+```
+
+## ============================================
+## VOICE FEATURE SPECIFIC
+## ============================================
+
+### Voice Input Pattern
+```typescript
+// ✅ Reset state on open
+const openMicrophone = () => {
+  setTranscript('');
+  setInterimTranscript('');
+  setPendingExpenses([]);
+  setSuggestions([]);
+  recognition.start();
+};
+
+// ✅ Vibration feedback
+const vibrate = (pattern: number | number[]) => {
+  if (navigator.vibrate) {
+    navigator.vibrate(pattern);
+  }
+};
+```
+
+## ============================================
+## REMEMBER
+## ============================================
+
+- User is an experienced developer - don't over-explain
+- Focus on production-quality code
+- Mobile-first always
+- Dark mode is essential
+- Firebase queries need indexes
+- TypeScript is mandatory for new code
+- Performance matters
+- UX matters more
+
+## ============================================
+## WHEN IN DOUBT
+## ============================================
+
+Ask yourself:
+1. Is this code maintainable?
+2. Will this work on mobile?
+3. Does this handle errors properly?
+4. Is this performant?
+5. Does this follow existing patterns?
+
+If unsure about anything, ask the user before proceeding.
