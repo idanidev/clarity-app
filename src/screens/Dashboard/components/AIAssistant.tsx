@@ -103,6 +103,14 @@ const useVoiceRecognition = (
 ) => {
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const onTranscriptRef = useRef(onTranscript);
+  const onEndRef = useRef(onEnd);
+
+  // Mantener las referencias de los callbacks actualizadas
+  useEffect(() => {
+    onTranscriptRef.current = onTranscript;
+    onEndRef.current = onEnd;
+  }, [onTranscript, onEnd]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -142,7 +150,10 @@ const useVoiceRecognition = (
         }
       }
 
-      onTranscript((finalTranscript + interimTranscript).trim());
+      // Usar la referencia actualizada del callback
+      if (onTranscriptRef.current) {
+        onTranscriptRef.current((finalTranscript + interimTranscript).trim());
+      }
     };
 
     recognition.onerror = (event: any) => {
@@ -151,15 +162,24 @@ const useVoiceRecognition = (
 
       if (event.error === "not-allowed") {
         alert(
-          "Permisos de micrófono denegados. Por favor, habilita el micrófono."
+          "Permisos de micrófono denegados. Por favor, habilita el micrófono en la configuración del navegador."
         );
+      } else if (event.error === "no-speech") {
+        console.warn("No se detectó voz");
+      } else if (event.error === "audio-capture") {
+        alert("No se pudo acceder al micrófono. Verifica que el micrófono esté conectado y funcionando.");
+      } else if (event.error === "network") {
+        alert("Error de red al usar el reconocimiento de voz. Verifica tu conexión.");
       }
     };
 
     recognition.onend = () => {
       console.log("🛑 Reconocimiento finalizado");
       setIsListening(false);
-      onEnd();
+      // Usar la referencia actualizada del callback
+      if (onEndRef.current) {
+        onEndRef.current();
+      }
     };
 
     recognitionRef.current = recognition;
@@ -173,9 +193,9 @@ const useVoiceRecognition = (
         }
       }
     };
-  }, [onTranscript, onEnd]);
+  }, []); // Sin dependencias para evitar reinicializaciones
 
-  const toggle = useCallback(() => {
+  const toggle = useCallback(async () => {
     if (!recognitionRef.current) {
       alert(
         "Tu navegador no soporta reconocimiento de voz. Prueba con Chrome, Edge o Safari."
@@ -188,12 +208,35 @@ const useVoiceRecognition = (
         recognitionRef.current.stop();
       } catch (e) {
         console.error("Error al detener:", e);
+        setIsListening(false);
       }
     } else {
+      // Verificar permisos antes de iniciar
       try {
-        recognitionRef.current.start();
-      } catch (e) {
-        console.error("Error al iniciar:", e);
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Si llegamos aquí, tenemos permisos
+        try {
+          recognitionRef.current.start();
+        } catch (e: any) {
+          if (e.message && e.message.includes("already started")) {
+            // Ya está corriendo, detener primero
+            recognitionRef.current.stop();
+            setTimeout(() => {
+              try {
+                recognitionRef.current.start();
+              } catch (err) {
+                console.error("Error al reiniciar:", err);
+              }
+            }, 100);
+          } else {
+            console.error("Error al iniciar:", e);
+            alert("No se pudo iniciar el reconocimiento de voz. Intenta de nuevo.");
+          }
+        }
+      } catch (permissionError) {
+        alert(
+          "Permisos de micrófono denegados. Por favor, habilita el micrófono en la configuración del navegador."
+        );
       }
     }
   }, [isListening]);

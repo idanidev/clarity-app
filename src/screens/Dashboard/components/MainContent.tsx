@@ -20,7 +20,6 @@ import {
   Sparkles,
   Table as TableIcon,
   Target,
-  Trash2,
   UtensilsCrossed,
   Wallet,
   X
@@ -36,8 +35,19 @@ import AIAssistant from "./AIAssistant";
 // @ts-ignore - No hay tipos para estos módulos JS
 import ExpenseCard from "./ExpenseCard";
 // @ts-ignore - No hay tipos para estos módulos JS
-import VoiceExpenseButton from "./VoiceExpenseButton";
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis
+} from "recharts";
+import VoiceExpenseButton from "./VoiceExpenseButton.tsx";
 
 // ============================================
 // TYPES & INTERFACES
@@ -140,7 +150,9 @@ interface MainContentProps {
   onClearFilters: () => void;
   categories: Categories;
   activeView: "table" | "chart" | "assistant" | "goals" | "budgets";
-  onChangeView: (view: "table" | "chart" | "assistant" | "goals" | "budgets") => void;
+  onChangeView: (
+    view: "table" | "chart" | "assistant" | "goals" | "budgets"
+  ) => void;
   expensesByCategory: ExpensesByCategory;
   expandedCategories: { [category: string]: boolean };
   onToggleCategory: (category: string) => void;
@@ -174,10 +186,20 @@ interface StatCardProps {
 }
 
 const StatCard = memo<StatCardProps>(
-  ({ icon: Icon, label, value, darkMode, textSecondaryClass, textClass, color = "purple" }) => (
+  ({
+    icon: Icon,
+    label,
+    value,
+    darkMode,
+    textSecondaryClass,
+    textClass,
+    color = "purple",
+  }) => (
     <div
       className={`rounded-lg md:rounded-2xl p-1.5 md:p-5 border backdrop-blur-xl transition-all md:hover:scale-[1.02] ${
-        darkMode ? "bg-gray-800/50 border-gray-700/40" : "bg-white/60 border-white/40"
+        darkMode
+          ? "bg-gray-800/50 border-gray-700/40"
+          : "bg-white/60 border-white/40"
       }`}
       style={{
         boxShadow: darkMode
@@ -200,7 +222,9 @@ const StatCard = memo<StatCardProps>(
         >
           {label}
         </span>
-        <p className={`text-xs md:text-2xl lg:text-3xl font-bold ${textClass} leading-tight`}>
+        <p
+          className={`text-xs md:text-2xl lg:text-3xl font-bold ${textClass} leading-tight`}
+        >
           {value}
         </p>
       </div>
@@ -300,7 +324,9 @@ const MainContent = memo<MainContentProps>(
               exp.date < earliest.date ? exp : earliest
             );
             const firstDate = new Date(firstExpense.date);
-            const daysDiff = Math.ceil((today.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24));
+            const daysDiff = Math.ceil(
+              (today.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)
+            );
             return daysDiff > 0 ? totalExpenses / daysDiff : 0;
           }
 
@@ -309,8 +335,12 @@ const MainContent = memo<MainContentProps>(
             const isCurrentYear = today.getFullYear() === yearNum;
             const startOfYear = new Date(yearNum, 0, 1);
             const daysInYear = isCurrentYear
-              ? Math.ceil((today.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24))
-              : yearNum % 4 === 0 && (yearNum % 100 !== 0 || yearNum % 400 === 0)
+              ? Math.ceil(
+                  (today.getTime() - startOfYear.getTime()) /
+                    (1000 * 60 * 60 * 24)
+                )
+              : yearNum % 4 === 0 &&
+                (yearNum % 100 !== 0 || yearNum % 400 === 0)
               ? 366
               : 365;
             return daysInYear > 0 ? totalExpenses / daysInYear : 0;
@@ -322,8 +352,11 @@ const MainContent = memo<MainContentProps>(
             const [yearNum, month] = selectedMonth.split("-").map(Number);
             if (!yearNum || !month) return 0;
             const daysInMonth = new Date(yearNum, month, 0).getDate();
-            const isCurrentMonth = today.getFullYear() === yearNum && today.getMonth() + 1 === month;
-            const daysPassed = isCurrentMonth ? Math.min(today.getDate(), daysInMonth) : daysInMonth;
+            const isCurrentMonth =
+              today.getFullYear() === yearNum && today.getMonth() + 1 === month;
+            const daysPassed = isCurrentMonth
+              ? Math.min(today.getDate(), daysInMonth)
+              : daysInMonth;
             return daysPassed > 0 ? totalExpenses / daysPassed : 0;
           }
         }
@@ -331,7 +364,13 @@ const MainContent = memo<MainContentProps>(
         console.error("Error calculating average:", error);
         return 0;
       }
-    }, [totalExpenses, filterPeriodType, selectedMonth, selectedYear, filteredExpenses]);
+    }, [
+      totalExpenses,
+      filterPeriodType,
+      selectedMonth,
+      selectedYear,
+      filteredExpenses,
+    ]);
 
     const frequencyLabels = useMemo(
       () => ({
@@ -344,12 +383,15 @@ const MainContent = memo<MainContentProps>(
     );
 
     const recurringFrequencyMap = useMemo(() => {
-      return (recurringExpenses || []).reduce((acc: { [key: string]: string }, recurring) => {
-        if (recurring?.id) {
-          acc[recurring.id] = recurring.frequency || "monthly";
-        }
-        return acc;
-      }, {});
+      return (recurringExpenses || []).reduce(
+        (acc: { [key: string]: string }, recurring) => {
+          if (recurring?.id) {
+            acc[recurring.id] = recurring.frequency || "monthly";
+          }
+          return acc;
+        },
+        {}
+      );
     }, [recurringExpenses]);
 
     const goalsSummary = useMemo<GoalsSummary | null>(() => {
@@ -361,10 +403,17 @@ const MainContent = memo<MainContentProps>(
       const currentMonth = today.getMonth() + 1;
       const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
       const daysPassed = today.getDate();
-      const currentMonthExpenses = categoryTotalsForBudgets.reduce((sum, item) => sum + item.total, 0);
+      const currentMonthExpenses = categoryTotalsForBudgets.reduce(
+        (sum, item) => sum + item.total,
+        0
+      );
       const monthlySavings = income - currentMonthExpenses;
-      const expectedSavingsByNow = (goals.totalSavingsGoal * daysPassed) / daysInMonth;
-      const progress = expectedSavingsByNow > 0 ? Math.min((monthlySavings / expectedSavingsByNow) * 100, 200) : 0;
+      const expectedSavingsByNow =
+        (goals.totalSavingsGoal * daysPassed) / daysInMonth;
+      const progress =
+        expectedSavingsByNow > 0
+          ? Math.min((monthlySavings / expectedSavingsByNow) * 100, 200)
+          : 0;
       return {
         savings: monthlySavings,
         goal: goals.totalSavingsGoal,
@@ -375,10 +424,13 @@ const MainContent = memo<MainContentProps>(
 
     // Memoizar colores de categorías
     const categoryColors = useMemo(() => {
-      return Object.keys(categories).reduce((acc: { [key: string]: string }, cat) => {
-        acc[cat] = getCategoryColor(categories[cat]);
-        return acc;
-      }, {});
+      return Object.keys(categories).reduce(
+        (acc: { [key: string]: string }, cat) => {
+          acc[cat] = getCategoryColor(categories[cat]);
+          return acc;
+        },
+        {}
+      );
     }, [categories]);
 
     // Memoizar gastos filtrados por búsqueda
@@ -386,28 +438,31 @@ const MainContent = memo<MainContentProps>(
       if (!searchQuery.trim()) return expensesByCategory;
 
       const query = searchQuery.toLowerCase();
-      return Object.entries(expensesByCategory).reduce((acc: ExpensesByCategory, [category, subcategories]) => {
-        const filtered = Object.entries(subcategories).reduce(
-          (subAcc: { [key: string]: Expense[] }, [subcat, exps]) => {
-            const matchingExpenses = exps.filter(
-              (exp) =>
-                exp.name?.toLowerCase().includes(query) ||
-                category.toLowerCase().includes(query) ||
-                subcat?.toLowerCase().includes(query)
-            );
-            if (matchingExpenses.length > 0) {
-              subAcc[subcat] = matchingExpenses;
-            }
-            return subAcc;
-          },
-          {}
-        );
+      return Object.entries(expensesByCategory).reduce(
+        (acc: ExpensesByCategory, [category, subcategories]) => {
+          const filtered = Object.entries(subcategories).reduce(
+            (subAcc: { [key: string]: Expense[] }, [subcat, exps]) => {
+              const matchingExpenses = exps.filter(
+                (exp) =>
+                  exp.name?.toLowerCase().includes(query) ||
+                  category.toLowerCase().includes(query) ||
+                  subcat?.toLowerCase().includes(query)
+              );
+              if (matchingExpenses.length > 0) {
+                subAcc[subcat] = matchingExpenses;
+              }
+              return subAcc;
+            },
+            {}
+          );
 
-        if (Object.keys(filtered).length > 0) {
-          acc[category] = filtered;
-        }
-        return acc;
-      }, {});
+          if (Object.keys(filtered).length > 0) {
+            acc[category] = filtered;
+          }
+          return acc;
+        },
+        {}
+      );
     }, [expensesByCategory, searchQuery]);
 
     // ============================================
@@ -443,7 +498,8 @@ const MainContent = memo<MainContentProps>(
       <div
         className="max-w-7xl mx-auto px-2 md:px-4 py-2 md:py-6 md:pb-6"
         style={{
-          paddingBottom: "max(5.5rem, calc(5.5rem + env(safe-area-inset-bottom)))",
+          paddingBottom:
+            "max(5.5rem, calc(5.5rem + env(safe-area-inset-bottom)))",
         }}
       >
         {/* Estadísticas con estilo Liquid Glass - Solo en vista principal */}
@@ -481,7 +537,9 @@ const MainContent = memo<MainContentProps>(
               {goalsSummary ? (
                 <div
                   className={`rounded-lg md:rounded-2xl p-1.5 md:p-5 border backdrop-blur-xl transition-all md:hover:scale-[1.02] ${
-                    darkMode ? "bg-gray-800/50 border-gray-700/40" : "bg-white/60 border-white/40"
+                    darkMode
+                      ? "bg-gray-800/50 border-gray-700/40"
+                      : "bg-white/60 border-white/40"
                   }`}
                   style={{
                     boxShadow: darkMode
@@ -531,7 +589,9 @@ const MainContent = memo<MainContentProps>(
                     >
                       €{goalsSummary.savings.toFixed(2)}
                     </p>
-                    <p className={`text-[8px] md:text-xs ${textSecondaryClass} mt-0.5`}>
+                    <p
+                      className={`text-[8px] md:text-xs ${textSecondaryClass} mt-0.5`}
+                    >
                       {goalsSummary.progress.toFixed(0)}%
                     </p>
                   </div>
@@ -539,19 +599,31 @@ const MainContent = memo<MainContentProps>(
               ) : (
                 <div
                   className={`rounded-lg md:rounded-2xl p-1.5 md:p-5 border backdrop-blur-xl opacity-50 ${
-                    darkMode ? "bg-gray-800/30 border-gray-700/20" : "bg-white/30 border-white/20"
+                    darkMode
+                      ? "bg-gray-800/30 border-gray-700/20"
+                      : "bg-white/30 border-white/20"
                   }`}
                 >
                   <div className="flex flex-col items-center text-center">
-                    <div className={`p-1 md:p-2.5 rounded md:rounded-xl mb-1 md:mb-3 ${darkMode ? "bg-gray-700/20" : "bg-gray-100/50"}`}>
-                      <Target className={`w-3 h-3 md:w-5 md:h-5 ${textSecondaryClass}`} />
+                    <div
+                      className={`p-1 md:p-2.5 rounded md:rounded-xl mb-1 md:mb-3 ${
+                        darkMode ? "bg-gray-700/20" : "bg-gray-100/50"
+                      }`}
+                    >
+                      <Target
+                        className={`w-3 h-3 md:w-5 md:h-5 ${textSecondaryClass}`}
+                      />
                     </div>
                     <span
                       className={`text-[9px] md:text-xs font-semibold mb-0.5 md:mb-1.5 uppercase tracking-wide ${textSecondaryClass}`}
                     >
                       Objetivos
                     </span>
-                    <p className={`text-xs md:text-2xl lg:text-3xl font-bold ${textSecondaryClass} leading-tight`}>--</p>
+                    <p
+                      className={`text-xs md:text-2xl lg:text-3xl font-bold ${textSecondaryClass} leading-tight`}
+                    >
+                      --
+                    </p>
                   </div>
                 </div>
               )}
@@ -590,28 +662,39 @@ const MainContent = memo<MainContentProps>(
             addExpense={onAddExpenseFromAI}
             showNotification={showNotification}
             hasFilterButton={activeView === "table" || activeView === "chart"}
+            // @ts-expect-error Variable 'expenses' might be undefined; ensure it's supplied correctly.
+            expenses={expenses}
           />
         )}
-
         {/* Panel de filtros avanzados para móvil - Bottom sheet style */}
         {showFilters && (activeView === "table" || activeView === "chart") && (
           <>
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[90] md:hidden" onClick={onToggleFilters} />
+            <div
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[90] md:hidden"
+              onClick={onToggleFilters}
+            />
             <div className="fixed bottom-0 left-0 right-0 z-[110] md:hidden animate-slide-up">
               <div
                 className={`rounded-t-3xl border-t shadow-2xl flex flex-col ${
-                  darkMode ? "bg-gray-800/95 border-gray-700/70" : "bg-white/95 border-purple-100"
+                  darkMode
+                    ? "bg-gray-800/95 border-gray-700/70"
+                    : "bg-white/95 border-purple-100"
                 } backdrop-blur-xl`}
                 style={{
                   WebkitOverflowScrolling: "touch",
                   touchAction: "pan-y",
-                  maxHeight: "calc(100vh - 5.5rem - env(safe-area-inset-bottom))",
+                  maxHeight:
+                    "calc(100vh - 5.5rem - env(safe-area-inset-bottom))",
                   marginBottom: "calc(5.5rem + env(safe-area-inset-bottom))",
                 }}
               >
                 {/* Handle */}
                 <div className="flex justify-center pt-3 pb-2 flex-shrink-0">
-                  <div className={`w-12 h-1.5 rounded-full ${darkMode ? "bg-gray-600" : "bg-gray-300"}`} />
+                  <div
+                    className={`w-12 h-1.5 rounded-full ${
+                      darkMode ? "bg-gray-600" : "bg-gray-300"
+                    }`}
+                  />
                 </div>
 
                 {/* Header */}
@@ -622,7 +705,9 @@ const MainContent = memo<MainContentProps>(
                 >
                   <div className="flex items-center gap-2">
                     <Filter className={`w-5 h-5 ${textSecondaryClass}`} />
-                    <h4 className={`text-base font-semibold ${textClass}`}>{t("filters.title")}</h4>
+                    <h4 className={`text-base font-semibold ${textClass}`}>
+                      {t("filters.title")}
+                    </h4>
                   </div>
                   <div className="flex items-center gap-2">
                     {onClearFilters && (
@@ -642,7 +727,9 @@ const MainContent = memo<MainContentProps>(
                     )}
                     <button
                       onClick={onToggleFilters}
-                      className={`p-2 rounded-lg ${darkMode ? "hover:bg-gray-700" : "hover:bg-purple-100"} transition-all`}
+                      className={`p-2 rounded-lg ${
+                        darkMode ? "hover:bg-gray-700" : "hover:bg-purple-100"
+                      } transition-all`}
                     >
                       <X className={`w-5 h-5 ${textSecondaryClass}`} />
                     </button>
@@ -660,7 +747,11 @@ const MainContent = memo<MainContentProps>(
                 >
                   {/* Filtros rápidos */}
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${textClass}`}>Filtros rápidos</label>
+                    <label
+                      className={`block text-sm font-medium mb-2 ${textClass}`}
+                    >
+                      Filtros rápidos
+                    </label>
                     <div className="flex items-center gap-2 flex-wrap">
                       <button
                         onClick={() => {
@@ -670,7 +761,8 @@ const MainContent = memo<MainContentProps>(
                           onToggleFilters();
                         }}
                         className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
-                          filterPeriodType === "month" && selectedMonth === new Date().toISOString().slice(0, 7)
+                          filterPeriodType === "month" &&
+                          selectedMonth === new Date().toISOString().slice(0, 7)
                             ? darkMode
                               ? "bg-purple-600 text-white"
                               : "bg-purple-600 text-white"
@@ -684,13 +776,18 @@ const MainContent = memo<MainContentProps>(
                       <button
                         onClick={() => {
                           const today = new Date();
-                          const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                          const lastMonth = new Date(
+                            today.getFullYear(),
+                            today.getMonth() - 1,
+                            1
+                          );
                           onFilterPeriodTypeChange("month");
                           onMonthChange(lastMonth.toISOString().slice(0, 7));
                           onToggleFilters();
                         }}
                         className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
-                          filterPeriodType === "month" && selectedMonth !== new Date().toISOString().slice(0, 7)
+                          filterPeriodType === "month" &&
+                          selectedMonth !== new Date().toISOString().slice(0, 7)
                             ? darkMode
                               ? "bg-purple-600 text-white"
                               : "bg-purple-600 text-white"
@@ -740,7 +837,11 @@ const MainContent = memo<MainContentProps>(
                   </div>
 
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${textClass}`}>{t("filters.period")}</label>
+                    <label
+                      className={`block text-sm font-medium mb-2 ${textClass}`}
+                    >
+                      {t("filters.period")}
+                    </label>
                     <div className="grid grid-cols-3 gap-2">
                       <button
                         onClick={() => {
@@ -801,7 +902,11 @@ const MainContent = memo<MainContentProps>(
 
                   {filterPeriodType === "month" && (
                     <div>
-                      <label className={`block text-sm font-medium mb-2 ${textClass}`}>{t("filters.selectMonth")}</label>
+                      <label
+                        className={`block text-sm font-medium mb-2 ${textClass}`}
+                      >
+                        {t("filters.selectMonth")}
+                      </label>
                       <input
                         type="month"
                         value={selectedMonth}
@@ -820,7 +925,11 @@ const MainContent = memo<MainContentProps>(
 
                   {filterPeriodType === "year" && (
                     <div>
-                      <label className={`block text-sm font-medium mb-2 ${textClass}`}>{t("filters.selectYear")}</label>
+                      <label
+                        className={`block text-sm font-medium mb-2 ${textClass}`}
+                      >
+                        {t("filters.selectYear")}
+                      </label>
                       <input
                         type="number"
                         min="2020"
@@ -840,7 +949,11 @@ const MainContent = memo<MainContentProps>(
                   )}
 
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${textClass}`}>{t("filters.category")}</label>
+                    <label
+                      className={`block text-sm font-medium mb-2 ${textClass}`}
+                    >
+                      {t("filters.category")}
+                    </label>
                     <select
                       value={selectedCategory}
                       onClick={(e) => e.stopPropagation()}
@@ -875,7 +988,9 @@ const MainContent = memo<MainContentProps>(
           <div className="hidden md:block mb-6">
             <div
               className={`rounded-3xl border backdrop-blur-2xl p-4 shadow-xl ${
-                darkMode ? "bg-gray-800/60 border-gray-700/40" : "bg-white/60 border-white/40"
+                darkMode
+                  ? "bg-gray-800/60 border-gray-700/40"
+                  : "bg-white/60 border-white/40"
               }`}
               style={{
                 boxShadow: darkMode
@@ -889,7 +1004,11 @@ const MainContent = memo<MainContentProps>(
                 <div className="flex items-center gap-3 flex-1 min-w-0 flex-wrap">
                   <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/50 dark:bg-gray-700/50 border border-white/60 dark:border-gray-600/40">
                     <Filter className={`w-4 h-4 ${textSecondaryClass}`} />
-                    <span className={`text-xs font-medium ${textSecondaryClass}`}>{t("filters.title")}</span>
+                    <span
+                      className={`text-xs font-medium ${textSecondaryClass}`}
+                    >
+                      {t("filters.title")}
+                    </span>
                   </div>
 
                   <select
@@ -897,7 +1016,11 @@ const MainContent = memo<MainContentProps>(
                     onClick={(e) => e.stopPropagation()}
                     onMouseDown={(e) => e.stopPropagation()}
                     onTouchStart={(e) => e.stopPropagation()}
-                    onChange={(e) => onFilterPeriodTypeChange(e.target.value as "month" | "year" | "all")}
+                    onChange={(e) =>
+                      onFilterPeriodTypeChange(
+                        e.target.value as "month" | "year" | "all"
+                      )
+                    }
                     className={`px-3 py-2 rounded-xl border text-sm transition-all ${
                       darkMode
                         ? "bg-gray-700/50 border-gray-600/40 text-gray-100 focus:bg-gray-700 focus:border-purple-500/50"
@@ -976,7 +1099,8 @@ const MainContent = memo<MainContentProps>(
                     onClick={onAddExpenseClick}
                     className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-xl transition-all active:scale-95 whitespace-nowrap"
                     style={{
-                      boxShadow: "0 4px 16px rgba(139, 92, 246, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1) inset",
+                      boxShadow:
+                        "0 4px 16px rgba(139, 92, 246, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1) inset",
                     }}
                   >
                     <Plus className="w-5 h-5" strokeWidth={2.5} />
@@ -992,7 +1116,9 @@ const MainContent = memo<MainContentProps>(
         <div className="hidden md:block mb-6">
           <div
             className={`inline-flex gap-1 p-1.5 rounded-2xl border backdrop-blur-xl ${
-              darkMode ? "bg-gray-800/40 border-gray-700/30" : "bg-white/50 border-white/40"
+              darkMode
+                ? "bg-gray-800/40 border-gray-700/30"
+                : "bg-white/50 border-white/40"
             }`}
             style={{
               boxShadow: darkMode
@@ -1003,9 +1129,21 @@ const MainContent = memo<MainContentProps>(
             }}
           >
             {[
-              { view: "table" as const, icon: TableIcon, label: t("views.table") },
-              { view: "chart" as const, icon: BarChart3, label: t("views.chart") },
-              { view: "assistant" as const, icon: Bot, label: t("views.assistant") },
+              {
+                view: "table" as const,
+                icon: TableIcon,
+                label: t("views.table"),
+              },
+              {
+                view: "chart" as const,
+                icon: BarChart3,
+                label: t("views.chart"),
+              },
+              {
+                view: "assistant" as const,
+                icon: Bot,
+                label: t("views.assistant"),
+              },
               { view: "goals" as const, icon: Target, label: t("views.goals") },
             ].map(({ view, icon: Icon, label }) => (
               <button
@@ -1046,7 +1184,9 @@ const MainContent = memo<MainContentProps>(
         >
           <div
             className={`max-w-md mx-auto rounded-t-2xl shadow-xl border-t border-l border-r backdrop-blur-xl pointer-events-auto ${
-              darkMode ? "bg-gray-900/90 border-gray-700/50" : "bg-white/90 border-white/40"
+              darkMode
+                ? "bg-gray-900/90 border-gray-700/50"
+                : "bg-white/90 border-white/40"
             }`}
             style={{
               boxShadow: darkMode
@@ -1060,7 +1200,8 @@ const MainContent = memo<MainContentProps>(
             <div
               className="grid grid-cols-5 gap-0.5 p-1"
               style={{
-                paddingBottom: "max(0.5rem, calc(0.5rem + env(safe-area-inset-bottom)))",
+                paddingBottom:
+                  "max(0.5rem, calc(0.5rem + env(safe-area-inset-bottom)))",
               }}
             >
               <button
@@ -1080,7 +1221,9 @@ const MainContent = memo<MainContentProps>(
                 }`}
               >
                 <TableIcon className="w-4 h-4" />
-                <span className="text-[10px] font-medium">{t("views.table")}</span>
+                <span className="text-[10px] font-medium">
+                  {t("views.table")}
+                </span>
                 {activeView === "table" && (
                   <div className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-white"></div>
                 )}
@@ -1103,7 +1246,9 @@ const MainContent = memo<MainContentProps>(
                 }`}
               >
                 <BarChart3 className="w-4 h-4" />
-                <span className="text-[10px] font-medium">{t("views.chart")}</span>
+                <span className="text-[10px] font-medium">
+                  {t("views.chart")}
+                </span>
                 {activeView === "chart" && (
                   <div className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-white"></div>
                 )}
@@ -1134,7 +1279,9 @@ const MainContent = memo<MainContentProps>(
                 }`}
               >
                 <Bot className="w-4 h-4" />
-                <span className="text-[10px] font-medium">{t("views.assistant")}</span>
+                <span className="text-[10px] font-medium">
+                  {t("views.assistant")}
+                </span>
                 {activeView === "assistant" && (
                   <div className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-white"></div>
                 )}
@@ -1157,7 +1304,9 @@ const MainContent = memo<MainContentProps>(
                 }`}
               >
                 <Target className="w-4 h-4" />
-                <span className="text-[10px] font-medium">{t("views.goals")}</span>
+                <span className="text-[10px] font-medium">
+                  {t("views.goals")}
+                </span>
                 {activeView === "goals" && (
                   <div className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-white"></div>
                 )}
@@ -1181,11 +1330,15 @@ const MainContent = memo<MainContentProps>(
               {Object.keys(searchFilteredCategories).length > 0 && (
                 <div className="mb-3 sm:mb-4">
                   <div
-                    className={`relative ${darkMode ? "bg-gray-800/50" : "bg-white/60"} rounded-lg md:rounded-xl border ${
+                    className={`relative ${
+                      darkMode ? "bg-gray-800/50" : "bg-white/60"
+                    } rounded-lg md:rounded-xl border ${
                       darkMode ? "border-gray-700/40" : "border-white/40"
                     } backdrop-blur-xl`}
                   >
-                    <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 ${textSecondaryClass}`} />
+                    <Search
+                      className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 ${textSecondaryClass}`}
+                    />
                     <input
                       type="text"
                       value={searchQuery}
@@ -1207,14 +1360,22 @@ const MainContent = memo<MainContentProps>(
 
               {Object.keys(expensesByCategory).length === 0 ? (
                 <div className="text-center py-16">
-                  <Wallet className={`w-16 h-16 mx-auto ${textSecondaryClass} mb-4`} />
-                  <h3 className={`text-xl font-medium mb-2 ${textClass}`}>No hay gastos</h3>
-                  <p className={`${textSecondaryClass} mb-6`}>Añade tu primer gasto para comenzar</p>
+                  <Wallet
+                    className={`w-16 h-16 mx-auto ${textSecondaryClass} mb-4`}
+                  />
+                  <h3 className={`text-xl font-medium mb-2 ${textClass}`}>
+                    No hay gastos
+                  </h3>
+                  <p className={`${textSecondaryClass} mb-6`}>
+                    Añade tu primer gasto para comenzar
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-1.5 sm:space-y-6">
                   {(() => {
-                    const filteredCategoriesArray = Object.entries(searchFilteredCategories)
+                    const filteredCategoriesArray = Object.entries(
+                      searchFilteredCategories
+                    )
                       .filter(([category, subcategories]) => {
                         if (!searchQuery.trim()) return true;
                         const query = searchQuery.toLowerCase();
@@ -1222,8 +1383,10 @@ const MainContent = memo<MainContentProps>(
                         const allExpenses = Object.values(subcategories).flat();
                         return allExpenses.some(
                           (exp) =>
-                            (exp.name && exp.name.toLowerCase().includes(query)) ||
-                            (exp.subcategory && exp.subcategory.toLowerCase().includes(query))
+                            (exp.name &&
+                              exp.name.toLowerCase().includes(query)) ||
+                            (exp.subcategory &&
+                              exp.subcategory.toLowerCase().includes(query))
                         );
                       })
                       .map(([category, subcategories]) => {
@@ -1231,11 +1394,17 @@ const MainContent = memo<MainContentProps>(
                           .flat()
                           .reduce((sum, exp) => sum + exp.amount, 0);
                         const isExpanded = expandedCategories[category];
-                        const expenseCount = Object.values(subcategories).flat().length;
+                        const expenseCount =
+                          Object.values(subcategories).flat().length;
                         const CategoryIcon = categoryIcons[category] || Wallet;
 
-                        const filteredSubcategories = Object.entries(subcategories).reduce(
-                          (acc: { [key: string]: Expense[] }, [subcategory, exps]) => {
+                        const filteredSubcategories = Object.entries(
+                          subcategories
+                        ).reduce(
+                          (
+                            acc: { [key: string]: Expense[] },
+                            [subcategory, exps]
+                          ) => {
                             if (!searchQuery.trim()) {
                               acc[subcategory] = exps;
                               return acc;
@@ -1243,8 +1412,12 @@ const MainContent = memo<MainContentProps>(
                             const query = searchQuery.toLowerCase();
                             const filtered = exps.filter(
                               (exp) =>
-                                (exp.name && exp.name.toLowerCase().includes(query)) ||
-                                (exp.subcategory && exp.subcategory.toLowerCase().includes(query)) ||
+                                (exp.name &&
+                                  exp.name.toLowerCase().includes(query)) ||
+                                (exp.subcategory &&
+                                  exp.subcategory
+                                    .toLowerCase()
+                                    .includes(query)) ||
                                 category.toLowerCase().includes(query)
                             );
                             if (filtered.length > 0) {
@@ -1255,15 +1428,23 @@ const MainContent = memo<MainContentProps>(
                           {}
                         );
 
-                        if (searchQuery.trim() && Object.keys(filteredSubcategories).length === 0) {
+                        if (
+                          searchQuery.trim() &&
+                          Object.keys(filteredSubcategories).length === 0
+                        ) {
                           return null;
                         }
 
-                        const categoryColor = categoryColors[category] || "#8B5CF6";
-                        const filteredTotal = Object.values(filteredSubcategories)
+                        const categoryColor =
+                          categoryColors[category] || "#8B5CF6";
+                        const filteredTotal = Object.values(
+                          filteredSubcategories
+                        )
                           .flat()
                           .reduce((sum, exp) => sum + exp.amount, 0);
-                        const filteredCount = Object.values(filteredSubcategories).flat().length;
+                        const filteredCount = Object.values(
+                          filteredSubcategories
+                        ).flat().length;
 
                         return (
                           <div key={category} className="mb-2 sm:mb-3">
@@ -1281,50 +1462,81 @@ const MainContent = memo<MainContentProps>(
                             >
                               <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                                 {isExpanded ? (
-                                  <ChevronUp className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${textSecondaryClass}`} />
+                                  <ChevronUp
+                                    className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${textSecondaryClass}`}
+                                  />
                                 ) : (
-                                  <ChevronDown className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${textSecondaryClass}`} />
+                                  <ChevronDown
+                                    className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${textSecondaryClass}`}
+                                  />
                                 )}
-                                <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full flex-shrink-0 shadow-sm" style={{ backgroundColor: categoryColor }} />
+                                <div
+                                  className="w-3 h-3 sm:w-4 sm:h-4 rounded-full flex-shrink-0 shadow-sm"
+                                  style={{ backgroundColor: categoryColor }}
+                                />
                                 <div className="flex-1 min-w-0 flex items-center gap-2">
-                                  <p className={`text-xs sm:text-sm font-bold truncate ${textClass}`}>{category}</p>
-                                  <span className={`text-xs ${textSecondaryClass} whitespace-nowrap`}>
-                                    {filteredCount} {filteredCount === 1 ? "gasto" : "gastos"}
+                                  <p
+                                    className={`text-xs sm:text-sm font-bold truncate ${textClass}`}
+                                  >
+                                    {category}
+                                  </p>
+                                  <span
+                                    className={`text-xs ${textSecondaryClass} whitespace-nowrap`}
+                                  >
+                                    {filteredCount}{" "}
+                                    {filteredCount === 1 ? "gasto" : "gastos"}
                                   </span>
                                 </div>
                                 <div className="flex flex-col items-end flex-shrink-0">
-                                  <span className={`text-sm sm:text-base font-bold ${textClass}`}>€{filteredTotal.toFixed(2)}</span>
-                                  {searchQuery.trim() && categoryTotal !== filteredTotal && (
-                                    <span className={`text-xs ${textSecondaryClass} line-through opacity-60`}>€{categoryTotal.toFixed(2)}</span>
-                                  )}
+                                  <span
+                                    className={`text-sm sm:text-base font-bold ${textClass}`}
+                                  >
+                                    €{filteredTotal.toFixed(2)}
+                                  </span>
+                                  {searchQuery.trim() &&
+                                    categoryTotal !== filteredTotal && (
+                                      <span
+                                        className={`text-xs ${textSecondaryClass} line-through opacity-60`}
+                                      >
+                                        €{categoryTotal.toFixed(2)}
+                                      </span>
+                                    )}
                                 </div>
                               </div>
                             </button>
 
                             {isExpanded && (
-                              <div className="mt-2 sm:mt-3 ml-2 sm:ml-4 space-y-1.5 sm:space-y-2 transition-all duration-300 border-l-4 pl-3 sm:pl-4" style={{ borderColor: `${categoryColor}A0` }}>
-                                {Object.entries(filteredSubcategories).map(([subcategory, exps]) => (
-                                  <div key={subcategory} className="space-y-1.5 sm:space-y-2">
-                                    {exps.map((expense) => (
-                                      <ExpenseCard
-                                        key={expense.id}
-                                        expense={{
-                                          ...expense,
-                                          category: category,
-                                        }}
-                                        onEdit={onEditExpense}
-                                        onDelete={(exp: Expense) =>
-                                          onRequestDelete({
-                                            type: "expense",
-                                            id: exp.id,
-                                          })
-                                        }
-                                        darkMode={darkMode}
-                                        isMobile={isMobile}
-                                      />
-                                    ))}
-                                  </div>
-                                ))}
+                              <div
+                                className="mt-2 sm:mt-3 ml-2 sm:ml-4 space-y-1.5 sm:space-y-2 transition-all duration-300 border-l-4 pl-3 sm:pl-4"
+                                style={{ borderColor: `${categoryColor}A0` }}
+                              >
+                                {Object.entries(filteredSubcategories).map(
+                                  ([subcategory, exps]) => (
+                                    <div
+                                      key={subcategory}
+                                      className="space-y-1.5 sm:space-y-2"
+                                    >
+                                      {exps.map((expense) => (
+                                        <ExpenseCard
+                                          key={expense.id}
+                                          expense={{
+                                            ...expense,
+                                            category: category,
+                                          }}
+                                          onEdit={onEditExpense}
+                                          onDelete={(exp: Expense) =>
+                                            onRequestDelete({
+                                              type: "expense",
+                                              id: exp.id,
+                                            })
+                                          }
+                                          darkMode={darkMode}
+                                          isMobile={isMobile}
+                                        />
+                                      ))}
+                                    </div>
+                                  )
+                                )}
                               </div>
                             )}
                           </div>
@@ -1332,12 +1544,23 @@ const MainContent = memo<MainContentProps>(
                       })
                       .filter(Boolean);
 
-                    if (searchQuery.trim() && filteredCategoriesArray.length === 0) {
+                    if (
+                      searchQuery.trim() &&
+                      filteredCategoriesArray.length === 0
+                    ) {
                       return (
                         <div className="text-center py-12">
-                          <Search className={`w-12 h-12 mx-auto ${textSecondaryClass} mb-4 opacity-50`} />
-                          <h3 className={`text-lg font-medium mb-2 ${textClass}`}>No se encontraron resultados</h3>
-                          <p className={`${textSecondaryClass} text-sm`}>Intenta con otros términos de búsqueda</p>
+                          <Search
+                            className={`w-12 h-12 mx-auto ${textSecondaryClass} mb-4 opacity-50`}
+                          />
+                          <h3
+                            className={`text-lg font-medium mb-2 ${textClass}`}
+                          >
+                            No se encontraron resultados
+                          </h3>
+                          <p className={`${textSecondaryClass} text-sm`}>
+                            Intenta con otros términos de búsqueda
+                          </p>
                         </div>
                       );
                     }
@@ -1360,7 +1583,9 @@ const MainContent = memo<MainContentProps>(
               exit={{ opacity: 0, x: -20 }}
               transition={getTransition("smooth")}
             >
-              <div className={`${cardClass} rounded-2xl p-3 md:p-6 border shadow-lg`}>
+              <div
+                className={`${cardClass} rounded-2xl p-3 md:p-6 border shadow-lg`}
+              >
                 {categoryTotals.length === 0 ? (
                   <div className="text-center py-8 md:py-12">
                     <AlertTriangle
@@ -1621,7 +1846,8 @@ const MainContent = memo<MainContentProps>(
                           const categoryTotal = Object.values(subcategories)
                             .flat()
                             .reduce((sum, exp) => sum + exp.amount, 0);
-                          const percentage = (categoryTotal / totalExpenses) * 100;
+                          const percentage =
+                            (categoryTotal / totalExpenses) * 100;
                           const isExpanded = expandedCategories[category];
 
                           const categoryData = categories[category];
@@ -1869,12 +2095,14 @@ const MainContent = memo<MainContentProps>(
                               {/* Calendario */}
                               <div className="grid grid-cols-7 gap-1 md:gap-2">
                                 {/* Días vacíos al inicio */}
-                                {Array.from({ length: firstDay }).map((_, i) => (
-                                  <div
-                                    key={`empty-${i}`}
-                                    className="aspect-square"
-                                  ></div>
-                                ))}
+                                {Array.from({ length: firstDay }).map(
+                                  (_, i) => (
+                                    <div
+                                      key={`empty-${i}`}
+                                      className="aspect-square"
+                                    ></div>
+                                  )
+                                )}
 
                                 {/* Días del mes */}
                                 {Array.from({ length: daysInMonth }, (_, i) => {
@@ -1999,7 +2227,10 @@ const MainContent = memo<MainContentProps>(
                             2,
                             "0"
                           );
-                          const day = String(dayDate.getDate()).padStart(2, "0");
+                          const day = String(dayDate.getDate()).padStart(
+                            2,
+                            "0"
+                          );
                           const dayStr = `${year}-${month}-${day}`;
 
                           const dayExpenses = filteredExpenses.filter(
@@ -2093,13 +2324,19 @@ const MainContent = memo<MainContentProps>(
                             </ResponsiveContainer>
 
                             {/* Resumen de la semana */}
-                            <div className={`flex items-center justify-between pt-2 border-t ${darkMode ? "border-gray-600" : "border-gray-300"}`}>
+                            <div
+                              className={`flex items-center justify-between pt-2 border-t ${
+                                darkMode ? "border-gray-600" : "border-gray-300"
+                              }`}
+                            >
                               <span
                                 className={`text-sm font-medium ${textSecondaryClass}`}
                               >
                                 Total de la semana:
                               </span>
-                              <span className={`text-lg font-bold ${textClass}`}>
+                              <span
+                                className={`text-lg font-bold ${textClass}`}
+                              >
                                 €
                                 {weekData
                                   .reduce((sum, d) => sum + d.amount, 0)
@@ -2140,9 +2377,9 @@ const MainContent = memo<MainContentProps>(
               income={income}
               goals={goals}
               recurringExpenses={recurringExpenses}
-            addExpense={onAddExpenseFromAI}
-            isActive={true}
-          />
+              addExpense={onAddExpenseFromAI}
+              isActive={true}
+            />
           </motion.div>
         )}
 
@@ -2165,7 +2402,9 @@ const MainContent = memo<MainContentProps>(
                   >
                     {t("goals.title")}
                   </h3>
-                  <p className={`text-xs sm:text-sm ${textSecondaryClass} mt-1`}>
+                  <p
+                    className={`text-xs sm:text-sm ${textSecondaryClass} mt-1`}
+                  >
                     {t("goals.progress")}
                   </p>
                 </div>
@@ -2213,7 +2452,8 @@ const MainContent = memo<MainContentProps>(
                   ); // Cuánto puede gastar aún
 
                   // Estados
-                  const hasOverspent = currentMonthExpenses > maxSpendingAllowed; // Se ha pasado del límite
+                  const hasOverspent =
+                    currentMonthExpenses > maxSpendingAllowed; // Se ha pasado del límite
                   const isOnTrack = monthlySavings >= goals.totalSavingsGoal; // Ha alcanzado el objetivo
                   const isCloseToLimit =
                     currentMonthExpenses >= maxSpendingAllowed * 0.9; // Cerca del límite (90%)
@@ -2275,8 +2515,8 @@ const MainContent = memo<MainContentProps>(
                             <p
                               className={`text-xs sm:text-sm ${textSecondaryClass}`}
                             >
-                              Objetivo: €{goals.totalSavingsGoal.toFixed(2)} este
-                              mes
+                              Objetivo: €{goals.totalSavingsGoal.toFixed(2)}{" "}
+                              este mes
                             </p>
                           </div>
                         </div>
@@ -2407,8 +2647,8 @@ const MainContent = memo<MainContentProps>(
                             <p
                               className={`text-xs sm:text-sm font-semibold ${textClass}`}
                             >
-                              {((daysPassed / daysInMonth) * 100).toFixed(0)}% del
-                              mes
+                              {((daysPassed / daysInMonth) * 100).toFixed(0)}%
+                              del mes
                             </p>
                           </div>
                           <div
@@ -2444,7 +2684,10 @@ const MainContent = memo<MainContentProps>(
               {/* Objetivos de Límite de Gasto por Categoría */}
               {goals?.categoryGoals &&
                 Object.keys(goals.categoryGoals).length > 0 && (
-                  <div className="animate-in" style={{ animationDelay: "0.2s" }}>
+                  <div
+                    className="animate-in"
+                    style={{ animationDelay: "0.2s" }}
+                  >
                     <div className="flex items-center gap-2 mb-3 sm:mb-4">
                       <div
                         className={`p-1.5 sm:p-2 rounded-lg ${
@@ -2457,7 +2700,9 @@ const MainContent = memo<MainContentProps>(
                           }`}
                         />
                       </div>
-                      <h4 className={`text-lg sm:text-xl font-bold ${textClass}`}>
+                      <h4
+                        className={`text-lg sm:text-xl font-bold ${textClass}`}
+                      >
                         Límites de Gasto
                       </h4>
                     </div>
@@ -2495,7 +2740,8 @@ const MainContent = memo<MainContentProps>(
                           const isExceeded = categoryTotal > goalAmount;
                           const isOnTrack =
                             projectedMonthlySpending <= goalAmount;
-                          const isAhead = categoryTotal <= expectedSpendingByNow;
+                          const isAhead =
+                            categoryTotal <= expectedSpendingByNow;
 
                           const status = isExceeded
                             ? "exceeded"
@@ -2556,7 +2802,8 @@ const MainContent = memo<MainContentProps>(
                                       <p
                                         className={`text-[10px] sm:text-xs ${textSecondaryClass}`}
                                       >
-                                        No gastar más de €{goalAmount.toFixed(0)}
+                                        No gastar más de €
+                                        {goalAmount.toFixed(0)}
                                         /mes
                                       </p>
                                     </div>
@@ -2633,7 +2880,10 @@ const MainContent = memo<MainContentProps>(
                                         : "bg-gradient-to-r from-green-500 to-green-600"
                                     }`}
                                     style={{
-                                      width: `${Math.min(percentageUsed, 100)}%`,
+                                      width: `${Math.min(
+                                        percentageUsed,
+                                        100
+                                      )}%`,
                                     }}
                                   />
                                 </div>
@@ -2670,7 +2920,10 @@ const MainContent = memo<MainContentProps>(
                 goals.longTermGoals.filter(
                   (g) => g && g.name && (g.status === "active" || !g.status)
                 ).length > 0 && (
-                  <div className="animate-in" style={{ animationDelay: "0.3s" }}>
+                  <div
+                    className="animate-in"
+                    style={{ animationDelay: "0.3s" }}
+                  >
                     <div className="flex items-center gap-2 mb-3 sm:mb-4">
                       <div
                         className={`p-1.5 sm:p-2 rounded-lg ${
@@ -2683,7 +2936,9 @@ const MainContent = memo<MainContentProps>(
                           }`}
                         />
                       </div>
-                      <h4 className={`text-lg sm:text-xl font-bold ${textClass}`}>
+                      <h4
+                        className={`text-lg sm:text-xl font-bold ${textClass}`}
+                      >
                         Objetivos a Largo Plazo
                       </h4>
                     </div>
@@ -2703,7 +2958,8 @@ const MainContent = memo<MainContentProps>(
                           // Manejo seguro de datos
                           const currentAmount =
                             parseFloat(goal.currentAmount) || 0;
-                          const targetAmount = parseFloat(goal.targetAmount) || 0;
+                          const targetAmount =
+                            parseFloat(goal.targetAmount) || 0;
                           if (targetAmount === 0) return null; // No mostrar objetivos sin objetivo definido
 
                           const progress = getLongTermGoalProgress(goal);
@@ -2731,7 +2987,9 @@ const MainContent = memo<MainContentProps>(
                               {/* Icono grande de fondo - Responsive */}
                               <div
                                 className={`absolute top-2 right-2 sm:top-4 sm:right-4 opacity-10 ${
-                                  darkMode ? "text-purple-400" : "text-purple-600"
+                                  darkMode
+                                    ? "text-purple-400"
+                                    : "text-purple-600"
                                 }`}
                               >
                                 <Target
@@ -2849,7 +3107,9 @@ const MainContent = memo<MainContentProps>(
                                 <div className="grid grid-cols-2 gap-2 sm:gap-3">
                                   <div
                                     className={`p-2 rounded-lg transition-all active:scale-95 ${
-                                      darkMode ? "bg-gray-700/50" : "bg-gray-100"
+                                      darkMode
+                                        ? "bg-gray-700/50"
+                                        : "bg-gray-100"
                                     }`}
                                   >
                                     <p
@@ -2870,7 +3130,9 @@ const MainContent = memo<MainContentProps>(
                                   </div>
                                   <div
                                     className={`p-2 rounded-lg transition-all active:scale-95 ${
-                                      darkMode ? "bg-gray-700/50" : "bg-gray-100"
+                                      darkMode
+                                        ? "bg-gray-700/50"
+                                        : "bg-gray-100"
                                     }`}
                                   >
                                     <p
