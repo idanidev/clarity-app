@@ -326,12 +326,47 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
       (text: string): DetectedExpense[] => {
         console.log("🔍 Analizando múltiples gastos:", text);
         
-        // Dividir el texto por separadores comunes
-        // Incluye: "y", comas, puntos, punto y coma, "también", "además", "luego"
-        const segments = text
-          .split(/\s+y\s+|,\s*|;\s*|\.\s+|\\s+también\s+|\\s+además\s+|\\s+luego\s+/)
-          .map(s => s.trim())
-          .filter(s => s.length > 0);
+        // Primero, intentar detectar múltiples números como indicador de múltiples gastos
+        const numberPatterns = [
+          /\b(\d+(?:[,.]\d+)?)\s*(?:€|euros?|en|de|a)\s+/gi,
+          /\b(uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|veinte|treinta|cuarenta|cincuenta)\s+(?:€|euros?|coma|con|en|de|a)\s+/gi
+        ];
+        
+        let numberMatches: RegExpMatchArray[] = [];
+        numberPatterns.forEach(pattern => {
+          const matches = Array.from(text.matchAll(pattern));
+          numberMatches = numberMatches.concat(matches);
+        });
+        
+        console.log(`💰 Números detectados: ${numberMatches.length}`);
+        
+        let segments: string[] = [];
+        
+        // Si hay múltiples números, dividir por ellos
+        if (numberMatches.length > 1) {
+          console.log("✂️ Dividiendo por números detectados");
+          
+          // Dividir el texto en segmentos usando las posiciones de los números
+          let lastIndex = 0;
+          numberMatches.forEach((match, i) => {
+            if (i > 0 && match.index !== undefined) {
+              const segment = text.substring(lastIndex, match.index).trim();
+              if (segment) segments.push(segment);
+              lastIndex = match.index;
+            }
+          });
+          
+          // Añadir el último segmento
+          if (lastIndex < text.length) {
+            segments.push(text.substring(lastIndex).trim());
+          }
+        } else {
+          // Si no hay múltiples números, dividir por separadores tradicionales
+          segments = text
+            .split(/\s+y\s+|,\s*|;\s*|\.\s+|\s+también\s+|\s+además\s+|\s+luego\s+/)
+            .map(s => s.trim())
+            .filter(s => s.length > 0);
+        }
         
         console.log("📝 Segmentos encontrados:", segments);
         
@@ -347,7 +382,7 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
         
         return detectedExpenses;
       },
-      [categories, learnedPatterns]
+      []
     );
 
     const detectSingleExpenseFromText = useCallback(
