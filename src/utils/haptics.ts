@@ -2,12 +2,14 @@ import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import { Capacitor } from '@capacitor/core';
 
 const runHaptic = async (fn: () => Promise<void>) => {
-  if (Capacitor.isNativePlatform()) {
-    try {
-      await fn();
-    } catch (error) {
-      console.warn('Haptic feedback error:', error);
-    }
+  if (!Capacitor.isNativePlatform()) {
+    return;
+  }
+  
+  try {
+    await fn();
+  } catch (error) {
+    console.log('Haptic feedback not available:', error);
   }
 };
 
@@ -23,9 +25,11 @@ export const hapticHeavy = () =>
 export const hapticSuccess = () => 
   runHaptic(() => Haptics.notification({ type: NotificationType.Success }));
 
-export const hapticWarning = () => 
-  runHaptic(() => Haptics.notification({ type: NotificationType.Warning }));
-
 export const hapticError = () => 
   runHaptic(() => Haptics.notification({ type: NotificationType.Error }));
 
+export const hapticWarning = () => 
+  runHaptic(() => Haptics.notification({ type: NotificationType.Warning }));
+
+export const hapticVibrate = (duration: number = 100) => 
+  runHaptic(() => Haptics.vibrate({ duration }));
