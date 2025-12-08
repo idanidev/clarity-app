@@ -7,6 +7,8 @@ import { restoreCategoriesFromExpenses } from "../../../services/firestoreServic
 import { useDisableBodyScroll } from "../../../hooks/useDisableBodyScroll";
 import VoiceSettingsPanel from "./VoiceSettingsPanel";
 import { VoiceSettings, DEFAULT_VOICE_SETTINGS } from "./VoiceExpenseButton";
+import { requestNotificationPermissions, scheduleExpenseReminder, cancelAllNotifications, areNotificationsEnabled } from "../../../services/notifications";
+import { isNative } from "../../../utils/platform";
 
 interface NotificationSettings {
   budgetAlerts?: {
@@ -150,9 +152,20 @@ const SettingsModal = ({
   const [activeTab, setActiveTab] = useState<ActiveTab>("general");
   const [localVoiceSettings, setLocalVoiceSettings] = useState<VoiceSettings>(voiceSettings);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [nativeNotificationsEnabled, setNativeNotificationsEnabled] = useState(false);
+  const [checkingNativeNotifications, setCheckingNativeNotifications] = useState(false);
 
   // Deshabilitar scroll del body cuando el modal está abierto
   useDisableBodyScroll(visible);
+
+  // Verificar estado de notificaciones nativas al montar
+  useEffect(() => {
+    if (isNative && visible && activeTab === "notifications") {
+      areNotificationsEnabled().then((enabled) => {
+        setNativeNotificationsEnabled(enabled);
+      });
+    }
+  }, [visible, activeTab]);
 
   if (!visible) {
     return null;
@@ -204,6 +217,33 @@ const SettingsModal = ({
     if (onSaveVoiceSettings) {
       onSaveVoiceSettings(localVoiceSettings);
       showNotification("✅ Ajustes de voz guardados", "success");
+    }
+  };
+
+  const handleToggleNativeNotifications = async () => {
+    if (checkingNativeNotifications) return;
+    
+    setCheckingNativeNotifications(true);
+    try {
+      if (!nativeNotificationsEnabled) {
+        const granted = await requestNotificationPermissions();
+        if (granted) {
+          await scheduleExpenseReminder(20); // 20:00
+          setNativeNotificationsEnabled(true);
+          showNotification("✅ Notificaciones nativas activadas", "success");
+        } else {
+          showNotification("❌ Permisos de notificaciones denegados", "error");
+        }
+      } else {
+        await cancelAllNotifications();
+        setNativeNotificationsEnabled(false);
+        showNotification("✅ Notificaciones nativas desactivadas", "success");
+      }
+    } catch (error) {
+      console.error("Error toggling native notifications:", error);
+      showNotification("❌ Error al cambiar notificaciones", "error");
+    } finally {
+      setCheckingNativeNotifications(false);
     }
   };
 
@@ -510,6 +550,46 @@ const SettingsModal = ({
                   Si ya concediste permisos, este botón puede reintentar el registro del dispositivo si algo falló.
                 </p>
               </div>
+
+              {/* Notificaciones Nativas (solo en iOS/Android) */}
+              {isNative && (
+                <div
+                  className={`p-3 sm:p-4 rounded-lg sm:rounded-xl ${
+                    darkMode ? "bg-gray-700" : "bg-purple-50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                      <Bell
+                        className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${
+                          darkMode ? "text-purple-400" : "text-purple-600"
+                        }`}
+                      />
+                      <div className="min-w-0">
+                        <p className={`text-sm sm:text-base font-medium ${textClass}`}>
+                          Recordatorios diarios (nativo)
+                        </p>
+                        <p className={`text-xs sm:text-sm ${textSecondaryClass}`}>
+                          Recibe una notificación diaria a las 20:00 para recordarte registrar tus gastos
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleToggleNativeNotifications}
+                      disabled={checkingNativeNotifications}
+                      className={`relative w-12 h-6 sm:w-14 sm:h-7 rounded-full transition-colors flex-shrink-0 ${
+                        nativeNotificationsEnabled ? "bg-purple-600" : "bg-gray-300"
+                      } ${checkingNativeNotifications ? "opacity-50 cursor-not-allowed" : ""}`}
+                    >
+                      <div
+                        className={`absolute top-0.5 sm:top-1 left-0.5 sm:left-1 w-5 h-5 bg-white rounded-full transition-transform ${
+                          nativeNotificationsEnabled ? "translate-x-6 sm:translate-x-7" : ""
+                        }`}
+                      ></div>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Recordatorio Semanal */}
               <div

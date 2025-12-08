@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================
+   ESTILOS MÓVIL-FIRST PARA CAPACITOR
+   ============================================ */
+
+/* Safe Area Variables (para iOS notch y home indicator) */
+:root {
+  --sat: env(safe-area-inset-top);
+  --sar: env(safe-area-inset-right);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
+}
+
 * {
   margin: 0;
   padding: 0;

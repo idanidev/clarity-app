@@ -1,7 +1,7 @@
 // src/screens/Auth/Auth.jsx
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import LoginForm from "./LoginForm";
+import LoginForm from "./LoginForm.tsx";
 import RegisterForm from "./RegisterForm";
 import ForgotPasswordForm from "./ForgotPasswordForm";
 import AnimatedLogo from "./components/AnimatedLogo";

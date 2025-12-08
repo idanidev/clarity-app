@@ -2,6 +2,7 @@ import { signOut } from "firebase/auth";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { auth, messaging } from "../../firebase";
 import { exportToCSV } from "../../utils/exportUtils";
+import { hapticSuccess, hapticError, hapticMedium } from "../../utils/haptics";
 import {
   addExpense as addExpenseDB,
   addRecurringExpense,
@@ -525,8 +526,10 @@ const Dashboard = ({ user }) => {
       });
 
       setShowAddExpense(false);
+      hapticSuccess();
       showNotification("Gasto añadido correctamente");
     } catch (error) {
+      hapticError();
       showNotification("Error al añadir el gasto", "error");
     } finally {
       setIsSavingExpense(false);
@@ -575,8 +578,10 @@ const Dashboard = ({ user }) => {
 
       trackEditExpense(editingExpense.category);
       setEditingExpense(null);
+      hapticSuccess();
       showNotification("Gasto actualizado correctamente");
     } catch (error) {
+      hapticError();
       showNotification("Error al actualizar el gasto", "error");
     } finally {
       setIsUpdatingExpense(false);
@@ -590,8 +595,10 @@ const Dashboard = ({ user }) => {
       await deleteExpenseDB(user.uid, id);
       trackDeleteExpense();
       setShowDeleteConfirm(null);
+      hapticMedium();
       showNotification("Gasto eliminado correctamente");
     } catch (error) {
+      hapticError();
       showNotification("Error al eliminar el gasto", "error");
     }
   };

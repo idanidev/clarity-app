@@ -15,8 +15,12 @@ export const checkBiometricAvailable = async (): Promise<boolean> => {
 
   // Intentar usar el plugin si está disponible
   try {
-    // @ts-ignore - Plugin puede no estar instalado
-    const { NativeBiometric } = await import('@capacitor-community/native-biometric');
+    // Intentar importar dinámicamente - puede no estar instalado
+    const biometricModule = await import('@capacitor-community/native-biometric').catch(() => null);
+    if (!biometricModule) {
+      return false;
+    }
+    const { NativeBiometric } = biometricModule;
     const result = await NativeBiometric.checkBiometry();
     return result.isAvailable;
   } catch (error) {
@@ -36,8 +40,12 @@ export const authenticate = async (reason: string = 'Accede a Clarity'): Promise
   }
 
   try {
-    // @ts-ignore - Plugin puede no estar instalado
-    const { NativeBiometric } = await import('@capacitor-community/native-biometric');
+    // Intentar importar dinámicamente - puede no estar instalado
+    const biometricModule = await import('@capacitor-community/native-biometric').catch(() => null);
+    if (!biometricModule) {
+      return false;
+    }
+    const { NativeBiometric } = biometricModule;
     
     await NativeBiometric.verifyIdentity({
       reason,
@@ -68,8 +76,12 @@ export const getBiometricType = async (): Promise<'face' | 'fingerprint' | 'none
   }
 
   try {
-    // @ts-ignore - Plugin puede no estar instalado
-    const { NativeBiometric } = await import('@capacitor-community/native-biometric');
+    // Intentar importar dinámicamente - puede no estar instalado
+    const biometricModule = await import('@capacitor-community/native-biometric').catch(() => null);
+    if (!biometricModule) {
+      return 'none';
+    }
+    const { NativeBiometric } = biometricModule;
     const result = await NativeBiometric.checkBiometry();
     
     if (result.biometryType === 'faceId') {

@@ -20,6 +20,11 @@ export default defineConfig(({ mode }) => {
         '@': resolve(__dirname, './src'),
       },
     },
+    build: {
+      rollupOptions: {
+        external: ['@capacitor-community/native-biometric'],
+      },
+    },
     server: {
       proxy: {
         '/api/ai': {

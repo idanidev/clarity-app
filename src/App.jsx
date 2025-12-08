@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { motion, AnimatePresence } from "framer-motion";
 import { SplashScreen } from "@capacitor/splash-screen";
+import { StatusBar, Style } from "@capacitor/status-bar";
 import { Capacitor } from "@capacitor/core";
 import Auth from "./screens/Auth/Auth";
 import { auth } from "./firebase";
@@ -9,7 +10,7 @@ import Dashboard from "./screens/Dashboard/Dashboard";
 import { LanguageProvider, useTranslation } from "./contexts/LanguageContext";
 import { saveUserLanguage } from "./services/firestoreService";
 import { fadeIn, getTransition } from "./config/framerMotion";
-import { useStatusBar } from "./hooks/useSafeArea";
+import { isNative } from "./utils/platform";
 
 const LoadingScreen = () => {
   const { t } = useTranslation();
@@ -28,6 +29,32 @@ const App = () => {
   const isMountedRef = useRef(true);
   const timeoutIdRef = useRef(null);
   const unsubscribeRef = useRef(null);
+
+  // Configurar Capacitor (StatusBar y SplashScreen)
+  useEffect(() => {
+    if (isNative) {
+      const configureCapacitor = async () => {
+        try {
+          // Configurar StatusBar
+          await StatusBar.setStyle({ style: Style.Light });
+          await StatusBar.setBackgroundColor({ color: '#8B5CF6' });
+          
+          // Ocultar splash después de cargar
+          setTimeout(async () => {
+            try {
+              await SplashScreen.hide();
+            } catch (error) {
+              console.warn('Error hiding splash screen:', error);
+            }
+          }, 2000);
+        } catch (error) {
+          console.warn('Error configuring Capacitor:', error);
+        }
+      };
+      
+      configureCapacitor();
+    }
+  }, []);
 
   useEffect(() => {
     isMountedRef.current = true;

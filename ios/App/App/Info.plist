@@ -47,5 +47,15 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Usa Face ID para acceder a Clarity de forma segura</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Toma fotos de tus recibos de gastos</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Selecciona fotos de recibos desde tu galería</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>
