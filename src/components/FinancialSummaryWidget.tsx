@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { TrendingUp, TrendingDown, DollarSign, Edit2 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { TrendingUp, TrendingDown, DollarSign, Edit2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface FinancialSummaryWidgetProps {
@@ -16,8 +16,28 @@ const FinancialSummaryWidget: React.FC<FinancialSummaryWidgetProps> = ({
   onEditIncome 
 }) => {
   const [showDetails, setShowDetails] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const available = (income || 0) - totalExpenses;
   const spentPercentage = income && income > 0 ? ((totalExpenses / income) * 100).toFixed(0) : 0;
+
+  // Detectar clics fuera del componente
+  useEffect(() => {
+    if (!showDetails) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowDetails(false);
+      }
+    };
+
+    setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+    }, 0);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDetails]);
 
   return (
     <div className="relative">
@@ -59,25 +79,26 @@ const FinancialSummaryWidget: React.FC<FinancialSummaryWidgetProps> = ({
       <AnimatePresence>
         {showDetails && (
           <>
-            {/* Backdrop - Cierra al hacer clic */}
+            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowDetails(false)}
-              className="fixed inset-0 z-30"
+              className="fixed inset-0 bg-black/20 z-30"
             />
 
-            {/* Panel de detalles - También cierra al hacer clic */}
+            {/* Panel de detalles */}
             <motion.div
+              ref={menuRef}
               initial={{ opacity: 0, y: -10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.95 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              onClick={() => setShowDetails(false)}
+              onClick={(e) => e.stopPropagation()}
               className={`
-                absolute right-0 top-full mt-2 w-72 z-40
-                rounded-2xl shadow-2xl p-4 border cursor-pointer
+                absolute right-0 top-full mt-2 w-72 z-50
+                rounded-2xl shadow-2xl p-4 border
                 ${darkMode 
                   ? 'bg-gray-800 border-gray-700' 
                   : 'bg-white border-gray-200'
@@ -89,20 +110,33 @@ const FinancialSummaryWidget: React.FC<FinancialSummaryWidgetProps> = ({
                 <h3 className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                   Resumen del Mes
                 </h3>
-                <button
-                  onClick={() => {
-                    setShowDetails(false);
-                    onEditIncome();
-                  }}
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    darkMode 
-                      ? 'hover:bg-gray-700 text-gray-400' 
-                      : 'hover:bg-gray-100 text-gray-600'
-                  }`}
-                  title="Editar ingresos"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setShowDetails(false);
+                      onEditIncome();
+                    }}
+                    className={`p-1.5 rounded-lg transition-colors ${
+                      darkMode 
+                        ? 'hover:bg-gray-700 text-gray-400' 
+                        : 'hover:bg-gray-100 text-gray-600'
+                    }`}
+                    title="Editar ingresos"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setShowDetails(false)}
+                    className={`p-1.5 rounded-lg transition-colors ${
+                      darkMode 
+                        ? 'hover:bg-gray-700 text-gray-400' 
+                        : 'hover:bg-gray-100 text-gray-600'
+                    }`}
+                    title="Cerrar"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               {/* Ingresos */}
