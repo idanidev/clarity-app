@@ -2,12 +2,12 @@ importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js'
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDqt_BFIbpQjVOGCvXcAWOdRoJhqMpxdJg",
-  authDomain: "clarity-b3c04.firebaseapp.com",
-  projectId: "clarity-b3c04",
-  storageBucket: "clarity-b3c04.firebasestorage.app",
-  messagingSenderId: "631518092158",
-  appId: "1:631518092158:web:14ff48a4c9c04267a9db57"
+  apiKey: "AIzaSyB_TputkxE2423A5KsCoKoCe9O5NUT-m6U",
+  authDomain: "clarity-gastos.firebaseapp.com",
+  projectId: "clarity-gastos",
+  storageBucket: "clarity-gastos.firebasestorage.app",
+  messagingSenderId: "318846020421",
+  appId: "1:318846020421:web:14ff48a4c9c04267a9db57"
 };
 
 firebase.initializeApp(firebaseConfig);

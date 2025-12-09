@@ -76,6 +76,7 @@ const RecurringExpensesModal = lazy(() => import("./components/RecurringExpenses
 const SettingsModal = lazy(() => import("./components/SettingsModal.tsx"));
 const TipsModal = lazy(() => import("./components/TipsModal"));
 const OnboardingModal = lazy(() => import("./components/OnboardingModal"));
+const PermissionsOnboarding = lazy(() => import("../../components/PermissionsOnboarding"));
 
 // Componentes que se usan siempre, sin lazy loading
 import Header from "./components/Header.tsx";
@@ -116,6 +117,7 @@ const Dashboard = ({ user }) => {
   const [showTips, setShowTips] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showPermissionsOnboarding, setShowPermissionsOnboarding] = useState(false);
   const [editingRecurring, setEditingRecurring] = useState(null);
   const [recurringExpenses, setRecurringExpenses] = useState([]);
   const [changelogSeenVersion, setChangelogSeenVersion] = useState(null);
@@ -319,6 +321,20 @@ const Dashboard = ({ user }) => {
         // Mostrar tutorial de onboarding si el usuario aún no lo ha completado
         if (!onboardingStatus?.completed) {
           setShowOnboarding(true);
+        } else {
+          // Si ya completó el onboarding general, verificar si debe mostrar el de permisos
+          // (después de 5 segundos, no ser intrusivo)
+          setTimeout(async () => {
+            try {
+              const { shouldShowPermissionsOnboarding } = await import('../../services/permissionsService');
+              const shouldShow = await shouldShowPermissionsOnboarding(user.uid);
+              if (shouldShow && isMounted) {
+                setShowPermissionsOnboarding(true);
+              }
+            } catch (error) {
+              console.error('Error checking permissions onboarding:', error);
+            }
+          }, 5000); // 5 segundos después del login
         }
 
         // Mostrar changelog solo a usuarios que ya han completado el onboarding
@@ -2101,6 +2117,15 @@ const Dashboard = ({ user }) => {
           darkMode={darkMode}
           onClose={() => setShowOnboarding(false)}
           onComplete={handleCompleteOnboarding}
+        />
+      </Suspense>
+
+      <Suspense fallback={showPermissionsOnboarding ? <ModalLoader /> : null}>
+        <PermissionsOnboarding
+          userId={user.uid}
+          visible={showPermissionsOnboarding}
+          onComplete={() => setShowPermissionsOnboarding(false)}
+          onSkip={() => setShowPermissionsOnboarding(false)}
         />
       </Suspense>
 

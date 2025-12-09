@@ -6,6 +6,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -150,9 +151,16 @@ export const getExpenses = async (userId) => {
   }
 };
 
-export const subscribeToExpenses = (userId, callback) => {
+export const subscribeToExpenses = (userId, callback, options = {}) => {
+  const { limit: limitCount = 500 } = options; // Límite por defecto: 500 gastos
   const expensesRef = collection(db, "users", userId, "expenses");
-  const q = query(expensesRef, orderBy("date", "desc"));
+  
+  // OPTIMIZACIÓN: Agregar límite para reducir lecturas y mejorar rendimiento
+  const q = query(
+    expensesRef,
+    orderBy("date", "desc"),
+    limit(limitCount)
+  );
 
   return onSnapshot(
     q,

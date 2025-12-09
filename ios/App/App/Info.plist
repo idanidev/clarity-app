@@ -26,6 +26,10 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Toma fotos de tus recibos de gastos</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Clarity necesita acceso al micrófono para reconocimiento de voz</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Clarity necesita acceso al micrófono para añadir gastos por voz</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Usa Face ID para acceder a Clarity de forma segura</string>
 	<key>NSPhotoLibraryUsageDescription</key>
@@ -57,5 +61,43 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.318846020421-g6mtccrq40f4uqkrgptbfldt2i485o0j</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>firebaseapp.com</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<false/>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+			</dict>
+			<key>googleapis.com</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<false/>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+			</dict>
+			<key>google.com</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<false/>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
 </dict>
 </plist>

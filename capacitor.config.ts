@@ -7,6 +7,14 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
     iosScheme: 'capacitor',
+    // Permitir todas las conexiones para Firebase
+    allowNavigation: [
+      'https://*.firebaseapp.com',
+      'https://*.googleapis.com',
+      'https://*.google.com',
+      'https://identitytoolkit.googleapis.com',
+      'https://securetoken.googleapis.com',
+    ],
   },
   plugins: {
     SplashScreen: {

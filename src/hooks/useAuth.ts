@@ -67,13 +67,19 @@ export const useAuth = (): AuthHook => {
     const unsubscribe = onAuthStateChanged(
       auth,
       (currentUser) => {
+        console.log("🔐 useAuth.ts - Auth state changed:", {
+          hasUser: !!currentUser,
+          userId: currentUser?.uid,
+          email: currentUser?.email,
+        });
         clearTimeout(timeoutId);
         setUser(currentUser);
         setLoading(false);
+        console.log("✅ useAuth.ts - User state updated");
       },
       (error) => {
         // Manejar errores de autenticación
-        console.error("Auth state error:", error);
+        console.error("❌ useAuth.ts - Auth state error:", error);
         clearTimeout(timeoutId);
         setLoading(false);
       }
@@ -86,22 +92,74 @@ export const useAuth = (): AuthHook => {
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
+    console.log("🔑 useAuth.signIn - Starting login:", { email });
     setLoading(true);
     setError(null);
     
     // Timeout de seguridad para evitar loading infinito
     const timeoutId = setTimeout(() => {
+      console.warn("⏱️ useAuth.signIn - Timeout reached");
       setLoading(false);
       setError("auth/timeout");
     }, 10000); // 10 segundos máximo
     
     try {
+      console.log("🔑 useAuth.signIn - Calling Firebase signInWithEmailAndPassword", {
+        email,
+        authApp: auth.app.name,
+        authConfig: {
+          apiKey: auth.app.options.apiKey?.substring(0, 10) + "...",
+          projectId: auth.app.options.projectId,
+          authDomain: auth.app.options.authDomain,
+        },
+        currentUser: auth.currentUser?.uid || "none",
+      });
+      
+      // Verificar que auth esté inicializado
+      if (!auth) {
+        throw new Error("Auth not initialized");
+      }
+      
+      // Test de conectividad antes de intentar login
+      if (!navigator.onLine) {
+        console.error("❌ No internet connection");
+        throw new Error("No internet connection");
+      }
+      
+      console.log("⏳ useAuth.signIn - Starting signInWithEmailAndPassword...");
+      
+      // Intentar la autenticación directamente
       const result = await signInWithEmailAndPassword(auth, email, password);
+      
+      console.log("✅ useAuth.signIn - signInWithEmailAndPassword completed");
+      
+      window.removeEventListener('offline', networkErrorHandler);
       clearTimeout(timeoutId);
+      
+      // Verificar que el usuario esté realmente autenticado
+      await result.user.reload();
+      
+      console.log("✅ useAuth.signIn - Firebase login successful:", {
+        userId: result.user.uid,
+        email: result.user.email,
+        currentUser: auth.currentUser?.uid,
+        emailVerified: result.user.emailVerified,
+      });
+      
+      // Forzar actualización del estado
+      setUser(result.user);
       setLoading(false);
+      
+      // Verificar que onAuthStateChanged se dispare
+      console.log("🔍 useAuth.signIn - Waiting for onAuthStateChanged to fire...");
+      
       return result.user;
     } catch (err: any) {
       clearTimeout(timeoutId);
+      console.error("❌ useAuth.signIn - Firebase login error:", {
+        code: err.code,
+        message: err.message,
+      });
       setError(err.code || "auth/unknown-error");
       setLoading(false);
       throw err;

@@ -1,16 +1,19 @@
-import { useEffect, useState, useRef } from "react";
-import { onAuthStateChanged } from "firebase/auth";
+// src/App.tsx
+import { useEffect, useState, useRef, lazy, Suspense } from "react";
+import { onAuthStateChanged, User } from "firebase/auth";
 import { motion, AnimatePresence } from "framer-motion";
 import { SplashScreen } from "@capacitor/splash-screen";
 import { StatusBar, Style } from "@capacitor/status-bar";
 import { Capacitor } from "@capacitor/core";
-import Auth from "./screens/Auth/Auth";
 import { auth } from "./firebase";
-import Dashboard from "./screens/Dashboard/Dashboard";
 import { LanguageProvider, useTranslation } from "./contexts/LanguageContext";
 import { saveUserLanguage } from "./services/firestoreService";
 import { fadeIn, getTransition } from "./config/framerMotion";
 import { isNative } from "./utils/platform";
+
+// OPTIMIZACIÓN: Code splitting de rutas principales
+const Auth = lazy(() => import("./screens/Auth/Auth"));
+const Dashboard = lazy(() => import("./screens/Dashboard/Dashboard"));
 
 const LoadingScreen = () => {
   const { t } = useTranslation();
@@ -24,11 +27,11 @@ const LoadingScreen = () => {
 };
 
 const App = () => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<User | null>(null);
   const [initializing, setInitializing] = useState(true);
   const isMountedRef = useRef(true);
-  const timeoutIdRef = useRef(null);
-  const unsubscribeRef = useRef(null);
+  const timeoutIdRef = useRef<NodeJS.Timeout | null>(null);
+  const unsubscribeRef = useRef<(() => void) | null>(null);
 
   // Configurar Capacitor (StatusBar y SplashScreen)
   useEffect(() => {
@@ -75,14 +78,24 @@ const App = () => {
       unsubscribeRef.current = onAuthStateChanged(
         auth,
         (currentUser) => {
+          console.log("🔐 App.tsx - Auth state changed:", {
+            hasUser: !!currentUser,
+            userId: currentUser?.uid,
+            email: currentUser?.email,
+            isMounted: isMountedRef.current,
+          });
           if (isMountedRef.current) {
             if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
             setUser(currentUser);
             setInitializing(false);
+            console.log("✅ App.tsx - User state updated:", {
+              hasUser: !!currentUser,
+              userId: currentUser?.uid,
+            });
           }
         },
         (error) => {
-          console.error("Auth state error:", error);
+          console.error("❌ App.tsx - Auth state error:", error);
           if (isMountedRef.current) {
             if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
             setInitializing(false);
@@ -120,7 +133,7 @@ const App = () => {
     };
 
     // Listener para cuando la página se muestra (iOS PWA)
-    const handlePageShow = (event) => {
+    const handlePageShow = (event: PageTransitionEvent) => {
       // Si la página se muestra desde cache (iOS PWA), re-inicializar
       if (event.persisted && isMountedRef.current) {
         console.log("Page shown from cache, re-initializing");
@@ -174,7 +187,7 @@ const App = () => {
     };
   }, []);
 
-  const handleLanguageChange = async (language) => {
+  const handleLanguageChange = async (language: string) => {
     if (user) {
       try {
         await saveUserLanguage(user.uid, language);
@@ -201,27 +214,39 @@ const App = () => {
 
   return (
     <LanguageProvider user={user} onLanguageChange={handleLanguageChange}>
-      <AnimatePresence mode="wait">
-        {!user ? (
-          <motion.div
-            key="auth"
-            {...fadeIn}
-            transition={getTransition('smooth')}
-          >
-            <Auth />
-          </motion.div>
-        ) : (
-          <motion.div
-            key="dashboard"
-            {...fadeIn}
-            transition={getTransition('smooth')}
-          >
-            <Dashboard user={user} />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Suspense
+        fallback={
+          <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-white to-blue-50">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-purple-600 mx-auto"></div>
+              <p className="mt-4 text-purple-600 font-medium">Cargando...</p>
+            </div>
+          </div>
+        }
+      >
+        <AnimatePresence mode="wait">
+          {!user ? (
+            <motion.div
+              key="auth"
+              {...fadeIn}
+              transition={getTransition('fast')}
+            >
+              <Auth />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="dashboard"
+              {...fadeIn}
+              transition={getTransition('fast')}
+            >
+              <Dashboard user={user} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </Suspense>
     </LanguageProvider>
   );
 };
 
 export default App;
+

@@ -28,39 +28,44 @@ export const slideInLeft = {
   exit: { opacity: 0, x: 50 },
 };
 
-// Transiciones predefinidas
+// Transiciones predefinidas - OPTIMIZADAS para mejor rendimiento
 export const getTransition = (type = "default") => {
   if (typeof window === "undefined") {
-    return { duration: 0.3 };
+    return { duration: 0.15 };
+  }
+
+  // Respetar prefers-reduced-motion
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (prefersReducedMotion) {
+    return { duration: 0 };
   }
 
   const isMobile = window.innerWidth < 768;
-  const duration = isMobile ? 0.2 : 0.3;
+  // Reducir duraciones: 0.2-0.3s → 0.1-0.15s (50% más rápido)
+  const duration = isMobile ? 0.1 : 0.15;
 
   const transitions = {
     default: {
-      type: "spring",
-      stiffness: 300,
-      damping: 30,
+      type: "tween", // Cambiar de spring a tween (más rápido)
+      ease: [0.4, 0, 0.2, 1],
       duration,
     },
     fast: {
-      type: "spring",
-      stiffness: 500,
-      damping: 35,
-      duration: isMobile ? 0.15 : 0.2,
+      type: "tween",
+      ease: "easeOut",
+      duration: isMobile ? 0.08 : 0.1, // Muy rápido
     },
     smooth: {
       type: "tween",
       ease: [0.4, 0, 0.2, 1],
-      duration,
+      duration: isMobile ? 0.12 : 0.15,
     },
     bounce: {
       type: "spring",
-      stiffness: 400,
-      damping: 20,
-      bounce: isMobile ? 0 : 0.3,
-      duration,
+      stiffness: 500, // Aumentar stiffness (más rápido)
+      damping: 30, // Aumentar damping (menos rebote)
+      bounce: isMobile ? 0 : 0.2, // Reducir bounce
+      duration: isMobile ? 0.1 : 0.15,
     },
   };
 

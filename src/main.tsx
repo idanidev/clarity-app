@@ -1,7 +1,7 @@
-// src/main.jsx
+// src/main.tsx
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App.jsx";
+import App from "./App";
 import "./index.css";
 import "./styles/animations.css";
 import "./styles/mobile.css";
@@ -19,7 +19,8 @@ if (typeof window !== "undefined") {
   
   // Detectar cuando un input/textarea pierde el foco
   document.addEventListener("focusout", (e) => {
-    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") {
+    const target = e.target as HTMLElement;
+    if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT") {
       // Pequeño delay para asegurar que el teclado se haya cerrado
       setTimeout(() => {
         resetViewport();
@@ -30,7 +31,7 @@ if (typeof window !== "undefined") {
   }, true);
   
   // También resetear cuando se hace scroll (el usuario puede hacer zoom manual)
-  let scrollTimeout;
+  let scrollTimeout: NodeJS.Timeout;
   window.addEventListener("scroll", () => {
     clearTimeout(scrollTimeout);
     scrollTimeout = setTimeout(() => {
@@ -50,14 +51,14 @@ if (typeof window !== "undefined") {
   });
 
   // Listener para cuando la página se muestra desde cache (iOS PWA)
-  window.addEventListener("pageshow", (event) => {
+  window.addEventListener("pageshow", (event: PageTransitionEvent) => {
     if (event.persisted) {
       console.log("Página restaurada desde cache, forzando re-render");
       // Pequeño delay para asegurar que todo esté listo
       setTimeout(() => {
         // Forzar un reflow
         document.body.offsetHeight;
-        // Disparar un evento personalizado para que App.jsx lo maneje
+        // Disparar un evento personalizado para que App.tsx lo maneje
         window.dispatchEvent(new Event("apprestored"));
       }, 100);
     }
@@ -119,8 +120,9 @@ if ("serviceWorker" in navigator && typeof window !== "undefined") {
   }
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(
+ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <App />
   </React.StrictMode>
 );
+

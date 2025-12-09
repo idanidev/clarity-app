@@ -31,6 +31,7 @@
     "@capacitor/local-notifications": "^8.0.0",
     "@capacitor/splash-screen": "^8.0.0",
     "@capacitor/status-bar": "^8.0.0",
+    "@capgo/capacitor-speech-recognition": "^7.2.3",
     "@nivo/core": "^0.99.0",
     "@nivo/pie": "^0.99.0",
     "firebase": "^12.6.0",

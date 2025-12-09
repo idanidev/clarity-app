@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Bell, DollarSign, Globe, Moon, Sun, X, Calendar, RotateCcw, Mic } from "lucide-react";
+import { Bell, DollarSign, Globe, Moon, Sun, X, Calendar, RotateCcw, Mic, Shield, CheckCircle2, AlertCircle } from "lucide-react";
 import { useLanguage, useTranslation } from "../../../contexts/LanguageContext";
 // @ts-ignore - No hay tipos para este módulo JS
 import { restoreCategoriesFromExpenses } from "../../../services/firestoreService";
@@ -9,6 +9,7 @@ import VoiceSettingsPanel from "./VoiceSettingsPanel";
 import { VoiceSettings, DEFAULT_VOICE_SETTINGS } from "./VoiceExpenseButton";
 import { requestNotificationPermissions, scheduleExpenseReminder, cancelAllNotifications, areNotificationsEnabled } from "../../../services/notifications";
 import { isNative } from "../../../utils/platform";
+import { usePermissions } from "../../../hooks/usePermissions";
 
 interface NotificationSettings {
   budgetAlerts?: {
@@ -61,7 +62,7 @@ interface SettingsModalProps {
   onSaveVoiceSettings?: (settings: VoiceSettings) => void;
 }
 
-type ActiveTab = "general" | "notifications" | "voice";
+type ActiveTab = "general" | "notifications" | "voice" | "permissions";
 
 const SettingsModal = ({
   visible,
@@ -154,6 +155,22 @@ const SettingsModal = ({
   const [isRestoring, setIsRestoring] = useState(false);
   const [nativeNotificationsEnabled, setNativeNotificationsEnabled] = useState(false);
   const [checkingNativeNotifications, setCheckingNativeNotifications] = useState(false);
+  const { microphone, notifications } = usePermissions(userId);
+
+  const statusLabel = (status: string) => {
+    switch (status) {
+      case "granted":
+        return "Concedido";
+      case "denied":
+        return "Denegado";
+      case "prompt":
+        return "Pendiente";
+      case "unsupported":
+        return "No soportado";
+      default:
+        return status;
+    }
+  };
 
   // Deshabilitar scroll del body cuando el modal está abierto
   useDisableBodyScroll(visible);
@@ -321,6 +338,21 @@ const SettingsModal = ({
           >
             <Mic className="w-4 h-4" />
             Voz
+          </button>
+          <button
+            onClick={() => setActiveTab("permissions")}
+            className={`px-4 py-2 rounded-t-lg text-base font-medium transition-all flex items-center gap-2 whitespace-nowrap ${
+              activeTab === "permissions"
+                ? darkMode
+                  ? "bg-gray-700 text-white border-b-2 border-purple-500"
+                  : "bg-purple-50 text-purple-600 border-b-2 border-purple-500"
+                : darkMode
+                ? "text-gray-400 hover:text-gray-200"
+                : "text-gray-600 hover:text-purple-600"
+            }`}
+          >
+            <Shield className="w-4 h-4" />
+            Permisos
           </button>
         </div>
 
@@ -846,6 +878,93 @@ const SettingsModal = ({
             />
           )}
 
+        {activeTab === "permissions" && (
+          <div className="space-y-4">
+            <div
+              className={`p-3 sm:p-4 rounded-xl border ${
+                darkMode ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"
+              }`}
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <Shield className={`w-5 h-5 ${darkMode ? "text-purple-300" : "text-purple-600"}`} />
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-semibold ${textClass}`}>Permiso de micrófono</p>
+                  <p className={`text-xs ${textSecondaryClass}`}>Necesario para añadir gastos por voz</p>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  {microphone.status === "granted" ? (
+                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-yellow-500" />
+                  )}
+                  <span className={textSecondaryClass}>{statusLabel(microphone.status)}</span>
+                </div>
+              </div>
+              <button
+                onClick={async () => {
+                  const granted = await microphone.request();
+                  if (granted) {
+                    showNotification("✅ Permiso de micrófono concedido", "success");
+                  } else {
+                    showNotification("❌ Permiso de micrófono denegado", "error");
+                  }
+                }}
+                className={`w-full px-4 py-3 rounded-lg font-semibold transition-colors ${
+                  darkMode
+                    ? "bg-purple-600 hover:bg-purple-500 text-white"
+                    : "bg-purple-600 hover:bg-purple-700 text-white"
+                }`}
+              >
+                Solicitar micrófono
+              </button>
+            </div>
+
+            <div
+              className={`p-3 sm:p-4 rounded-xl border ${
+                darkMode ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"
+              }`}
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <Bell className={`w-5 h-5 ${darkMode ? "text-blue-300" : "text-blue-600"}`} />
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-semibold ${textClass}`}>Permiso de notificaciones</p>
+                  <p className={`text-xs ${textSecondaryClass}`}>Alertas de presupuesto y recordatorios</p>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  {notifications.status === "granted" ? (
+                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-yellow-500" />
+                  )}
+                  <span className={textSecondaryClass}>{statusLabel(notifications.status)}</span>
+                </div>
+              </div>
+              <button
+                onClick={async () => {
+                  const granted = await notifications.request(userId);
+                  if (granted) {
+                    showNotification("✅ Permiso de notificaciones concedido", "success");
+                  } else {
+                    showNotification("❌ Permiso de notificaciones denegado", "error");
+                  }
+                }}
+                className={`w-full px-4 py-3 rounded-lg font-semibold transition-colors ${
+                  darkMode
+                    ? "bg-blue-600 hover:bg-blue-500 text-white"
+                    : "bg-blue-600 hover:bg-blue-700 text-white"
+                }`}
+              >
+                Solicitar notificaciones
+              </button>
+              {notifications.token && (
+                <p className={`mt-2 text-xs break-all ${textSecondaryClass}`}>
+                  Token FCM: {notifications.token.slice(0, 24)}…
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
           {/* Botón guardar */}
           <div className={`mt-6 pt-6 mb-6 border-t ${
             darkMode ? "border-gray-700" : "border-gray-200"
@@ -864,12 +983,19 @@ const SettingsModal = ({
               >
                 {t("common.save")}
               </button>
-            ) : (
+            ) : activeTab === "voice" ? (
               <button
                 onClick={handleSaveVoiceSettings}
                 className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all"
               >
                 {t("common.save")}
+              </button>
+            ) : (
+              <button
+                onClick={onClose}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all"
+              >
+                Cerrar
               </button>
             )}
           </div>

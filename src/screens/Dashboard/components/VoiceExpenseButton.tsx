@@ -1,5 +1,8 @@
 import { CheckCircle2, Loader2, Mic, MicOff, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { SpeechRecognition } from "@capgo/capacitor-speech-recognition";
+import { Capacitor } from "@capacitor/core";
 
 // ============================================
 // TYPES & INTERFACES
@@ -93,6 +96,7 @@ interface VoiceExpenseButtonProps {
   hasFilterButton?: boolean;
   expenses?: Expense[];
   voiceSettings?: VoiceSettings;
+  userId?: string;
 }
 
 // ============================================
@@ -103,33 +107,6 @@ export const DEFAULT_VOICE_SETTINGS: VoiceSettings = {
   autoConfirm: false,
   vibration: true,
   showSuggestions: true,
-};
-
-const NUMBER_WORDS: { [key: string]: number } = {
-  cero: 0,
-  uno: 1,
-  dos: 2,
-  tres: 3,
-  cuatro: 4,
-  cinco: 5,
-  seis: 6,
-  siete: 7,
-  ocho: 8,
-  nueve: 9,
-  diez: 10,
-  once: 11,
-  doce: 12,
-  trece: 13,
-  catorce: 14,
-  quince: 15,
-  veinte: 20,
-  treinta: 30,
-  cuarenta: 40,
-  cincuenta: 50,
-  sesenta: 60,
-  setenta: 70,
-  ochenta: 80,
-  noventa: 90,
 };
 
 const SYNONYMS: { [key: string]: string[] } = {
@@ -169,28 +146,6 @@ const vibrate = (pattern: number | number[]) => {
   }
 };
 
-const convertTextToNumber = (textNumber: string): number => {
-  const comaPattern = /(\w+)\s+(?:coma|con)\s+(\w+)/i;
-  const comaMatch = textNumber.match(comaPattern);
-
-  if (comaMatch) {
-    const parteEntera =
-      NUMBER_WORDS[comaMatch[1].toLowerCase()] ?? parseInt(comaMatch[1]);
-    const parteDecimal =
-      NUMBER_WORDS[comaMatch[2].toLowerCase()] ?? parseInt(comaMatch[2]);
-
-    if (!isNaN(parteEntera) && !isNaN(parteDecimal)) {
-      const decimalStr =
-        parteDecimal < 10 ? `0${parteDecimal}` : `${parteDecimal}`;
-      return parseFloat(`${parteEntera}.${decimalStr}`);
-    }
-  }
-
-  const singleWord = NUMBER_WORDS[textNumber.toLowerCase()];
-  if (singleWord !== undefined) return singleWord;
-
-  return parseFloat(textNumber.replace(",", "."));
-};
 
 const extractDate = (text: string): string => {
   const today = new Date();
@@ -273,7 +228,9 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
     hasFilterButton = true,
     expenses = [],
     voiceSettings = DEFAULT_VOICE_SETTINGS,
+    userId,
   }) => {
+    const { microphone } = usePermissions(userId);
     // State
     const [isListening, setIsListening] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -293,6 +250,7 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
     // Refs
     const recognitionRef = useRef<any>(null);
     const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const interimTranscriptRef = useRef<string>("");
 
     // ============================================
     // DETECTAR CONEXIÓN Y SINCRONIZAR
@@ -920,25 +878,34 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
     // ============================================
     // RECONOCIMIENTO DE VOZ
     // ============================================
+    const isCapacitor = Capacitor.isNativePlatform();
+
     useEffect(() => {
       if (typeof window === "undefined") return;
 
-      const SpeechRecognition =
-        (window as any).SpeechRecognition ||
-        (window as any).webkitSpeechRecognition;
+      // No inicializar el plugin aquí, se inicializará cuando se necesite usar
+      // Esto evita errores de "UNIMPLEMENTED" si el plugin no está disponible al inicio
+      if (!isCapacitor) {
+        // WEB/PWA: Usar Web Speech API
+        const SpeechRecognitionWeb =
+          (window as any).SpeechRecognition ||
+          (window as any).webkitSpeechRecognition;
 
-      if (!SpeechRecognition) return;
+        if (!SpeechRecognitionWeb) {
+          console.warn("🎤 Web Speech API no disponible en este navegador/plataforma");
+          return;
+        }
 
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = "es-ES";
+        const recognition = new SpeechRecognitionWeb();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = "es-ES";
 
-      recognition.onstart = () => {
-        setIsListening(true);
-      };
+        recognition.onstart = () => {
+          setIsListening(true);
+        };
 
-      recognition.onresult = (event: any) => {
+        recognition.onresult = (event: any) => {
         let interimText = "";
         let finalText = "";
 
@@ -986,26 +953,67 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
         }
       };
 
-      recognition.onerror = (event: any) => {
+        recognition.onerror = (event: any) => {
+        console.error("🎤 Error de reconocimiento de voz:", event.error);
+        
         if (event.error === "not-allowed") {
-          showNotification?.("❌ Permiso de micrófono denegado", "error");
-        } else if (event.error !== "no-speech") {
-          showNotification?.(`❌ Error: ${event.error}`, "error");
+          showNotification?.(
+            "❌ Permiso de micrófono denegado. Puedes habilitarlo en la configuración de tu navegador.",
+            "error"
+          );
+        } else if (event.error === "service-not-allowed") {
+          // Error específico: el servicio de reconocimiento no está disponible
+          // En iOS nativo, este error es común porque Web Speech API no funciona bien
+          const isIOSNativeCheck = /iPad|iPhone|iPod/.test(navigator.userAgent) && 
+                                   !(window as any).MSStream &&
+                                   (window as any).Capacitor?.isNativePlatform?.();
+          
+          if (isIOSNativeCheck) {
+            showNotification?.(
+              "❌ El reconocimiento de voz no está disponible en la app iOS nativa. Por favor, usa la entrada manual de gastos o abre la app en Safari.",
+              "error"
+            );
+          } else {
+            showNotification?.(
+              "❌ El servicio de reconocimiento de voz no está disponible. Verifica tu conexión a internet o intenta más tarde.",
+              "error"
+            );
+          }
+        } else if (event.error === "no-speech") {
+          // No es un error crítico, solo significa que no se detectó voz
+          // No mostrar notificación para este caso
+        } else if (event.error === "aborted") {
+          // El reconocimiento fue cancelado, no es un error
+          // No mostrar notificación
+        } else if (event.error === "audio-capture") {
+          showNotification?.(
+            "❌ No se pudo acceder al micrófono. Verifica que el micrófono esté conectado y funcionando.",
+            "error"
+          );
+        } else if (event.error === "network") {
+          showNotification?.(
+            "❌ Error de red. El reconocimiento de voz requiere conexión a internet.",
+            "error"
+          );
+        } else {
+          showNotification?.(`❌ Error de reconocimiento: ${event.error}`, "error");
         }
+        
         setIsListening(false);
       };
 
-      recognition.onend = () => {
-        setIsListening(false);
-        if (silenceTimerRef.current) {
-          clearTimeout(silenceTimerRef.current);
-        }
-      };
+        recognition.onend = () => {
+          setIsListening(false);
+          if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+          }
+        };
 
-      recognitionRef.current = recognition;
+        recognitionRef.current = recognition;
+      }
 
       return () => {
-        if (recognitionRef.current) {
+        if (!isCapacitor && recognitionRef.current) {
           try {
             recognitionRef.current.stop();
           } catch (e) {
@@ -1014,6 +1022,7 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
         }
       };
     }, [
+      isCapacitor,
       isProcessing,
       showNotification,
       voiceSettings,
@@ -1025,32 +1034,247 @@ const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
     // ============================================
     // TOGGLE LISTENING
     // ============================================
-    const toggleListening = useCallback((): void => {
-      if (!recognitionRef.current) {
-        showNotification?.("❌ Reconocimiento de voz no disponible", "error");
-        return;
-      }
+    const toggleListening = useCallback(async (): Promise<void> => {
+      // Verificar si Web Speech API está disponible como fallback
+      const hasWebSpeechAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      
+      if (isCapacitor && !hasWebSpeechAPI) {
+        // CAPACITOR: Usar plugin nativo (solo si Web Speech API no está disponible)
+        if (isListening) {
+          try {
+            await SpeechRecognition.stop();
+            setIsListening(false);
+            setTranscript("");
+            setInterimTranscript("");
+            
+            // Limpiar listeners
+            if (recognitionRef.current) {
+              const listeners = recognitionRef.current as any;
+              if (listeners.partialListener) {
+                await listeners.partialListener.remove();
+              }
+              if (listeners.stateListener) {
+                await listeners.stateListener.remove();
+              }
+              recognitionRef.current = null;
+            }
+          } catch (error) {
+            console.error("❌ Error stopping Capacitor speech:", error);
+            setIsListening(false);
+          }
+        } else {
+          try {
+            // Verificar permisos antes de iniciar
+            if (!microphone.hasPermission()) {
+              const granted = await microphone.request();
+              if (!granted) {
+                showNotification?.(
+                  "❌ Se necesita permiso de micrófono para usar esta función",
+                  "error"
+                );
+                return;
+              }
+            }
 
-      if (isListening) {
-        recognitionRef.current.stop();
-        setIsListening(false);
-      } else {
-        try {
-          // 🔥 FIX: RESETEAR TODO AL ABRIR
-          setTranscript("");
-          setInterimTranscript("");
-          setPendingExpenses([]);
-          setShowConfirmation(false);
-          setSuggestions([]);
-          clearDraft();
+            // 🔥 FIX: RESETEAR TODO AL ABRIR
+            setTranscript("");
+            setInterimTranscript("");
+            setPendingExpenses([]);
+            setShowConfirmation(false);
+            setSuggestions([]);
+            clearDraft();
 
-          recognitionRef.current.start();
-          if (voiceSettings.vibration) vibrate(50);
-        } catch (error) {
-          showNotification?.("❌ Error al iniciar micrófono", "error");
+            // Intentar iniciar el reconocimiento
+            try {
+              await SpeechRecognition.start({
+                language: 'es-ES',
+                maxResults: 1,
+                prompt: 'Di tu gasto',
+                partialResults: true,
+                popup: false, // No mostrar popup nativo
+              });
+            } catch (startError: any) {
+              if (startError.code === 'UNIMPLEMENTED') {
+                throw new Error('UNIMPLEMENTED');
+              }
+              throw startError;
+            }
+
+            setIsListening(true);
+            if (voiceSettings.vibration) vibrate(50);
+
+            // Listener de resultados (parciales y finales)
+            const partialListener = await SpeechRecognition.addListener('partialResults', (data: any) => {
+              if (data.matches && data.matches.length > 0) {
+                const text = data.matches[0];
+                
+                // Guardar en ref para acceso en otros listeners
+                interimTranscriptRef.current = text;
+                
+                // Tratar como texto intermedio mientras está escuchando
+                setInterimTranscript(text);
+                
+                if (text) {
+                  const lastWord = text.split(" ").pop() || "";
+                  setSuggestions(generateSuggestions(lastWord));
+                }
+              }
+            });
+
+            // Listener de estado
+            const stateListener = await SpeechRecognition.addListener('listeningState', (data: any) => {
+              setIsListening(data.status === 'started');
+              
+              // Cuando se detiene, procesar el texto final
+              if (data.status === 'stopped') {
+                const finalText = interimTranscriptRef.current;
+                if (finalText && !isProcessing) {
+                  setTranscript((prev) => {
+                    const newTranscript = prev.trim()
+                      ? `${prev.trim()}, ${finalText.trim()}`
+                      : finalText.trim();
+
+                    updatePreview(newTranscript);
+                    return newTranscript;
+                  });
+                  setInterimTranscript("");
+                  setSuggestions([]);
+                  interimTranscriptRef.current = "";
+
+                  if (voiceSettings.autoConfirm) {
+                    silenceTimerRef.current = setTimeout(() => {
+                      const fullTranscript = transcript + " " + finalText;
+                      updatePreview(fullTranscript.trim());
+                      setShowConfirmation(true);
+                    }, voiceSettings.silenceTimeout);
+                  } else {
+                    setShowConfirmation(true);
+                  }
+                }
+              }
+            });
+
+            // Guardar listeners para limpiar después
+            recognitionRef.current = {
+              partialListener,
+              stateListener,
+            } as any;
+          } catch (error: any) {
+            console.error("❌ Error starting Capacitor speech:", error);
+            
+            if (error.code === 'UNIMPLEMENTED') {
+              // Si el plugin no está implementado, intentar usar Web Speech API como fallback
+              console.warn("⚠️ Plugin nativo no disponible, intentando Web Speech API como fallback");
+              
+              const SpeechRecognitionWeb = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+              if (SpeechRecognitionWeb && recognitionRef.current) {
+                try {
+                  setTranscript("");
+                  setInterimTranscript("");
+                  setPendingExpenses([]);
+                  setShowConfirmation(false);
+                  setSuggestions([]);
+                  clearDraft();
+                  
+                  recognitionRef.current.start();
+                  setIsListening(true);
+                  if (voiceSettings.vibration) vibrate(50);
+                  return; // Éxito con fallback
+                } catch (webError: any) {
+                  console.error("❌ Error con Web Speech API fallback:", webError);
+                }
+              }
+              
+              showNotification?.(
+                "❌ El reconocimiento de voz no está disponible en esta plataforma. Por favor, usa la entrada manual.",
+                "error"
+              );
+            } else {
+              showNotification?.(
+                `❌ Error al iniciar micrófono: ${error.message || 'Error desconocido'}`,
+                "error"
+              );
+            }
+            setIsListening(false);
+          }
         }
       }
-    }, [isListening, showNotification, voiceSettings.vibration, clearDraft]);
+      
+      // WEB/PWA o fallback: Usar Web Speech API
+      if (!isCapacitor || (isCapacitor && !isListening)) {
+        // WEB/PWA: Usar Web Speech API
+        const SpeechRecognitionWeb =
+          (window as any).SpeechRecognition ||
+          (window as any).webkitSpeechRecognition;
+
+        if (!SpeechRecognitionWeb) {
+          showNotification?.(
+            "❌ Reconocimiento de voz no disponible en este navegador. Por favor, usa la entrada manual.",
+            "error"
+          );
+          return;
+        }
+
+        if (!recognitionRef.current) {
+          showNotification?.("❌ Reconocimiento de voz no inicializado", "error");
+          return;
+        }
+
+        if (isListening) {
+          recognitionRef.current.stop();
+          setIsListening(false);
+        } else {
+          // Verificar permisos antes de iniciar
+          if (!microphone.hasPermission()) {
+            const granted = await microphone.request();
+            if (!granted) {
+              showNotification?.(
+                "❌ Se necesita permiso de micrófono para usar esta función",
+                "error"
+              );
+              return;
+            }
+          }
+
+          try {
+            // 🔥 FIX: RESETEAR TODO AL ABRIR
+            setTranscript("");
+            setInterimTranscript("");
+            setPendingExpenses([]);
+            setShowConfirmation(false);
+            setSuggestions([]);
+            clearDraft();
+
+            recognitionRef.current.start();
+            if (voiceSettings.vibration) vibrate(50);
+          } catch (error: any) {
+            console.error("🎤 Error al iniciar reconocimiento:", error);
+            
+            if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+              showNotification?.(
+                "❌ Permiso de micrófono denegado. Por favor, habilítalo en la configuración de tu navegador.",
+                "error"
+              );
+            } else if (error.name === 'NotSupportedError') {
+              showNotification?.(
+                "❌ Reconocimiento de voz no soportado en este navegador. Usa Chrome, Safari o Edge.",
+                "error"
+              );
+            } else if (error.message?.includes('service') || error.message?.includes('not available')) {
+              showNotification?.(
+                "❌ Servicio de reconocimiento no disponible. Verifica tu conexión a internet.",
+                "error"
+              );
+            } else {
+              showNotification?.(
+                `❌ Error al iniciar micrófono: ${error.message || error.name || 'Error desconocido'}`,
+                "error"
+              );
+            }
+          }
+        }
+      }
+    }, [isCapacitor, isListening, showNotification, voiceSettings.vibration, clearDraft, microphone, isProcessing, transcript, updatePreview, generateSuggestions]);
 
     // ============================================
     // RENDER

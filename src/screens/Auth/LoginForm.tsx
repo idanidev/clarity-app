@@ -100,8 +100,13 @@ const LoginForm = ({ onForgotPassword }: LoginFormProps) => {
     }, 15000); // 15 segundos máximo
 
     try {
+      console.log("🔑 LoginForm - Attempting login:", { email: values.email });
       const loggedUser = await signIn(values.email, values.password);
       clearTimeout(timeoutId);
+      console.log("✅ LoginForm - Login successful:", {
+        userId: loggedUser?.uid,
+        email: loggedUser?.email,
+      });
       
       // Haptic solo si está disponible (no bloquear si falla)
       hapticSuccess().catch(() => {});
@@ -111,6 +116,7 @@ const LoginForm = ({ onForgotPassword }: LoginFormProps) => {
         setShowBiometricSetup(true);
       }
     } catch (error: any) {
+      console.error("❌ LoginForm - Login error:", error);
       clearTimeout(timeoutId);
       console.error("Login error:", error);
       // Haptic solo si está disponible (no bloquear si falla)

@@ -1,6 +1,7 @@
 // src/firebase.ts
-import { initializeApp, FirebaseApp } from "firebase/app";
-import { getAuth, Auth, GoogleAuthProvider, OAuthProvider } from "firebase/auth";
+import { initializeApp, FirebaseApp, getApps } from "firebase/app";
+import { getAuth, initializeAuth, Auth, GoogleAuthProvider, OAuthProvider, indexedDBLocalPersistence } from "firebase/auth";
+import { Capacitor } from "@capacitor/core";
 import { 
   Firestore,
   CACHE_SIZE_UNLIMITED,
@@ -12,21 +13,114 @@ import { getAnalytics, Analytics } from "firebase/analytics";
 import { getMessaging, Messaging, isSupported } from "firebase/messaging";
 
 // Tu configuración de Firebase
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+// En iOS nativo, las variables de entorno pueden no estar disponibles
+// Usamos valores por defecto desde GoogleService-Info.plist si están disponibles
+const getFirebaseConfig = () => {
+  // Valores por defecto desde GoogleService-Info.plist (iOS)
+  const defaultConfig = {
+    apiKey: "AIzaSyB_TputkxE2423A5KsCoKoCe9O5NUT-m6U",
+    authDomain: "clarity-gastos.firebaseapp.com",
+    projectId: "clarity-gastos",
+    storageBucket: "clarity-gastos.firebasestorage.app",
+    messagingSenderId: "318846020421",
+    appId: "1:318846020421:ios:0a7f99d417735b6529ec2c",
+    measurementId: undefined, // Opcional
+  };
+
+  // Intentar usar variables de entorno primero (web/dev)
+  const config = {
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || defaultConfig.apiKey,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || defaultConfig.authDomain,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || defaultConfig.projectId,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || defaultConfig.storageBucket,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || defaultConfig.messagingSenderId,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID || defaultConfig.appId,
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || defaultConfig.measurementId,
+  };
+
+  // Validar configuración
+  if (!config.apiKey || !config.projectId) {
+    console.error("❌ Firebase: Configuración incompleta", config);
+    throw new Error("Firebase configuration is missing required fields");
+  }
+
+  console.log("✅ Firebase config loaded:", {
+    projectId: config.projectId,
+    authDomain: config.authDomain,
+    hasApiKey: !!config.apiKey,
+  });
+
+  return config;
 };
 
-// Inicializar Firebase
-const app: FirebaseApp = initializeApp(firebaseConfig);
+const firebaseConfig = getFirebaseConfig();
 
-// Inicializar servicios
-export const auth: Auth = getAuth(app);
+// Inicializar Firebase
+let app: FirebaseApp;
+try {
+  app = initializeApp(firebaseConfig);
+  console.log("✅ Firebase initialized successfully");
+} catch (error: any) {
+  console.error("❌ Firebase initialization error:", error);
+  // Si ya está inicializado (iOS nativo), obtener la instancia existente
+  if (error.code === 'app/duplicate-app') {
+    const apps = getApps();
+    if (apps.length > 0) {
+      app = apps[0];
+      console.log("✅ Using existing Firebase app instance");
+    } else {
+      throw error;
+    }
+  } else {
+    throw error;
+  }
+}
+
+// Inicializar Auth con persistencia correcta para plataformas nativas
+// En iOS/Android nativo, necesitamos usar initializeAuth con indexedDBLocalPersistence
+// En web, usamos getAuth (configuración por defecto)
+let auth: Auth;
+if (Capacitor.isNativePlatform()) {
+  // En plataformas nativas, usar initializeAuth con indexedDBLocalPersistence
+  // Esto resuelve el problema de timeout en signInWithEmailAndPassword
+  try {
+    auth = initializeAuth(app, {
+      persistence: indexedDBLocalPersistence,
+    });
+    console.log("✅ Firebase Auth: Initialized with indexedDBLocalPersistence for native platform");
+  } catch (error: any) {
+    // Si ya está inicializado, obtener la instancia existente
+    if (error.code === 'auth/already-initialized') {
+      auth = getAuth(app);
+      console.log("✅ Firebase Auth: Using existing auth instance");
+    } else {
+      throw error;
+    }
+  }
+} else {
+  // Web: usar getAuth (configuración por defecto)
+  auth = getAuth(app);
+  console.log("✅ Firebase Auth: Using default web configuration");
+}
+
+// Configurar Auth
+if (typeof window !== 'undefined') {
+  auth.settings.appVerificationDisabledForTesting = false;
+  
+  console.log("✅ Firebase Auth initialized:", {
+    platform: Capacitor.isNativePlatform() ? "native" : "web",
+    appName: auth.app.name,
+    currentUser: auth.currentUser?.uid || "no user",
+    config: {
+      apiKey: auth.app.options.apiKey?.substring(0, 10) + "...",
+      projectId: auth.app.options.projectId,
+      authDomain: auth.app.options.authDomain,
+    },
+  });
+}
+
+export { auth };
+
 export const appleProvider = new OAuthProvider('apple.com');
 
 // Firestore con configuración optimizada para PWAs
