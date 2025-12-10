@@ -35,7 +35,6 @@ import {
   useTransition,
 } from "react";
 import { FixedSizeList, FixedSizeList as List } from "react-window";
-
 // ============================================
 // TYPES
 // ============================================
