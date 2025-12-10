@@ -3,6 +3,7 @@ import { SpeechRecognition } from "@capgo/capacitor-speech-recognition";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import { Loader2, Mic, MicOff } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePermissions } from "../../../hooks/usePermissions";
 
 /**
  * VoiceExpenseButton - Reconocimiento de voz HÍBRIDO
@@ -85,13 +86,24 @@ const VoiceExpenseButton = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
-  const [voiceAvailable, setVoiceAvailable] = useState(false);
-
+  
   const recognitionRef = useRef<any>(null);
   const isNative = Capacitor.isNativePlatform();
   const platform = Capacitor.getPlatform(); // 'ios', 'android', 'web'
+  
+  // Hook de permisos para verificar estado sin solicitar cada vez
+  const { microphone } = usePermissions();
 
-  console.log(`[Voice] Platform: ${platform}, Native: ${isNative}`);
+  // Inicializar voiceAvailable inmediatamente si Web Speech API está disponible (para web)
+  // Esto evita que el botón no aparezca hasta que se complete el useEffect
+  const hasWebSpeechAPI = typeof window !== 'undefined' && 
+    ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
+  
+  const [voiceAvailable, setVoiceAvailable] = useState(
+    isNative ? false : hasWebSpeechAPI
+  );
+
+  console.log(`[Voice] Platform: ${platform}, Native: ${isNative}, Web Speech: ${hasWebSpeechAPI}`);
 
   // ============================================
   // INICIALIZACIÓN
@@ -221,8 +233,6 @@ const VoiceExpenseButton = ({
         console.warn("[Voice] Web Speech API not available");
       }
     };
-
-    initSpeech();
 
     initSpeech();
 
@@ -444,13 +454,49 @@ const VoiceExpenseButton = ({
       } else {
         console.log("[Voice] Starting web recognition");
         try {
+          // Verificar permiso usando el hook de permisos
+          const micStatus = microphone.status;
+          console.log("[Voice] Microphone permission status:", micStatus);
+
+          // Si el permiso ya está concedido, iniciar directamente
+          if (micStatus === 'granted') {
+            setTranscript("");
+            setInterimTranscript("");
+            recognitionRef.current.start();
+            setIsListening(true);
+            return;
+          }
+
+          // Si está denegado permanentemente, no intentar
+          if (micStatus === 'denied' || microphone.permanentlyDenied) {
+            showNotification?.("❌ Permiso de micrófono denegado. Por favor, habilítalo en la configuración del navegador.", "error");
+            return;
+          }
+
+          // Si está en 'prompt' o 'unsupported', solicitar permiso primero
+          // NOTA: La Web Speech API puede solicitar permisos automáticamente al llamar a start(),
+          // pero es mejor verificar primero para evitar múltiples solicitudes
+          if (micStatus === 'prompt' || micStatus === 'unsupported') {
+            // Intentar solicitar permiso explícitamente
+            const granted = await microphone.request();
+            if (!granted) {
+              showNotification?.("❌ Se necesita permiso de micrófono para usar esta función.", "error");
+              return;
+            }
+          }
+
+          // Ahora iniciar el reconocimiento
           setTranscript("");
           setInterimTranscript("");
           recognitionRef.current.start();
           setIsListening(true);
-        } catch (error) {
+        } catch (error: any) {
           console.error("[Voice] Error starting web recognition:", error);
-          showNotification?.("❌ Error al iniciar micrófono", "error");
+          if (error.name === 'NotAllowedError' || error.message?.includes('not-allowed')) {
+            showNotification?.("❌ Permiso de micrófono denegado. Por favor, habilítalo en la configuración del navegador.", "error");
+          } else {
+            showNotification?.("❌ Error al iniciar micrófono", "error");
+          }
         }
       }
     }
@@ -460,9 +506,18 @@ const VoiceExpenseButton = ({
   // RENDER
   // ============================================
 
-  // Si voz no disponible, no mostrar botón
-  if (!voiceAvailable) {
-    console.warn("[Voice] Voice not available, hiding button");
+  // En web, mostrar botón si Web Speech API está disponible (aunque el permiso no esté concedido)
+  // En nativo, solo mostrar si voiceAvailable es true
+  const shouldShowButton = isNative 
+    ? voiceAvailable 
+    : hasWebSpeechAPI;
+
+  if (!shouldShowButton) {
+    if (!isNative && !hasWebSpeechAPI) {
+      console.warn("[Voice] Web Speech API not available in this browser");
+    } else if (isNative && !voiceAvailable) {
+      console.warn("[Voice] Native speech recognition not available");
+    }
     return null;
   }
 
@@ -481,7 +536,7 @@ const VoiceExpenseButton = ({
       <button
         onClick={toggleListening}
         disabled={isProcessing}
-        className={`fixed right-4 z-40 md:hidden p-4 rounded-full shadow-2xl backdrop-blur-xl border transition-all active:scale-95 ${
+        className={`fixed right-4 z-40 p-4 rounded-full shadow-2xl backdrop-blur-xl border transition-all active:scale-95 ${
           isProcessing
             ? darkMode
               ? "bg-purple-600/25 border-purple-500/40 text-white"

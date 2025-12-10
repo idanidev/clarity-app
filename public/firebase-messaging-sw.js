@@ -13,7 +13,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
-const CACHE_NAME = 'clarity-v2.1.0';
+const CACHE_NAME = 'clarity-v2.2.0'; // Incrementar versión para forzar actualización
 const urlsToCache = [
   '/',
   '/index.html',
@@ -22,12 +22,16 @@ const urlsToCache = [
 
 // Instalar Service Worker
 self.addEventListener('install', (event) => {
+  // Forzar actualización inmediata
+  self.skipWaiting();
+  
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(urlsToCache);
+      return cache.addAll(urlsToCache).catch((err) => {
+        console.warn('[SW] Error caching initial files:', err);
+      });
     })
   );
-  self.skipWaiting();
 });
 
 // Activar Service Worker
@@ -65,6 +69,19 @@ self.addEventListener('fetch', (event) => {
     return; // Dejar pasar sin cachear
   }
   
+  // NO cachear archivos JS/TS en desarrollo (siempre usar la versión más reciente)
+  if (url.pathname.endsWith('.js') || 
+      url.pathname.endsWith('.ts') || 
+      url.pathname.endsWith('.jsx') || 
+      url.pathname.endsWith('.tsx') ||
+      url.pathname.includes('/src/') ||
+      url.pathname.includes('?v=') || // Archivos con versioning de Vite
+      url.pathname.includes('&v=')) {
+    // Network-only para archivos JS/TS
+    event.respondWith(fetch(event.request));
+    return;
+  }
+  
   // NO cachear el HTML principal para evitar problemas en iOS PWA
   if (event.request.method === 'GET' && 
       (event.request.url.endsWith('/') || 
@@ -78,7 +95,9 @@ self.addEventListener('fetch', (event) => {
           if (response && response.status === 200) {
             const responseToCache = response.clone();
             caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseToCache);
+              cache.put(event.request, responseToCache).catch(() => {
+                // Ignorar errores de cache
+              });
             });
           }
           return response;
