@@ -10,6 +10,60 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * - Web/PWA: Web Speech API
  */
 
+// ============================================
+// TYPES & INTERFACES
+// ============================================
+export interface VoiceSettings {
+  autoConfirm: boolean;
+  vibration: boolean;
+  showSuggestions: boolean;
+  silenceTimeout: number; // en milisegundos
+}
+
+export interface VoiceStats {
+  totalUses: number;
+  successfulUses: number;
+  failedUses: number;
+  lastUsed?: string;
+}
+
+export const DEFAULT_VOICE_SETTINGS: VoiceSettings = {
+  autoConfirm: true,
+  vibration: true,
+  showSuggestions: true,
+  silenceTimeout: 3000, // 3 segundos
+};
+
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
+export const loadVoiceStats = (): VoiceStats => {
+  try {
+    const stored = localStorage.getItem("voiceStats");
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (error) {
+    console.error("Error loading voice stats:", error);
+  }
+  return {
+    totalUses: 0,
+    successfulUses: 0,
+    failedUses: 0,
+  };
+};
+
+export const saveVoiceStats = (stats: VoiceStats) => {
+  try {
+    localStorage.setItem("voiceStats", JSON.stringify(stats));
+  } catch (error) {
+    console.error("Error saving voice stats:", error);
+  }
+};
+
+// ============================================
+// COMPONENT PROPS
+// ============================================
 interface VoiceExpenseButtonProps {
   onAddExpense: (expense: any) => Promise<void>;
   darkMode: boolean;

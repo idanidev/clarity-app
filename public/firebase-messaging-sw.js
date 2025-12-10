@@ -50,6 +50,13 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   
+  // NO cachear requests de chrome-extension u otros esquemas no soportados
+  if (url.protocol === 'chrome-extension:' || 
+      url.protocol === 'chrome:' ||
+      url.protocol === 'moz-extension:') {
+    return; // Ignorar completamente
+  }
+  
   // NO cachear llamadas a Firebase/Firestore (dejar que Firestore maneje su cache)
   if (url.hostname.includes('firebaseio.com') || 
       url.hostname.includes('googleapis.com') ||
@@ -91,12 +98,22 @@ self.addEventListener('fetch', (event) => {
         return response;
       }
       return fetch(event.request).then((response) => {
-        // Solo cachear respuestas exitosas
-        if (response && response.status === 200) {
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
+        // Solo cachear respuestas exitosas y válidas
+        if (response && response.status === 200 && response.type !== 'error') {
+          // Verificar que el request sea cacheable
+          const url = new URL(event.request.url);
+          if (url.protocol === 'http:' || url.protocol === 'https:') {
+            try {
+              const responseToCache = response.clone();
+              caches.open(CACHE_NAME).then((cache) => {
+                cache.put(event.request, responseToCache).catch((err) => {
+                  console.warn('[SW] Error caching request:', err);
+                });
+              });
+            } catch (err) {
+              console.warn('[SW] Error cloning response:', err);
+            }
+          }
         }
         return response;
       });
