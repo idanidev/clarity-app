@@ -75,14 +75,14 @@ const Header = memo<HeaderProps>(({
     <div
       className={`${headerClasses} backdrop-blur-md border-b ${borderClasses} sticky top-0 z-40`}
     >
-      <div className="max-w-7xl mx-auto px-4 py-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 py-3 sm:py-4">
+        <div className="flex justify-between items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent truncate">
               Clarity
             </h1>
-            <div className="flex items-center gap-2">
-              <p className={`text-xs ${textSecondaryClass}`}>{userEmail}</p>
+            <div className="flex items-center gap-2 min-w-0">
+              <p className={`text-[10px] sm:text-xs ${textSecondaryClass} truncate`}>{userEmail}</p>
               {!isOnline && (
                 <div className="bg-amber-500 text-white px-3 py-1 rounded-full text-xs flex items-center gap-1">
                   <WifiOff className="w-3 h-3" />

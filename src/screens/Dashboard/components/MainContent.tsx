@@ -24,7 +24,7 @@ import {
   Wallet,
   X
 } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { getTransition } from "../../../config/framerMotion";
 import { useTranslation } from "../../../contexts/LanguageContext";
 import { formatCurrency } from "../../../utils/currency";
@@ -282,6 +282,22 @@ const MainContent = memo<MainContentProps>(
     const [activeIndex, setActiveIndex] = useState<number | null>(null);
     const [clickedCategory, setClickedCategory] = useState<any>(null);
     const [searchQuery, setSearchQuery] = useState("");
+    const [isPending, startTransition] = useTransition();
+
+    // Handler optimizado para cambio de vista (con useTransition)
+    const handleViewChange = useCallback(
+      (view: "table" | "chart" | "assistant" | "goals" | "budgets") => {
+        startTransition(() => {
+          onChangeView(view);
+        });
+        // Scroll inmediato (urgente)
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        if (showFilters) {
+          onToggleFilters();
+        }
+      },
+      [onChangeView, showFilters, onToggleFilters]
+    );
 
     // ============================================
     // EFFECTS
@@ -658,11 +674,10 @@ const MainContent = memo<MainContentProps>(
         {activeView !== "assistant" && (
           <VoiceExpenseButton
             darkMode={darkMode}
-            categories={categories}
-            addExpense={onAddExpenseFromAI}
+            categories={Object.keys(categories)}
+            onAddExpense={onAddExpenseFromAI}
             showNotification={showNotification}
             hasFilterButton={activeView === "table" || activeView === "chart"}
-            expenses={allExpenses}
           />
         )}
         {/* Panel de filtros avanzados para móvil - Bottom sheet style */}
@@ -1147,8 +1162,9 @@ const MainContent = memo<MainContentProps>(
             ].map(({ view, icon: Icon, label }) => (
               <button
                 key={view}
-                onClick={() => onChangeView(view)}
-                className={`relative flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 ${
+                onClick={() => handleViewChange(view)}
+                disabled={isPending}
+                className={`relative flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 ${
                   activeView === view
                     ? darkMode
                       ? "bg-purple-600/90 text-white shadow-lg"
@@ -1204,12 +1220,9 @@ const MainContent = memo<MainContentProps>(
               }}
             >
               <button
-                onClick={() => {
-                  onChangeView("table");
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                  if (showFilters) onToggleFilters();
-                }}
-                className={`flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 rounded-xl font-medium transition-all relative ${
+                onClick={() => handleViewChange("table")}
+                disabled={isPending}
+                className={`flex flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 rounded-xl font-medium transition-all relative ${
                   activeView === "table"
                     ? darkMode
                       ? "bg-purple-600/90 text-white"
@@ -1219,8 +1232,8 @@ const MainContent = memo<MainContentProps>(
                     : "text-purple-600 hover:bg-white/50"
                 }`}
               >
-                <TableIcon className="w-4 h-4" />
-                <span className="text-[10px] font-medium">
+                <TableIcon className="w-4 h-4 flex-shrink-0" />
+                <span className="text-[9px] leading-tight font-medium truncate max-w-full">
                   {t("views.table")}
                 </span>
                 {activeView === "table" && (
@@ -1229,12 +1242,9 @@ const MainContent = memo<MainContentProps>(
               </button>
 
               <button
-                onClick={() => {
-                  onChangeView("chart");
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                  if (showFilters) onToggleFilters();
-                }}
-                className={`flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 rounded-xl font-medium transition-all relative ${
+                onClick={() => handleViewChange("chart")}
+                disabled={isPending}
+                className={`flex flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 rounded-xl font-medium transition-all relative ${
                   activeView === "chart"
                     ? darkMode
                       ? "bg-purple-600/90 text-white"
@@ -1244,8 +1254,8 @@ const MainContent = memo<MainContentProps>(
                     : "text-purple-600 hover:bg-white/50"
                 }`}
               >
-                <BarChart3 className="w-4 h-4" />
-                <span className="text-[10px] font-medium">
+                <BarChart3 className="w-4 h-4 flex-shrink-0" />
+                <span className="text-[9px] leading-tight font-medium truncate max-w-full">
                   {t("views.chart")}
                 </span>
                 {activeView === "chart" && (
@@ -1262,12 +1272,9 @@ const MainContent = memo<MainContentProps>(
               </button>
 
               <button
-                onClick={() => {
-                  onChangeView("assistant");
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                  if (showFilters) onToggleFilters();
-                }}
-                className={`flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 rounded-xl font-medium transition-all relative ${
+                onClick={() => handleViewChange("assistant")}
+                disabled={isPending}
+                className={`flex flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 rounded-xl font-medium transition-all relative ${
                   activeView === "assistant"
                     ? darkMode
                       ? "bg-purple-600/90 text-white"
@@ -1277,8 +1284,8 @@ const MainContent = memo<MainContentProps>(
                     : "text-purple-600 hover:bg-white/50"
                 }`}
               >
-                <Bot className="w-4 h-4" />
-                <span className="text-[10px] font-medium">
+                <Bot className="w-4 h-4 flex-shrink-0" />
+                <span className="text-[9px] leading-tight font-medium truncate max-w-full">
                   {t("views.assistant")}
                 </span>
                 {activeView === "assistant" && (
@@ -1287,12 +1294,9 @@ const MainContent = memo<MainContentProps>(
               </button>
 
               <button
-                onClick={() => {
-                  onChangeView("goals");
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                  if (showFilters) onToggleFilters();
-                }}
-                className={`flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 rounded-xl font-medium transition-all relative ${
+                onClick={() => handleViewChange("goals")}
+                disabled={isPending}
+                className={`flex flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 rounded-xl font-medium transition-all relative ${
                   activeView === "goals"
                     ? darkMode
                       ? "bg-purple-600/90 text-white"
@@ -1302,8 +1306,8 @@ const MainContent = memo<MainContentProps>(
                     : "text-purple-600 hover:bg-white/50"
                 }`}
               >
-                <Target className="w-4 h-4" />
-                <span className="text-[10px] font-medium">
+                <Target className="w-4 h-4 flex-shrink-0" />
+                <span className="text-[9px] leading-tight font-medium truncate max-w-full">
                   {t("views.goals")}
                 </span>
                 {activeView === "goals" && (
@@ -2367,14 +2371,7 @@ const MainContent = memo<MainContentProps>(
               darkMode={darkMode}
               textClass={textClass}
               textSecondaryClass={textSecondaryClass}
-              expenses={filteredExpenses}
-              allExpenses={allExpenses}
               categories={categories}
-              budgets={budgets}
-              categoryTotals={categoryTotals}
-              income={income}
-              goals={goals}
-              recurringExpenses={recurringExpenses}
               addExpense={onAddExpenseFromAI}
               isActive={true}
             />

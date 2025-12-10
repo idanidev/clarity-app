@@ -1,1769 +1,556 @@
-import { CheckCircle2, Loader2, Mic, MicOff, X } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { usePermissions } from "../../../hooks/usePermissions";
-import { SpeechRecognition } from "@capgo/capacitor-speech-recognition";
 import { Capacitor } from "@capacitor/core";
+import { SpeechRecognition } from "@capgo/capacitor-speech-recognition";
+import { Haptics, ImpactStyle } from "@capacitor/haptics";
+import { Loader2, Mic, MicOff } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-// ============================================
-// TYPES & INTERFACES
-// ============================================
-interface Category {
-  subcategories?: string[];
-  [key: string]: any;
-}
-
-interface Categories {
-  [categoryName: string]: Category;
-}
-
-interface Expense {
-  id?: string;
-  name: string;
-  amount: number;
-  category: string;
-  subcategory?: string;
-  date: string;
-  paymentMethod: string;
-  isRecurring?: boolean;
-  recurringId?: string | null;
-  createdAt?: any;
-  updatedAt?: any;
-}
-
-interface ExpenseData {
-  name: string;
-  amount: number;
-  category: string;
-  subcategory: string;
-  date: string;
-  paymentMethod: string;
-  isRecurring: boolean;
-  recurringId: string | null;
-}
-
-interface DetectedExpense {
-  amount: number;
-  description: string;
-  date: string;
-}
-
-interface Categorization {
-  category: string;
-  subcategory: string;
-  confidence: number;
-  reason: string;
-}
-
-interface PreviewExpense extends DetectedExpense {
-  category: string;
-  subcategory: string;
-  confidence: number;
-}
-
-interface LearnedPattern {
-  [keyword: string]: {
-    [category: string]: {
-      count: number;
-      subcategories: {
-        [subcategory: string]: number;
-      };
-    };
-  };
-}
-
-export interface VoiceSettings {
-  silenceTimeout: number;
-  autoConfirm: boolean;
-  vibration: boolean;
-  showSuggestions: boolean;
-}
-
-export interface VoiceStats {
-  totalVoiceExpenses: number;
-  accuracy: number;
-  lastUsed: string;
-  avgConfidence: number;
-}
+/**
+ * VoiceExpenseButton - Reconocimiento de voz HÍBRIDO
+ * - iOS nativo (Capacitor): Plugin @capgo/capacitor-speech-recognition
+ * - Web/PWA: Web Speech API
+ */
 
 interface VoiceExpenseButtonProps {
+  onAddExpense: (expense: any) => Promise<void>;
   darkMode: boolean;
-  categories: Categories;
-  addExpense: (expense: ExpenseData) => Promise<void>;
-  showNotification?: (
-    message: string,
-    type: "success" | "error" | "info"
-  ) => void;
+  showNotification?: (message: string, type: "success" | "error" | "info") => void;
   hasFilterButton?: boolean;
-  expenses?: Expense[];
-  voiceSettings?: VoiceSettings;
-  userId?: string;
+  categories?: any[];
+  subcategories?: any[];
 }
 
-// ============================================
-// CONSTANTS
-// ============================================
-export const DEFAULT_VOICE_SETTINGS: VoiceSettings = {
-  silenceTimeout: 2000,
-  autoConfirm: false,
-  vibration: true,
-  showSuggestions: true,
-};
+const VoiceExpenseButton = ({
+  onAddExpense,
+  darkMode,
+  showNotification,
+  hasFilterButton = false,
+  categories: _categories = [],
+  subcategories: _subcategories = [],
+}: VoiceExpenseButtonProps) => {
+  const [isListening, setIsListening] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [transcript, setTranscript] = useState("");
+  const [interimTranscript, setInterimTranscript] = useState("");
+  const [voiceAvailable, setVoiceAvailable] = useState(false);
 
-const SYNONYMS: { [key: string]: string[] } = {
-  alimentación: [
-    "comida",
-    "alimentos",
-    "super",
-    "supermercado",
-    "mercado",
-    "mercadona",
-    "lidl",
-    "carrefour",
-    "dia",
-  ],
-  transporte: ["gasolina", "diesel", "metro", "bus", "taxi", "uber", "tren"],
-  restaurante: ["restaurante", "comer", "cenar", "bar", "café"],
-  ocio: ["ocio", "cine", "teatro", "concierto", "spotify", "netflix"],
-  salud: ["salud", "médico", "farmacia", "hospital", "dentista"],
-  ropa: ["ropa", "moda", "zapatos", "zara", "h&m"],
-  casa: ["casa", "hogar", "alquiler", "luz", "agua", "gas", "internet"],
-  tabaco: ["tabaco", "cigarrillos", "vaper"],
-  vicios: ["tabaco", "cigarrillos", "vaper"],
-};
+  const recognitionRef = useRef<any>(null);
+  const isNative = Capacitor.isNativePlatform();
+  const platform = Capacitor.getPlatform(); // 'ios', 'android', 'web'
 
-const VOICE_EXAMPLES = [
-  '💡 "25 en supermercado"',
-  '💡 "nueve coma sesenta en tabaco"',
-  '💡 "50 en gasolina y 20 en comida"',
-];
+  console.log(`[Voice] Platform: ${platform}, Native: ${isNative}`);
 
-// ============================================
-// UTILITY FUNCTIONS
-// ============================================
-const vibrate = (pattern: number | number[]) => {
-  if (navigator.vibrate) {
-    navigator.vibrate(pattern);
-  }
-};
-
-
-const extractDate = (text: string): string => {
-  const today = new Date();
-  const datePatterns: Array<{
-    pattern: RegExp;
-    offset: (d: Date, match?: RegExpMatchArray) => Date;
-  }> = [
-    {
-      pattern: /ayer/i,
-      offset: (d) => {
-        d.setDate(d.getDate() - 1);
-        return d;
-      },
-    },
-    {
-      pattern: /anteayer/i,
-      offset: (d) => {
-        d.setDate(d.getDate() - 2);
-        return d;
-      },
-    },
-    {
-      pattern: /hace\s+(\d+)\s+días?/i,
-      offset: (d, match) => {
-        if (match) d.setDate(d.getDate() - parseInt(match[1]));
-        return d;
-      },
-    },
-  ];
-
-  for (const { pattern, offset } of datePatterns) {
-    const match = text.match(pattern);
-    if (match) return offset(new Date(today), match).toISOString().slice(0, 10);
-  }
-
-  return today.toISOString().slice(0, 10);
-};
-
-// Storage
-const STORAGE_KEYS = {
-  DRAFT: "clarity_voice_draft",
-  STATS: "clarity_voice_stats",
-  OFFLINE_QUEUE: "clarity_offline_expenses",
-};
-
-export const loadVoiceStats = (): VoiceStats => {
-  const saved = localStorage.getItem(STORAGE_KEYS.STATS);
-  return saved
-    ? JSON.parse(saved)
-    : {
-        totalVoiceExpenses: 0,
-        accuracy: 0,
-        lastUsed: "",
-        avgConfidence: 0,
-      };
-};
-
-export const saveVoiceStats = (stats: VoiceStats) => {
-  localStorage.setItem(STORAGE_KEYS.STATS, JSON.stringify(stats));
-};
-
-const loadOfflineQueue = (): ExpenseData[] => {
-  const saved = localStorage.getItem(STORAGE_KEYS.OFFLINE_QUEUE);
-  return saved ? JSON.parse(saved) : [];
-};
-
-const saveOfflineQueue = (queue: ExpenseData[]) => {
-  localStorage.setItem(STORAGE_KEYS.OFFLINE_QUEUE, JSON.stringify(queue));
-};
-
-// ============================================
-// MAIN COMPONENT
-// ============================================
-const VoiceExpenseButton = memo<VoiceExpenseButtonProps>(
-  ({
-    darkMode,
-    categories,
-    addExpense,
-    showNotification,
-    hasFilterButton = true,
-    expenses = [],
-    voiceSettings = DEFAULT_VOICE_SETTINGS,
-    userId,
-  }) => {
-    const { microphone } = usePermissions(userId);
-    // State
-    const [isListening, setIsListening] = useState(false);
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [transcript, setTranscript] = useState("");
-    const [interimTranscript, setInterimTranscript] = useState("");
-    const [currentExampleIndex, setCurrentExampleIndex] = useState(0);
-    const [pendingExpenses, setPendingExpenses] = useState<PreviewExpense[]>(
-      []
-    );
-    const [showConfirmation, setShowConfirmation] = useState(false);
-    const [offlineQueue, setOfflineQueue] = useState<ExpenseData[]>(
-      loadOfflineQueue()
-    );
-    const [isOnline, setIsOnline] = useState(navigator.onLine);
-    const [suggestions, setSuggestions] = useState<string[]>([]);
-
-    // Refs
-    const recognitionRef = useRef<any>(null);
-    const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
-    const interimTranscriptRef = useRef<string>("");
-
-    // ============================================
-    // DETECTAR CONEXIÓN Y SINCRONIZAR
-    // ============================================
-    useEffect(() => {
-      const handleOnline = () => {
-        setIsOnline(true);
-        if (offlineQueue.length > 0) {
-          showNotification?.(
-            `🔄 Sincronizando ${offlineQueue.length} gastos...`,
-            "info"
-          );
-          syncOfflineExpenses();
-        }
-      };
-      const handleOffline = () => setIsOnline(false);
-
-      window.addEventListener("online", handleOnline);
-      window.addEventListener("offline", handleOffline);
-
-      return () => {
-        window.removeEventListener("online", handleOnline);
-        window.removeEventListener("offline", handleOffline);
-      };
-    }, [offlineQueue.length]);
-
-    const syncOfflineExpenses = useCallback(async () => {
-      if (!isOnline || offlineQueue.length === 0) return;
-
-      let synced = 0;
-      const remaining: ExpenseData[] = [];
-
-      for (const expense of offlineQueue) {
+  // ============================================
+  // INICIALIZACIÓN
+  // ============================================
+  useEffect(() => {
+    const initSpeech = async () => {
+      if (isNative) {
+        // CAPACITOR: Usar plugin nativo
+        console.log("[Voice] Initializing native speech recognition");
         try {
-          await addExpense(expense);
-          synced++;
-          if (voiceSettings.vibration) vibrate(50);
-        } catch (error) {
-          remaining.push(expense);
-        }
-      }
+          const availableResult = await SpeechRecognition.available();
+          console.log("[Voice] Native speech available result:", availableResult);
 
-      setOfflineQueue(remaining);
-      saveOfflineQueue(remaining);
+          const available = availableResult?.available ?? false;
+          console.log("[Voice] Native speech available:", available);
 
-      if (synced > 0) {
-        showNotification?.(`✅ ${synced} gastos sincronizados`, "success");
-      }
-    }, [
-      isOnline,
-      offlineQueue,
-      addExpense,
-      voiceSettings.vibration,
-      showNotification,
-    ]);
+          if (available) {
+            try {
+              const permission = await SpeechRecognition.requestPermissions();
+              console.log("[Voice] Permission result:", permission);
 
-    // ============================================
-    // ROTAR EJEMPLOS
-    // ============================================
-    useEffect(() => {
-      if (!isListening) return;
-      const interval = setInterval(() => {
-        setCurrentExampleIndex((prev) => (prev + 1) % VOICE_EXAMPLES.length);
-      }, 3000);
-      return () => clearInterval(interval);
-    }, [isListening]);
+              const hasPermission = permission?.speechRecognition === "granted";
+              setVoiceAvailable(hasPermission);
 
-    // ============================================
-    // PERSISTENCIA
-    // ============================================
-    useEffect(() => {
-      if (transcript) {
-        localStorage.setItem(STORAGE_KEYS.DRAFT, transcript);
-      }
-    }, [transcript]);
-
-    useEffect(() => {
-      const draft = localStorage.getItem(STORAGE_KEYS.DRAFT);
-      if (draft) {
-        setTranscript(draft);
-      }
-    }, []);
-
-    const clearDraft = useCallback(() => {
-      localStorage.removeItem(STORAGE_KEYS.DRAFT);
-    }, []);
-
-    // ============================================
-    // APRENDIZAJE DE PATRONES
-    // ============================================
-    const learnedPatterns = useMemo<LearnedPattern>(() => {
-      if (!expenses || expenses.length === 0) return {};
-
-      const patterns: LearnedPattern = {};
-      const recentExpenses = expenses.slice(-100);
-
-      recentExpenses.forEach((expense) => {
-        const description = (expense.name || "").toLowerCase();
-        const category = expense.category;
-        const subcategory = expense.subcategory || "";
-
-        if (!description || !category) return;
-
-        const keywords = description
-          .split(/\s+/)
-          .filter((word) => word.length > 2)
-          .filter((word) => !/^(en|de|del|por|para|con|sin)$/i.test(word));
-
-        keywords.forEach((keyword) => {
-          if (!patterns[keyword]) patterns[keyword] = {};
-          if (!patterns[keyword][category]) {
-            patterns[keyword][category] = { count: 0, subcategories: {} };
-          }
-          patterns[keyword][category].count++;
-
-          if (subcategory) {
-            if (!patterns[keyword][category].subcategories[subcategory]) {
-              patterns[keyword][category].subcategories[subcategory] = 0;
-            }
-            patterns[keyword][category].subcategories[subcategory]++;
-          }
-        });
-      });
-
-      return patterns;
-    }, [expenses]);
-
-    // ============================================
-    // SUGERENCIAS
-    // ============================================
-    const generateSuggestions = useCallback(
-      (partialText: string): string[] => {
-        if (
-          !voiceSettings.showSuggestions ||
-          !partialText ||
-          partialText.length < 2
-        )
-          return [];
-
-        const suggestions: Set<string> = new Set();
-        const text = partialText.toLowerCase();
-
-        Object.keys(categories).forEach((cat) => {
-          if (cat.toLowerCase().startsWith(text)) suggestions.add(cat);
-        });
-
-        Object.values(categories).forEach((catData) => {
-          catData.subcategories?.forEach((sub) => {
-            if (sub.toLowerCase().startsWith(text)) suggestions.add(sub);
-          });
-        });
-
-        Object.keys(learnedPatterns).forEach((keyword) => {
-          if (keyword.startsWith(text)) suggestions.add(keyword);
-        });
-
-        return Array.from(suggestions).slice(0, 3);
-      },
-      [categories, learnedPatterns, voiceSettings.showSuggestions]
-    );
-
-    // ============================================
-    // CATEGORIZACIÓN
-    // ============================================
-    const findBestCategory = useCallback(
-      (description: string): Categorization | null => {
-        const categoryNames = Object.keys(categories);
-        if (categoryNames.length === 0) return null;
-
-        const desc = description.toLowerCase().trim();
-        const words = desc.split(/\s+/).filter((w) => w.length > 2);
-
-        const scores: {
-          [key: string]: {
-            score: number;
-            subcategory: string;
-            reason: string;
-          };
-        } = {};
-
-        categoryNames.forEach((cat) => {
-          scores[cat] = { score: 0, subcategory: "", reason: "" };
-        });
-
-        // Subcategorías (100 pts)
-        categoryNames.forEach((cat) => {
-          const subcategories = categories[cat]?.subcategories || [];
-          const matchedSub = subcategories.find(
-            (sub) =>
-              sub.toLowerCase() === desc ||
-              desc.includes(sub.toLowerCase()) ||
-              sub.toLowerCase().includes(desc)
-          );
-
-          if (matchedSub) {
-            scores[cat].score += 100;
-            scores[cat].subcategory = matchedSub;
-            scores[cat].reason = `✓ Subcategoría: "${matchedSub}"`;
-          }
-        });
-
-        // Patrones aprendidos (80 pts)
-        words.forEach((word) => {
-          if (learnedPatterns[word]) {
-            Object.keys(learnedPatterns[word]).forEach((cat) => {
-              if (scores[cat]) {
-                const count = learnedPatterns[word][cat].count;
-                scores[cat].score += count * 20;
-                if (!scores[cat].reason) {
-                  scores[cat].reason = `📚 "${word}" usado ${count}x`;
-                }
-
-                const subs = learnedPatterns[word][cat].subcategories;
-                const mostCommon = Object.keys(subs).sort(
-                  (a, b) => subs[b] - subs[a]
-                )[0];
-                if (mostCommon && !scores[cat].subcategory) {
-                  scores[cat].subcategory = mostCommon;
-                }
+              if (!hasPermission) {
+                console.warn("[Voice] Permission not granted");
+                // No mostrar error aquí, se mostrará cuando se intente usar
+              } else {
+                console.log("[Voice] ✅ Native speech recognition ready");
               }
-            });
-          }
-        });
-
-        // Match exacto (60 pts)
-        categoryNames.forEach((cat) => {
-          const catLower = cat.toLowerCase();
-          if (desc === catLower) {
-            scores[cat].score += 60;
-            if (!scores[cat].reason) scores[cat].reason = "✓ Categoría exacta";
-          } else if (desc.includes(catLower) || catLower.includes(desc)) {
-            scores[cat].score += 50;
-            if (!scores[cat].reason)
-              scores[cat].reason = "✓ Categoría encontrada";
-          }
-        });
-
-        // Sinónimos (40 pts)
-        Object.entries(SYNONYMS).forEach(([key, syns]) => {
-          const found = syns.find((syn) => desc.includes(syn));
-          if (found) {
-            const matchedCat = categoryNames.find((cat) => {
-              const catLower = cat.toLowerCase();
-              return catLower.includes(key) || key.includes(catLower);
-            });
-
-            if (matchedCat && scores[matchedCat]) {
-              scores[matchedCat].score += 40;
-              if (!scores[matchedCat].reason) {
-                scores[matchedCat].reason = `🔍 "${found}"`;
+            } catch (permError: any) {
+              console.error("[Voice] Error requesting permissions:", permError);
+              // Si el error es UNIMPLEMENTED, el plugin no está disponible
+              if (permError?.code === 'UNIMPLEMENTED') {
+                console.warn("[Voice] Plugin not implemented, trying Web Speech API fallback");
+                setVoiceAvailable(false);
+                // Intentar inicializar Web Speech API como fallback
+                initWebSpeech();
+                return;
               }
+              setVoiceAvailable(false);
             }
-          }
-        });
-
-        let bestCat: string | null = null;
-        let bestScore = 0;
-
-        Object.entries(scores).forEach(([cat, data]) => {
-          if (data.score > bestScore) {
-            bestScore = data.score;
-            bestCat = cat;
-          }
-        });
-
-        if (bestScore < 10) {
-          return {
-            category: categoryNames[0],
-            subcategory: "",
-            confidence: 30,
-            reason: "⚠️ Sin coincidencias",
-          };
-        }
-
-        return {
-          category: bestCat!,
-          subcategory: scores[bestCat!].subcategory || "",
-          confidence: Math.min(100, bestScore),
-          reason: scores[bestCat!].reason,
-        };
-      },
-      [categories, learnedPatterns]
-    );
-
-    // ============================================
-    // DETECCIÓN DE GASTOS
-    // ============================================
-    const detectSingleExpense = useCallback(
-      (text: string): DetectedExpense | null => {
-        const expenseDate = extractDate(text);
-        
-        // Limpiar el texto
-        const cleanText = text.trim();
-
-        // Patrón mejorado: detecta número al inicio seguido de "en" o "de" y descripción
-        // Ejemplos: "2 en regalo laura", "20 en cena", "5 euros en café"
-        const improvedPatterns: RegExp[] = [
-          // Patrón 1: "NÚMERO en DESCRIPCIÓN" (más común)
-          /^(\d+(?:[.,]\d+)?)\s*(?:€|euros?|eur)?\s*(?:en|de|a|para)\s+(.+?)$/i,
-          // Patrón 2: "NÚMERO DESCRIPCIÓN" (sin preposición)
-          /^(\d+(?:[.,]\d+)?)\s*(?:€|euros?|eur)?\s+(.+?)$/i,
-          // Patrón 3: "DESCRIPCIÓN NÚMERO" (menos común)
-          /^(.+?)\s+(\d+(?:[.,]\d+)?)\s*(?:€|euros?|eur)?$/i,
-          // Patrón 4: Con verbos al inicio
-          /(?:añade?|añad[íi]|gast[ée]|pagu[ée])\s+(\d+(?:[.,]\d+)?)\s*(?:€|euros?|eur)?\s*(?:en|de|a|para)\s+(.+?)(?:\s|$|[.,;])/i,
-        ];
-
-        for (const pattern of improvedPatterns) {
-          const match = cleanText.match(pattern);
-          if (!match) continue;
-
-          let amount: number | null = null;
-          let description = "";
-
-          // Determinar qué grupo es el número y cuál la descripción
-          if (pattern.source.includes('^(.+?)\\s+(\\d+')) {
-            // Patrón 3: descripción primero, número después
-            description = match[1].trim();
-            const numStr = match[2].replace(',', '.');
-            amount = parseFloat(numStr);
           } else {
-            // Patrones 1, 2, 4: número primero
-            const numStr = match[1].replace(',', '.');
-            amount = parseFloat(numStr);
-            description = match[2]?.trim() || match[3]?.trim() || "";
+            console.warn(
+              "[Voice] Speech recognition not available on this device"
+            );
+            setVoiceAvailable(false);
+            // Intentar Web Speech API como fallback
+            initWebSpeech();
           }
-
-          // Validar que tenemos monto y descripción
-          if (amount && !isNaN(amount) && amount > 0 && description.length > 0) {
-            // Limpiar la descripción
-            description = description
-              .replace(/\s*(?:ayer|anteayer|hace\s+\d+\s+días?)/i, "")
-              .replace(/\s*(?:€|euros?|eur)\s*$/i, "")
-              .replace(/^\s*(?:en|de|a|para)\s+/i, "") // Quitar preposiciones al inicio
-              .trim();
-
-            if (description.length > 0) {
-              return { amount, description, date: expenseDate };
-            }
-          }
-        }
-
-        // Fallback: intentar detectar número al inicio del texto
-        const numberAtStart = cleanText.match(/^(\d+(?:[.,]\d+)?)/);
-        if (numberAtStart) {
-          const amount = parseFloat(numberAtStart[1].replace(',', '.'));
-          if (amount > 0) {
-            // Todo lo que sigue al número es la descripción
-            const description = cleanText
-              .substring(numberAtStart[0].length)
-              .replace(/^\s*(?:€|euros?|eur)?\s*(?:en|de|a|para)?\s*/i, "")
-              .trim();
-            
-            if (description.length > 0) {
-              return { amount, description, date: expenseDate };
-            }
-          }
-        }
-
-        return null;
-      },
-      []
-    );
-
-    const detectMultipleExpenses = useCallback(
-      (text: string): DetectedExpense[] => {
-        // Primero, detectar si hay múltiples números en el texto
-        const numberMatches = text.match(/\d+(?:[.,]\d+)?/g);
-        const hasMultipleNumbers = numberMatches && numberMatches.length > 1;
-
-        let segments: string[] = [];
-        
-        if (hasMultipleNumbers && numberMatches) {
-          // Si hay múltiples números, dividir el texto basándose en esos números
-          // Estrategia: encontrar cada número y su contexto hasta el siguiente separador o número
-          const separators = /\s+y\s+|,\s*|;\s*|\s+también\s+|\s+además\s+|\s+luego\s+|\s+después\s+/i;
-          
-          // Primero intentar dividir por separadores tradicionales
-          const separatorSplit = text.split(separators).map(s => s.trim()).filter(s => s.length > 0);
-          
-          // Si los separadores dividieron correctamente (cada segmento tiene un número), usarlos
-          const segmentsWithNumbers = separatorSplit.filter(seg => /\d+(?:[.,]\d+)?/.test(seg));
-          
-          if (segmentsWithNumbers.length > 1) {
-            segments = segmentsWithNumbers;
+        } catch (error: any) {
+          console.error("[Voice] Error checking native speech:", error);
+          // Si el error es UNIMPLEMENTED, intentar Web Speech API
+          if (error?.code === 'UNIMPLEMENTED') {
+            console.warn("[Voice] Plugin not implemented, trying Web Speech API fallback");
+            setVoiceAvailable(false);
+            initWebSpeech();
           } else {
-            // Si no, dividir manualmente por números
-            let lastIndex = 0;
-            const newSegments: string[] = [];
-            
-            for (let i = 0; i < numberMatches.length; i++) {
-              const numStr = numberMatches[i];
-              const numIndex = text.indexOf(numStr, lastIndex);
-              
-              if (numIndex === -1) continue;
-              
-              // Buscar el final del segmento: siguiente número o separador
-              let segmentEnd = text.length;
-              
-              // Buscar siguiente número
-              if (i + 1 < numberMatches.length) {
-                const nextNumIndex = text.indexOf(numberMatches[i + 1], numIndex + numStr.length);
-                if (nextNumIndex !== -1) {
-                  segmentEnd = nextNumIndex;
-                }
-              }
-              
-              // Buscar separadores antes del siguiente número
-              const separatorMatch = text.substring(numIndex, segmentEnd).match(separators);
-              if (separatorMatch && separatorMatch.index !== undefined) {
-                segmentEnd = numIndex + separatorMatch.index + separatorMatch[0].length;
-              }
-              
-              // Extraer el segmento
-              const segment = text.substring(i === 0 ? 0 : numIndex, segmentEnd).trim();
-              if (segment.length > 0) {
-                newSegments.push(segment);
-              }
-              
-              lastIndex = segmentEnd;
-            }
-            
-            segments = newSegments.filter(s => s.length > 0);
-          }
-        } else {
-          // Si solo hay un número o ninguno, usar separadores tradicionales
-          segments = text
-            .split(/\s+y\s+|,\s*|;\s*|\s+también\s+|\s+además\s+|\s+luego\s+|\s+después\s+/i)
-            .map((s) => s.trim())
-            .filter((s) => s.length > 3);
-        }
-
-        const detected: DetectedExpense[] = [];
-
-        for (const segment of segments) {
-          const expense = detectSingleExpense(segment);
-          if (expense && expense.amount > 0) {
-            detected.push(expense);
+            setVoiceAvailable(false);
           }
         }
-
-        // Log para debugging
-        if (detected.length > 1) {
-          console.log('🎤 Múltiples gastos detectados:', detected);
-          console.log('📝 Segmentos procesados:', segments);
-        }
-
-        return detected;
-      },
-      [detectSingleExpense]
-    );
-
-    // ============================================
-    // ACTUALIZAR PREVIEW
-    // ============================================
-    const updatePreview = useCallback(
-      (text: string) => {
-        if (!text.trim()) {
-          setPendingExpenses([]);
-          return;
-        }
-
-        const detected = detectMultipleExpenses(text);
-        const previews: PreviewExpense[] = [];
-
-        for (const expense of detected) {
-          const categorization = findBestCategory(expense.description);
-          if (categorization) {
-            previews.push({
-              ...expense,
-              category: categorization.category,
-              subcategory: categorization.subcategory,
-              confidence: categorization.confidence,
-            });
-          }
-        }
-
-        setPendingExpenses(previews);
-
-        if (previews.length > 0 && voiceSettings.vibration) {
-          vibrate(50);
-        }
-      },
-      [detectMultipleExpenses, findBestCategory, voiceSettings.vibration]
-    );
-
-    // ============================================
-    // EDICIÓN
-    // ============================================
-    const updateExpenseCategory = useCallback(
-      (index: number, category: string) => {
-        setPendingExpenses((prev) => {
-          const updated = [...prev];
-          updated[index].category = category;
-          updated[index].subcategory = "";
-          return updated;
-        });
-      },
-      []
-    );
-
-    const updateExpenseSubcategory = useCallback(
-      (index: number, subcategory: string) => {
-        setPendingExpenses((prev) => {
-          const updated = [...prev];
-          updated[index].subcategory = subcategory;
-          return updated;
-        });
-      },
-      []
-    );
-
-    const removeExpense = useCallback(
-      (index: number) => {
-        setPendingExpenses((prev) => prev.filter((_, i) => i !== index));
-        if (voiceSettings.vibration) vibrate(100);
-      },
-      [voiceSettings.vibration]
-    );
-
-    // ============================================
-    // CONFIRMAR Y GUARDAR
-    // ============================================
-    const confirmAndSave = useCallback(async () => {
-      if (pendingExpenses.length === 0) return;
-
-      setIsProcessing(true);
-
-      try {
-        let successCount = 0;
-        const results: string[] = [];
-
-        for (const expense of pendingExpenses) {
-          const expenseData: ExpenseData = {
-            name: expense.description,
-            amount: expense.amount,
-            category: expense.category,
-            subcategory: expense.subcategory || "",
-            date: expense.date,
-            paymentMethod: "Tarjeta",
-            isRecurring: false,
-            recurringId: null,
-          };
-
-          try {
-            if (isOnline) {
-              await addExpense(expenseData);
-              successCount++;
-            } else {
-              const newQueue = [...offlineQueue, expenseData];
-              setOfflineQueue(newQueue);
-              saveOfflineQueue(newQueue);
-              successCount++;
-            }
-
-            const catDetails = expense.subcategory
-              ? `${expense.category} (${expense.subcategory})`
-              : expense.category;
-
-            results.push(`${expense.amount}€ → ${catDetails}`);
-          } catch (error) {
-            console.error("Error al guardar:", error);
-          }
-        }
-
-        // Actualizar stats
-        const currentStats = loadVoiceStats();
-        const newStats: VoiceStats = {
-          totalVoiceExpenses: currentStats.totalVoiceExpenses + successCount,
-          accuracy:
-            pendingExpenses.reduce((sum, e) => sum + e.confidence, 0) /
-            pendingExpenses.length,
-          lastUsed: new Date().toISOString(),
-          avgConfidence: currentStats.avgConfidence
-            ? (currentStats.avgConfidence +
-                pendingExpenses.reduce((sum, e) => sum + e.confidence, 0) /
-                  pendingExpenses.length) /
-              2
-            : pendingExpenses.reduce((sum, e) => sum + e.confidence, 0) /
-              pendingExpenses.length,
-        };
-        saveVoiceStats(newStats);
-
-        // Limpiar todo
-        setTranscript("");
-        setInterimTranscript("");
-        setPendingExpenses([]);
-        setShowConfirmation(false);
-        clearDraft();
-
-        if (voiceSettings.vibration) vibrate([100, 50, 100]);
-
-        if (successCount > 0) {
-          const message = isOnline
-            ? successCount === 1
-              ? `✅ ${results[0]}`
-              : `✅ ${successCount} gastos añadidos:\n${results.join("\n")}`
-            : `💾 ${successCount} gastos guardados offline`;
-
-          showNotification?.(message, "success");
-        } else {
-          showNotification?.("❌ No se pudo guardar ningún gasto", "error");
-        }
-
-        if (recognitionRef.current) {
-          recognitionRef.current.stop();
-        }
-      } catch (error) {
-        console.error("Error:", error);
-        showNotification?.("❌ Error al añadir gastos", "error");
-        if (voiceSettings.vibration) vibrate(200);
-      } finally {
-        setIsProcessing(false);
+      } else {
+        initWebSpeech();
       }
-    }, [
-      pendingExpenses,
-      addExpense,
-      showNotification,
-      voiceSettings,
-      isOnline,
-      offlineQueue,
-      clearDraft,
-    ]);
+    };
 
-    // ============================================
-    // RECONOCIMIENTO DE VOZ
-    // ============================================
-    const isCapacitor = Capacitor.isNativePlatform();
+    const initWebSpeech = () => {
+      // WEB/PWA: Web Speech API
+      console.log("[Voice] Initializing Web Speech API");
+      const hasWebSpeech =
+        "webkitSpeechRecognition" in window || "SpeechRecognition" in window;
+      console.log("[Voice] Web Speech available:", hasWebSpeech);
+      
+      if (hasWebSpeech) {
+        setVoiceAvailable(true);
+        const SpeechRecognitionAPI =
+          window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognitionAPI();
 
-    useEffect(() => {
-      if (typeof window === "undefined") return;
-
-      // No inicializar el plugin aquí, se inicializará cuando se necesite usar
-      // Esto evita errores de "UNIMPLEMENTED" si el plugin no está disponible al inicio
-      if (!isCapacitor) {
-        // WEB/PWA: Usar Web Speech API
-        const SpeechRecognitionWeb =
-          (window as any).SpeechRecognition ||
-          (window as any).webkitSpeechRecognition;
-
-        if (!SpeechRecognitionWeb) {
-          console.warn("🎤 Web Speech API no disponible en este navegador/plataforma");
-          return;
-        }
-
-        const recognition = new SpeechRecognitionWeb();
         recognition.continuous = true;
         recognition.interimResults = true;
         recognition.lang = "es-ES";
 
-        recognition.onstart = () => {
-          setIsListening(true);
+        recognition.onresult = (event) => {
+          let interim = "";
+          let final = "";
+
+          for (let i = (event as any).resultIndex; i < (event as any).results.length; i++) {
+            const result = (event as any).results[i];
+            if (result.isFinal) {
+              final += result[0].transcript;
+            } else {
+              interim += result[0].transcript;
+            }
+          }
+
+          console.log("[Voice] Result - Final:", final, "Interim:", interim);
+
+          if (final) {
+            setTranscript((prev) => prev + " " + final);
+            processTranscript(final);
+          }
+          setInterimTranscript(interim);
         };
 
-        recognition.onresult = (event: any) => {
-        let interimText = "";
-        let finalText = "";
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcriptPart = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalText += transcriptPart + " ";
-          } else {
-            interimText += transcriptPart;
+        recognition.onerror = (event) => {
+          console.error("[Voice] Web Speech error:", event.error);
+          if (event.error === "not-allowed") {
+            showNotification?.("❌ Micrófono denegado", "error");
+          } else if (event.error === "service-not-allowed") {
+            showNotification?.("❌ Servicio de reconocimiento no disponible", "error");
+          } else if (event.error !== "no-speech" && event.error !== "aborted") {
+            showNotification?.(`❌ Error: ${event.error}`, "error");
           }
-        }
-
-        if (silenceTimerRef.current) {
-          clearTimeout(silenceTimerRef.current);
-        }
-
-        setInterimTranscript(interimText);
-
-        if (interimText) {
-          const lastWord = interimText.split(" ").pop() || "";
-          setSuggestions(generateSuggestions(lastWord));
-        }
-
-        if (finalText && !isProcessing) {
-          setTranscript((prev) => {
-            const newTranscript = prev.trim()
-              ? `${prev.trim()}, ${finalText.trim()}`
-              : finalText.trim();
-
-            updatePreview(newTranscript);
-            return newTranscript;
-          });
-          setInterimTranscript("");
-          setSuggestions([]);
-
-          if (voiceSettings.autoConfirm) {
-            silenceTimerRef.current = setTimeout(() => {
-              const fullTranscript = transcript + " " + finalText;
-              updatePreview(fullTranscript.trim());
-              setShowConfirmation(true);
-            }, voiceSettings.silenceTimeout);
-          } else {
-            setShowConfirmation(true);
-          }
-        }
-      };
-
-        recognition.onerror = (event: any) => {
-        console.error("🎤 Error de reconocimiento de voz:", event.error);
-        
-        if (event.error === "not-allowed") {
-          showNotification?.(
-            "❌ Permiso de micrófono denegado. Puedes habilitarlo en la configuración de tu navegador.",
-            "error"
-          );
-        } else if (event.error === "service-not-allowed") {
-          // Error específico: el servicio de reconocimiento no está disponible
-          // En iOS nativo, este error es común porque Web Speech API no funciona bien
-          const isIOSNativeCheck = /iPad|iPhone|iPod/.test(navigator.userAgent) && 
-                                   !(window as any).MSStream &&
-                                   (window as any).Capacitor?.isNativePlatform?.();
-          
-          if (isIOSNativeCheck) {
-            showNotification?.(
-              "❌ El reconocimiento de voz no está disponible en la app iOS nativa. Por favor, usa la entrada manual de gastos o abre la app en Safari.",
-              "error"
-            );
-          } else {
-            showNotification?.(
-              "❌ El servicio de reconocimiento de voz no está disponible. Verifica tu conexión a internet o intenta más tarde.",
-              "error"
-            );
-          }
-        } else if (event.error === "no-speech") {
-          // No es un error crítico, solo significa que no se detectó voz
-          // No mostrar notificación para este caso
-        } else if (event.error === "aborted") {
-          // El reconocimiento fue cancelado, no es un error
-          // No mostrar notificación
-        } else if (event.error === "audio-capture") {
-          showNotification?.(
-            "❌ No se pudo acceder al micrófono. Verifica que el micrófono esté conectado y funcionando.",
-            "error"
-          );
-        } else if (event.error === "network") {
-          showNotification?.(
-            "❌ Error de red. El reconocimiento de voz requiere conexión a internet.",
-            "error"
-          );
-        } else {
-          showNotification?.(`❌ Error de reconocimiento: ${event.error}`, "error");
-        }
-        
-        setIsListening(false);
-      };
+          setIsListening(false);
+        };
 
         recognition.onend = () => {
+          console.log("[Voice] Web Speech ended");
           setIsListening(false);
-          if (silenceTimerRef.current) {
-            clearTimeout(silenceTimerRef.current);
-          }
         };
 
         recognitionRef.current = recognition;
+        console.log("[Voice] ✅ Web Speech API initialized");
+      } else {
+        setVoiceAvailable(false);
+        console.warn("[Voice] Web Speech API not available");
       }
+    };
 
-      return () => {
-        if (!isCapacitor && recognitionRef.current) {
-          try {
-            recognitionRef.current.stop();
-          } catch (e) {
-            // Ignorar
-          }
-        }
-      };
-    }, [
-      isCapacitor,
-      isProcessing,
-      showNotification,
-      voiceSettings,
-      transcript,
-      updatePreview,
-      generateSuggestions,
-    ]);
+    initSpeech();
 
-    // ============================================
-    // TOGGLE LISTENING
-    // ============================================
-    const toggleListening = useCallback(async (): Promise<void> => {
-      // Verificar si Web Speech API está disponible como fallback
-      const hasWebSpeechAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      
-      if (isCapacitor && !hasWebSpeechAPI) {
-        // CAPACITOR: Usar plugin nativo (solo si Web Speech API no está disponible)
-        if (isListening) {
-          try {
-            await SpeechRecognition.stop();
-            setIsListening(false);
-            setTranscript("");
-            setInterimTranscript("");
-            
-            // Limpiar listeners
-            if (recognitionRef.current) {
-              const listeners = recognitionRef.current as any;
-              if (listeners.partialListener) {
-                await listeners.partialListener.remove();
-              }
-              if (listeners.stateListener) {
-                await listeners.stateListener.remove();
-              }
-              recognitionRef.current = null;
-            }
-          } catch (error) {
-            console.error("❌ Error stopping Capacitor speech:", error);
-            setIsListening(false);
-          }
-        } else {
-          try {
-            // Verificar permisos antes de iniciar
-            if (!microphone.hasPermission()) {
-              const granted = await microphone.request();
-              if (!granted) {
-                showNotification?.(
-                  "❌ Se necesita permiso de micrófono para usar esta función",
-                  "error"
-                );
-                return;
-              }
-            }
+    initSpeech();
 
-            // 🔥 FIX: RESETEAR TODO AL ABRIR
-            setTranscript("");
-            setInterimTranscript("");
-            setPendingExpenses([]);
-            setShowConfirmation(false);
-            setSuggestions([]);
-            clearDraft();
-
-            // Intentar iniciar el reconocimiento
-            try {
-              await SpeechRecognition.start({
-                language: 'es-ES',
-                maxResults: 1,
-                prompt: 'Di tu gasto',
-                partialResults: true,
-                popup: false, // No mostrar popup nativo
-              });
-            } catch (startError: any) {
-              if (startError.code === 'UNIMPLEMENTED') {
-                throw new Error('UNIMPLEMENTED');
-              }
-              throw startError;
-            }
-
-            setIsListening(true);
-            if (voiceSettings.vibration) vibrate(50);
-
-            // Listener de resultados (parciales y finales)
-            const partialListener = await SpeechRecognition.addListener('partialResults', (data: any) => {
-              if (data.matches && data.matches.length > 0) {
-                const text = data.matches[0];
-                
-                // Guardar en ref para acceso en otros listeners
-                interimTranscriptRef.current = text;
-                
-                // Tratar como texto intermedio mientras está escuchando
-                setInterimTranscript(text);
-                
-                if (text) {
-                  const lastWord = text.split(" ").pop() || "";
-                  setSuggestions(generateSuggestions(lastWord));
-                }
-              }
-            });
-
-            // Listener de estado
-            const stateListener = await SpeechRecognition.addListener('listeningState', (data: any) => {
-              setIsListening(data.status === 'started');
-              
-              // Cuando se detiene, procesar el texto final
-              if (data.status === 'stopped') {
-                const finalText = interimTranscriptRef.current;
-                if (finalText && !isProcessing) {
-                  setTranscript((prev) => {
-                    const newTranscript = prev.trim()
-                      ? `${prev.trim()}, ${finalText.trim()}`
-                      : finalText.trim();
-
-                    updatePreview(newTranscript);
-                    return newTranscript;
-                  });
-                  setInterimTranscript("");
-                  setSuggestions([]);
-                  interimTranscriptRef.current = "";
-
-                  if (voiceSettings.autoConfirm) {
-                    silenceTimerRef.current = setTimeout(() => {
-                      const fullTranscript = transcript + " " + finalText;
-                      updatePreview(fullTranscript.trim());
-                      setShowConfirmation(true);
-                    }, voiceSettings.silenceTimeout);
-                  } else {
-                    setShowConfirmation(true);
-                  }
-                }
-              }
-            });
-
-            // Guardar listeners para limpiar después
-            recognitionRef.current = {
-              partialListener,
-              stateListener,
-            } as any;
-          } catch (error: any) {
-            console.error("❌ Error starting Capacitor speech:", error);
-            
-            if (error.code === 'UNIMPLEMENTED') {
-              // Si el plugin no está implementado, intentar usar Web Speech API como fallback
-              console.warn("⚠️ Plugin nativo no disponible, intentando Web Speech API como fallback");
-              
-              const SpeechRecognitionWeb = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-              if (SpeechRecognitionWeb && recognitionRef.current) {
-                try {
-                  setTranscript("");
-                  setInterimTranscript("");
-                  setPendingExpenses([]);
-                  setShowConfirmation(false);
-                  setSuggestions([]);
-                  clearDraft();
-                  
-                  recognitionRef.current.start();
-                  setIsListening(true);
-                  if (voiceSettings.vibration) vibrate(50);
-                  return; // Éxito con fallback
-                } catch (webError: any) {
-                  console.error("❌ Error con Web Speech API fallback:", webError);
-                }
-              }
-              
-              showNotification?.(
-                "❌ El reconocimiento de voz no está disponible en esta plataforma. Por favor, usa la entrada manual.",
-                "error"
-              );
-            } else {
-              showNotification?.(
-                `❌ Error al iniciar micrófono: ${error.message || 'Error desconocido'}`,
-                "error"
-              );
-            }
-            setIsListening(false);
-          }
-        }
-      }
-      
-      // WEB/PWA o fallback: Usar Web Speech API
-      if (!isCapacitor || (isCapacitor && !isListening)) {
-        // WEB/PWA: Usar Web Speech API
-        const SpeechRecognitionWeb =
-          (window as any).SpeechRecognition ||
-          (window as any).webkitSpeechRecognition;
-
-        if (!SpeechRecognitionWeb) {
-          showNotification?.(
-            "❌ Reconocimiento de voz no disponible en este navegador. Por favor, usa la entrada manual.",
-            "error"
-          );
-          return;
-        }
-
-        if (!recognitionRef.current) {
-          showNotification?.("❌ Reconocimiento de voz no inicializado", "error");
-          return;
-        }
-
-        if (isListening) {
+    return () => {
+      if (recognitionRef.current && !isNative) {
+        try {
           recognitionRef.current.stop();
-          setIsListening(false);
-        } else {
-          // Verificar permisos antes de iniciar
-          if (!microphone.hasPermission()) {
-            const granted = await microphone.request();
-            if (!granted) {
-              showNotification?.(
-                "❌ Se necesita permiso de micrófono para usar esta función",
-                "error"
-              );
-              return;
-            }
-          }
-
-          try {
-            // 🔥 FIX: RESETEAR TODO AL ABRIR
-            setTranscript("");
-            setInterimTranscript("");
-            setPendingExpenses([]);
-            setShowConfirmation(false);
-            setSuggestions([]);
-            clearDraft();
-
-            recognitionRef.current.start();
-            if (voiceSettings.vibration) vibrate(50);
-          } catch (error: any) {
-            console.error("🎤 Error al iniciar reconocimiento:", error);
-            
-            if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-              showNotification?.(
-                "❌ Permiso de micrófono denegado. Por favor, habilítalo en la configuración de tu navegador.",
-                "error"
-              );
-            } else if (error.name === 'NotSupportedError') {
-              showNotification?.(
-                "❌ Reconocimiento de voz no soportado en este navegador. Usa Chrome, Safari o Edge.",
-                "error"
-              );
-            } else if (error.message?.includes('service') || error.message?.includes('not available')) {
-              showNotification?.(
-                "❌ Servicio de reconocimiento no disponible. Verifica tu conexión a internet.",
-                "error"
-              );
-            } else {
-              showNotification?.(
-                `❌ Error al iniciar micrófono: ${error.message || error.name || 'Error desconocido'}`,
-                "error"
-              );
-            }
-          }
+        } catch (e) {
+          console.error("[Voice] Error stopping web recognition:", e);
         }
       }
-    }, [isCapacitor, isListening, showNotification, voiceSettings.vibration, clearDraft, microphone, isProcessing, transcript, updatePreview, generateSuggestions]);
+    };
+  }, [isNative, showNotification]);
 
-    // ============================================
-    // RENDER
-    // ============================================
-    const displayText = transcript + interimTranscript;
-    const hasText = displayText.trim().length > 0;
+  // ============================================
+  // PROCESAR TRANSCRIPCIÓN
+  // ============================================
+  const processTranscript = useCallback(
+    async (text: string) => {
+      if (isProcessing) return;
 
-    return (
-      <>
-        {/* Botón Principal - Estilo Minimalista */}
-        <button
-          onClick={toggleListening}
-          disabled={isProcessing}
-          className={`
-            fixed right-4 z-40 md:hidden
-            w-14 h-14 rounded-full
-            flex items-center justify-center
-            shadow-lg
-            transition-all duration-200
-            active:scale-95
-            ${
-              isProcessing
-                ? darkMode
-                  ? "bg-purple-500 text-white"
-                  : "bg-purple-500 text-white"
-                : isListening
-                ? darkMode
-                  ? "bg-red-500 text-white animate-pulse"
-                  : "bg-red-500 text-white animate-pulse"
-                : darkMode
-                ? "bg-gray-800 text-gray-200 hover:bg-gray-700"
-                : "bg-white text-gray-700 hover:bg-gray-50"
+      console.log("[Voice] Processing transcript:", text);
+      setIsProcessing(true);
+
+      try {
+        // Extraer información del texto
+        const expenseData = parseExpense(text);
+
+        if (!expenseData) {
+          showNotification?.("❌ No se pudo entender el gasto", "error");
+          return;
+        }
+
+        console.log("[Voice] Parsed expense:", expenseData);
+
+        // Añadir gasto
+        await onAddExpense(expenseData);
+        showNotification?.(
+          `✅ Añadido: €${expenseData.amount} en ${expenseData.category}`,
+          "success"
+        );
+
+        // Limpiar
+        setTranscript("");
+        setInterimTranscript("");
+
+        // Detener escucha después de añadir
+        if (isListening) {
+          setTimeout(() => {
+            toggleListening();
+          }, 1000);
+        }
+      } catch (error) {
+        console.error("[Voice] Error adding expense:", error);
+        showNotification?.("❌ Error al añadir gasto", "error");
+      } finally {
+        setIsProcessing(false);
+      }
+    },
+    [isProcessing, onAddExpense, showNotification, isListening]
+  );
+
+  // ============================================
+  // PARSER DE GASTOS
+  // ============================================
+  const parseExpense = (text: string) => {
+    // Convertir a minúsculas
+    const lowerText = text.toLowerCase().trim();
+
+    // Extraer cantidad
+    const amountMatch = lowerText.match(/(\d+(?:[.,]\d+)?)\s*(?:euros?|€)?/i);
+    if (!amountMatch) return null;
+
+    const amount = parseFloat(amountMatch[1].replace(",", "."));
+
+    // Buscar categoría (palabras clave)
+    let category = "Otros";
+    let subcategory = null;
+
+    const categoryKeywords = {
+      Alimentación: [
+        "supermercado",
+        "comida",
+        "mercado",
+        "alimentación",
+        "compra",
+      ],
+      Transporte: [
+        "gasolina",
+        "combustible",
+        "parking",
+        "taxi",
+        "uber",
+        "transporte",
+      ],
+      Ocio: ["cine", "teatro", "concierto", "entretenimiento", "ocio"],
+      Salud: ["farmacia", "médico", "hospital", "salud"],
+      Hogar: ["casa", "hogar", "muebles", "decoración"],
+      Ropa: ["ropa", "zapatos", "vestir"],
+    };
+
+    for (const [cat, keywords] of Object.entries(categoryKeywords)) {
+      if (keywords.some((keyword) => lowerText.includes(keyword))) {
+        category = cat;
+        break;
+      }
+    }
+
+    // Fecha (por defecto hoy)
+    const date = new Date().toISOString().split("T")[0];
+
+    return {
+      amount,
+      category,
+      subcategory,
+      description: `Añadido por voz: ${text}`,
+      date,
+      paymentMethod: "Tarjeta",
+    };
+  };
+
+  // ============================================
+  // TOGGLE LISTENING
+  // ============================================
+  const toggleListening = async () => {
+    console.log("[Voice] Toggle listening, current state:", isListening);
+
+    // Haptic feedback (nativo)
+    if (isNative) {
+      try {
+        await Haptics.impact({
+          style: isListening ? ImpactStyle.Medium : ImpactStyle.Light,
+        });
+      } catch (error) {
+        // Fallback silencioso
+      }
+    }
+
+    if (isNative) {
+      // ============================================
+      // CAPACITOR: Plugin nativo
+      // ============================================
+      if (isListening) {
+        console.log("[Voice] Stopping native recognition");
+        try {
+          await SpeechRecognition.stop();
+          setIsListening(false);
+          setTranscript("");
+          setInterimTranscript("");
+        } catch (error) {
+          console.error("[Voice] Error stopping native recognition:", error);
+        }
+      } else {
+        console.log("[Voice] Starting native recognition");
+        try {
+          setTranscript("");
+          setInterimTranscript("");
+
+          // Iniciar reconocimiento
+          await SpeechRecognition.start({
+            language: "es-ES",
+            maxResults: 1,
+            prompt: 'Di tu gasto (ej: "25 euros en supermercado")',
+            partialResults: true,
+            popup: false, // No mostrar popup nativo de iOS
+          });
+
+          console.log("[Voice] Native recognition started");
+          setIsListening(true);
+
+          // Listener de resultados parciales
+          await SpeechRecognition.addListener("partialResults", (data: any) => {
+            console.log("[Voice] Partial results:", data);
+            if (data.matches && data.matches.length > 0) {
+              const text = data.matches[0];
+              setInterimTranscript(text);
             }
-            ${isProcessing ? "cursor-wait" : ""}
-          `}
-          style={{
-            bottom: hasFilterButton
-              ? "calc(9.5rem + env(safe-area-inset-bottom))"
-              : "calc(5.5rem + env(safe-area-inset-bottom))",
-          }}
-        >
-          {isProcessing ? (
-            <Loader2 className="w-6 h-6 animate-spin" />
-          ) : isListening ? (
-            <MicOff className="w-6 h-6" />
-          ) : (
-            <Mic className="w-6 h-6" />
-          )}
-        </button>
+          });
 
-        {/* Indicador offline - Minimalista */}
-        {!isOnline && (
-          <div
-            className={`
-              fixed left-4 z-40
-              px-3 py-1.5 rounded-full
-              text-xs font-medium
-              shadow-lg
-              ${
-                darkMode
-                  ? "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30"
-                  : "bg-yellow-50 text-yellow-800 border border-yellow-200"
-              }
-            `}
-            style={{
-              bottom: hasFilterButton
-                ? "calc(9.5rem + env(safe-area-inset-bottom))"
-                : "calc(5.5rem + env(safe-area-inset-bottom))",
-            }}
-          >
-            📴 Sin conexión{" "}
-            {offlineQueue.length > 0 && `(${offlineQueue.length})`}
-          </div>
+          // Listener de estado
+          await SpeechRecognition.addListener("listeningState", (data: any) => {
+            console.log("[Voice] Listening state:", data);
+            const isListeningState = data.status === 'started';
+            setIsListening(isListeningState);
+            
+            // Cuando se detiene, procesar el texto final
+            if (data.status === 'stopped') {
+              // Usar el transcript intermedio actual
+              setTranscript((prev) => {
+                const finalText = interimTranscript || prev;
+                if (finalText) {
+                  processTranscript(finalText);
+                }
+                return finalText;
+              });
+            }
+          });
+        } catch (error) {
+          console.error("[Voice] Error starting native recognition:", error);
+          showNotification?.("❌ Error al iniciar micrófono", "error");
+          setIsListening(false);
+        }
+      }
+    } else {
+      // ============================================
+      // WEB/PWA: Web Speech API
+      // ============================================
+      if (!recognitionRef.current) {
+        showNotification?.("❌ Voz no disponible en este navegador", "error");
+        return;
+      }
+
+      if (isListening) {
+        console.log("[Voice] Stopping web recognition");
+        recognitionRef.current.stop();
+        setIsListening(false);
+        setTranscript("");
+        setInterimTranscript("");
+      } else {
+        console.log("[Voice] Starting web recognition");
+        try {
+          setTranscript("");
+          setInterimTranscript("");
+          recognitionRef.current.start();
+          setIsListening(true);
+        } catch (error) {
+          console.error("[Voice] Error starting web recognition:", error);
+          showNotification?.("❌ Error al iniciar micrófono", "error");
+        }
+      }
+    }
+  };
+
+  // ============================================
+  // RENDER
+  // ============================================
+
+  // Si voz no disponible, no mostrar botón
+  if (!voiceAvailable) {
+    console.warn("[Voice] Voice not available, hiding button");
+    return null;
+  }
+
+  const displayText = transcript + interimTranscript;
+  const hasText = displayText.trim().length > 0;
+
+  const voiceExamples = [
+    '💡 "25 en supermercado"',
+    '💡 "nueve coma sesenta en tabaco"',
+    '💡 "50 euros en gasolina"',
+  ];
+
+  return (
+    <>
+      {/* Botón flotante */}
+      <button
+        onClick={toggleListening}
+        disabled={isProcessing}
+        className={`fixed right-4 z-40 md:hidden p-4 rounded-full shadow-2xl backdrop-blur-xl border transition-all active:scale-95 ${
+          isProcessing
+            ? darkMode
+              ? "bg-purple-600/25 border-purple-500/40 text-white"
+              : "bg-purple-600/25 border-purple-400/40 text-white"
+            : isListening
+            ? darkMode
+              ? "bg-red-600/25 border-red-500/40 text-white animate-pulse"
+              : "bg-red-600/25 border-red-400/40 text-white animate-pulse"
+            : darkMode
+            ? "bg-gray-800/25 backdrop-blur-xl border-gray-700/40 text-gray-300"
+            : "bg-white/25 backdrop-blur-xl border-white/40 text-purple-600"
+        } ${isProcessing ? "cursor-wait" : ""}`}
+        style={{
+          bottom: hasFilterButton
+            ? "calc(9.5rem + env(safe-area-inset-bottom))"
+            : "calc(5.5rem + env(safe-area-inset-bottom))",
+        }}
+        title={
+          isProcessing
+            ? "Añadiendo..."
+            : isListening
+            ? "Detener"
+            : "Añadir por voz"
+        }
+      >
+        {isProcessing ? (
+          <Loader2 className="w-5 h-5 animate-spin" />
+        ) : isListening ? (
+          <MicOff className="w-5 h-5" />
+        ) : (
+          <Mic className="w-5 h-5" />
         )}
+      </button>
 
-        {/* Modal de Grabación */}
-        {isListening && !showConfirmation && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-            <div
-              className={`
-                relative max-w-lg w-full rounded-3xl shadow-2xl
-                transition-all
-                ${darkMode ? "bg-gray-900" : "bg-white"}
-              `}
-            >
-              <div className="absolute top-4 right-4 flex items-center gap-2">
-                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                <span
-                  className={`text-xs font-medium ${
-                    darkMode ? "text-gray-400" : "text-gray-600"
-                  }`}
-                >
-                  Grabando
-                </span>
-              </div>
+      {/* Modal de transcripción */}
+      {isListening && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none">
+          <div
+            className={`relative max-w-md w-full rounded-2xl shadow-2xl border backdrop-blur-xl transition-all pointer-events-auto ${
+              darkMode
+                ? "bg-gray-800/95 border-gray-700/50"
+                : "bg-white/95 border-white/50"
+            }`}
+          >
+            {/* Indicador de grabación */}
+            <div className="absolute top-4 right-4 flex items-center gap-2">
+              <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+              <span
+                className={`text-xs font-medium ${
+                  darkMode ? "text-gray-300" : "text-gray-700"
+                }`}
+              >
+                Grabando
+              </span>
+            </div>
 
-              <div className="p-8 pt-12 space-y-6">
-                <div className="flex items-center justify-center">
-                  <div
-                    className={`p-6 rounded-full ${
-                      darkMode ? "bg-red-500/10" : "bg-red-50"
-                    }`}
-                  >
-                    <Mic
-                      className={`w-10 h-10 ${
-                        darkMode ? "text-red-400" : "text-red-500"
-                      } animate-pulse`}
-                    />
-                  </div>
-                </div>
+            {/* Contenido */}
+            <div className="p-6 pt-12">
+              {/* Título */}
+              <h3
+                className={`text-lg font-bold mb-4 ${
+                  darkMode ? "text-white" : "text-gray-900"
+                }`}
+              >
+                🎤 Di tu gasto
+              </h3>
 
-                <div className="text-center space-y-3">
+              {/* Transcripción */}
+              <div
+                className={`min-h-[100px] p-4 rounded-xl mb-4 ${
+                  darkMode ? "bg-gray-900/50" : "bg-gray-100"
+                }`}
+              >
+                {hasText ? (
                   <p
-                    className={`text-sm font-medium ${
-                      darkMode ? "text-gray-400" : "text-gray-600"
+                    className={`text-lg ${
+                      darkMode ? "text-white" : "text-gray-900"
                     }`}
                   >
-                    {hasText ? "Transcripción:" : "Habla ahora..."}
+                    {displayText}
                   </p>
-                  <div
-                    className={`
-                      min-h-[100px] p-4 rounded-2xl
-                      ${darkMode ? "bg-gray-800" : "bg-gray-50"}
-                    `}
-                  >
-                    {hasText ? (
-                      <>
-                        <p
-                          className={`text-lg ${
-                            darkMode ? "text-gray-100" : "text-gray-900"
-                          }`}
-                        >
-                          {transcript}
-                          {interimTranscript && (
-                            <span
-                              className={`${
-                                darkMode ? "text-gray-400" : "text-gray-500"
-                              } italic`}
-                            >
-                              {interimTranscript}
-                            </span>
-                          )}
-                        </p>
-                        {suggestions.length > 0 && (
-                          <div className="mt-3 flex gap-2 flex-wrap">
-                            {suggestions.map((sug, idx) => (
-                              <span
-                                key={idx}
-                                className={`
-                                  text-xs px-3 py-1 rounded-full
-                                  ${
-                                    darkMode
-                                      ? "bg-blue-500/20 text-blue-300"
-                                      : "bg-blue-100 text-blue-700"
-                                  }
-                                `}
-                              >
-                                💡 {sug}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <div className="space-y-3">
-                        <p
-                          className={`text-sm ${
-                            darkMode ? "text-gray-500" : "text-gray-400"
-                          } italic`}
-                        >
-                          Esperando...
-                        </p>
-                        <div
-                          className={`
-                            p-3 rounded-xl
-                            ${darkMode ? "bg-yellow-500/10" : "bg-yellow-50"}
-                          `}
-                        >
-                          <p
-                            className={`text-sm font-medium ${
-                              darkMode ? "text-yellow-400" : "text-yellow-700"
-                            }`}
-                          >
-                            {VOICE_EXAMPLES[currentExampleIndex]}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Preview */}
-                {pendingExpenses.length > 0 && (
-                  <div className="space-y-2">
+                ) : (
+                  <div>
                     <p
-                      className={`text-xs font-medium ${
-                        darkMode ? "text-gray-400" : "text-gray-600"
+                      className={`text-sm mb-2 ${
+                        darkMode ? "text-gray-400" : "text-gray-500"
                       }`}
                     >
-                      {pendingExpenses.length === 1
-                        ? "Gasto detectado:"
-                        : `${pendingExpenses.length} gastos detectados:`}
+                      Escuchando...
                     </p>
-                    <div className="space-y-2 max-h-40 overflow-y-auto">
-                      {pendingExpenses.map((expense, idx) => (
-                        <div
+                    <div className="space-y-1">
+                      {voiceExamples.map((example, idx) => (
+                        <p
                           key={idx}
-                          className={`
-                            flex items-center gap-2 p-3 rounded-xl
-                            ${darkMode ? "bg-green-500/10" : "bg-green-50"}
-                          `}
+                          className={`text-xs ${
+                            darkMode ? "text-gray-500" : "text-gray-400"
+                          }`}
                         >
-                          <CheckCircle2
-                            className={`w-4 h-4 flex-shrink-0 ${
-                              darkMode ? "text-green-400" : "text-green-600"
-                            }`}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p
-                              className={`text-sm font-medium truncate ${
-                                darkMode ? "text-gray-200" : "text-gray-900"
-                              }`}
-                            >
-                              {expense.amount}€ → {expense.category}
-                              {expense.subcategory &&
-                                ` (${expense.subcategory})`}
-                            </p>
-                            <p
-                              className={`text-xs truncate ${
-                                darkMode ? "text-gray-400" : "text-gray-600"
-                              }`}
-                            >
-                              {expense.description}
-                            </p>
-                          </div>
-                        </div>
+                          {example}
+                        </p>
                       ))}
                     </div>
                   </div>
                 )}
               </div>
+
+              {/* Botón detener */}
+              <button
+                onClick={toggleListening}
+                className={`w-full py-3 rounded-xl font-medium transition-colors ${
+                  darkMode
+                    ? "bg-red-600 hover:bg-red-700 text-white"
+                    : "bg-red-500 hover:bg-red-600 text-white"
+                }`}
+              >
+                Detener
+              </button>
             </div>
           </div>
-        )}
-
-        {/* Modal de Confirmación */}
-        {showConfirmation && pendingExpenses.length > 0 && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div
-              className={`
-                relative max-w-lg w-full rounded-3xl shadow-2xl
-                max-h-[80vh] overflow-y-auto
-                ${darkMode ? "bg-gray-900" : "bg-white"}
-              `}
-            >
-              <div
-                className={`
-                  sticky top-0 p-4 border-b flex items-center justify-between
-                  ${
-                    darkMode
-                      ? "bg-gray-900 border-gray-800"
-                      : "bg-white border-gray-200"
-                  }
-                `}
-              >
-                <h3
-                  className={`text-lg font-semibold ${
-                    darkMode ? "text-gray-100" : "text-gray-900"
-                  }`}
-                >
-                  Confirmar {pendingExpenses.length} gasto
-                  {pendingExpenses.length > 1 ? "s" : ""}
-                </h3>
-                <button
-                  onClick={() => setShowConfirmation(false)}
-                  className={`
-                    p-2 rounded-xl transition-colors
-                    ${
-                      darkMode
-                        ? "hover:bg-gray-800 text-gray-400"
-                        : "hover:bg-gray-100 text-gray-600"
-                    }
-                  `}
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="p-4 space-y-3">
-                {pendingExpenses.map((expense, idx) => (
-                  <div
-                    key={idx}
-                    className={`
-                      p-4 rounded-2xl
-                      ${darkMode ? "bg-gray-800" : "bg-gray-50"}
-                    `}
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <p
-                          className={`text-lg font-semibold ${
-                            darkMode ? "text-gray-100" : "text-gray-900"
-                          }`}
-                        >
-                          {expense.amount}€
-                        </p>
-                        <p
-                          className={`text-sm ${
-                            darkMode ? "text-gray-400" : "text-gray-600"
-                          }`}
-                        >
-                          {expense.description}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => removeExpense(idx)}
-                        className={`
-                          p-2 rounded-xl transition-colors
-                          ${
-                            darkMode
-                              ? "hover:bg-red-500/20 text-red-400"
-                              : "hover:bg-red-50 text-red-600"
-                          }
-                        `}
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div>
-                        <label
-                          className={`text-xs font-medium mb-1 block ${
-                            darkMode ? "text-gray-400" : "text-gray-600"
-                          }`}
-                        >
-                          Categoría:
-                        </label>
-                        <select
-                          value={expense.category}
-                          onChange={(e) =>
-                            updateExpenseCategory(idx, e.target.value)
-                          }
-                          className={`
-                            w-full px-3 py-2 rounded-xl text-sm
-                            ${
-                              darkMode
-                                ? "bg-gray-700 text-gray-100"
-                                : "bg-white border border-gray-200 text-gray-900"
-                            }
-                          `}
-                        >
-                          {Object.keys(categories).map((cat) => (
-                            <option key={cat} value={cat}>
-                              {cat}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {categories[expense.category]?.subcategories &&
-                        categories[expense.category].subcategories!.length >
-                          0 && (
-                          <div>
-                            <label
-                              className={`text-xs font-medium mb-1 block ${
-                                darkMode ? "text-gray-400" : "text-gray-600"
-                              }`}
-                            >
-                              Subcategoría:
-                            </label>
-                            <select
-                              value={expense.subcategory}
-                              onChange={(e) =>
-                                updateExpenseSubcategory(idx, e.target.value)
-                              }
-                              className={`
-                              w-full px-3 py-2 rounded-xl text-sm
-                              ${
-                                darkMode
-                                  ? "bg-gray-700 text-gray-100"
-                                  : "bg-white border border-gray-200 text-gray-900"
-                              }
-                            `}
-                            >
-                              <option value="">Sin subcategoría</option>
-                              {categories[expense.category].subcategories!.map(
-                                (sub) => (
-                                  <option key={sub} value={sub}>
-                                    {sub}
-                                  </option>
-                                )
-                              )}
-                            </select>
-                          </div>
-                        )}
-
-                      <div className="flex items-center gap-2 text-xs">
-                        <div
-                          className={`flex-1 h-1.5 rounded-full overflow-hidden ${
-                            darkMode ? "bg-gray-700" : "bg-gray-200"
-                          }`}
-                        >
-                          <div
-                            className={`h-full ${
-                              expense.confidence > 70
-                                ? "bg-green-500"
-                                : expense.confidence > 40
-                                ? "bg-yellow-500"
-                                : "bg-red-500"
-                            }`}
-                            style={{ width: `${expense.confidence}%` }}
-                          />
-                        </div>
-                        <span
-                          className={
-                            darkMode ? "text-gray-400" : "text-gray-600"
-                          }
-                        >
-                          {expense.confidence.toFixed(0)}%
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div
-                className={`
-                  sticky bottom-0 p-4 border-t flex gap-3
-                  ${
-                    darkMode
-                      ? "bg-gray-900 border-gray-800"
-                      : "bg-white border-gray-200"
-                  }
-                `}
-              >
-                <button
-                  onClick={() => {
-                    setShowConfirmation(false);
-                    setPendingExpenses([]);
-                  }}
-                  className={`
-                    flex-1 px-4 py-3 rounded-xl font-medium transition-colors
-                    ${
-                      darkMode
-                        ? "bg-gray-800 hover:bg-gray-700 text-gray-100"
-                        : "bg-gray-100 hover:bg-gray-200 text-gray-900"
-                    }
-                  `}
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={confirmAndSave}
-                  disabled={isProcessing}
-                  className={`
-                    flex-1 px-4 py-3 rounded-xl font-medium transition-colors
-                    ${
-                      isProcessing
-                        ? "bg-gray-400 cursor-wait"
-                        : darkMode
-                        ? "bg-green-600 hover:bg-green-500 text-white"
-                        : "bg-green-500 hover:bg-green-600 text-white"
-                    }
-                  `}
-                >
-                  {isProcessing ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Guardando...
-                    </span>
-                  ) : (
-                    `Guardar ${
-                      pendingExpenses.length > 1
-                        ? `(${pendingExpenses.length})`
-                        : ""
-                    }`
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </>
-    );
-  }
-);
-
-VoiceExpenseButton.displayName = "VoiceExpenseButton";
+        </div>
+      )}
+    </>
+  );
+};
 
 export default VoiceExpenseButton;

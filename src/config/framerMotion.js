@@ -63,9 +63,19 @@ export const getTransition = (type = "default") => {
     bounce: {
       type: "spring",
       stiffness: 500, // Aumentar stiffness (más rápido)
-      damping: 30, // Aumentar damping (menos rebote)
+      damping: 35, // Aumentar damping (menos rebote)
       bounce: isMobile ? 0 : 0.2, // Reducir bounce
-      duration: isMobile ? 0.1 : 0.15,
+    },
+    modal: {
+      type: "spring",
+      stiffness: 400,
+      damping: 30,
+      duration: 0.12,
+    },
+    page: {
+      type: "tween",
+      ease: "easeInOut",
+      duration: 0.15, // máximo 150ms
     },
   };
 

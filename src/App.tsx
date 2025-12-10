@@ -15,6 +15,10 @@ import { isNative } from "./utils/platform";
 const Auth = lazy(() => import("./screens/Auth/Auth"));
 const Dashboard = lazy(() => import("./screens/Dashboard/Dashboard"));
 
+// Prefetch helpers para mejorar la navegación
+const preloadAuth = () => import("./screens/Auth/Auth");
+const preloadDashboard = () => import("./screens/Dashboard/Dashboard");
+
 const LoadingScreen = () => {
   const { t } = useTranslation();
   return (
@@ -196,6 +200,15 @@ const App = () => {
       }
     }
   };
+
+  // Prefetch básico de rutas según estado
+  useEffect(() => {
+    if (user) {
+      preloadDashboard();
+    } else {
+      preloadAuth();
+    }
+  }, [user]);
 
   if (initializing) {
     return (

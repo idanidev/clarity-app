@@ -1,14 +1,13 @@
 import { X, Plus } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 // @ts-ignore - No hay tipos para este módulo JS
 import { getCategorySubcategories } from "../../../services/firestoreService";
 import { useState, useEffect, useCallback, FormEvent } from "react";
 import { useDisableBodyScroll } from "../../../hooks/useDisableBodyScroll";
-import { scaleIn, getTransition } from "../../../config/framerMotion";
 import { Input, Button } from "../../../components/ui";
 import { isValidAmount, isNotEmpty, isValidDate } from "../../../utils/validation";
 import { parseCurrency } from "../../../utils/currency";
 import type { ExpenseInput, Categories } from "../../../types";
+import BottomSheet from "../../../components/BottomSheet";
 
 interface AddExpenseModalProps {
   visible: boolean;
@@ -270,47 +269,13 @@ const AddExpenseModal = ({
   };
 
   return (
-    <AnimatePresence>
-      {visible && (
-        <>
-          {/* Backdrop con fade */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={getTransition('fast')}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
-            onClick={onClose}
-          />
-          
-          {/* Modal con scale */}
-          <motion.div
-            {...scaleIn}
-            transition={getTransition('default')}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            onClick={(e) => e.target === e.currentTarget && onClose()}
-          >
-            <div
-              className={`${cardClass} rounded-2xl p-0 max-w-md w-full border shadow-2xl max-h-[90vh] overflow-y-auto smooth-scroll`}
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-        <div
-          className={`sticky top-0 z-10 px-6 py-4 flex justify-between items-center ${
-            darkMode
-              ? "bg-gray-800/95 border-b border-gray-700"
-              : "bg-white/80 border-b border-purple-100"
-          } backdrop-blur`}
-        >
-          <h3 className={`text-2xl font-bold ${textClass}`}>Añadir Gasto</h3>
-          <button
-            onClick={onClose}
-            className={`p-2 rounded-lg ${
-              darkMode ? "hover:bg-gray-700" : "hover:bg-purple-100"
-            } transition-all`}
-          >
-            <X className={`w-6 h-6 ${textClass}`} />
-          </button>
-        </div>
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      title="Añadir Gasto"
+      darkMode={darkMode}
+      maxHeight="90vh"
+    >
 
         <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4">
           {/* Error general */}
@@ -601,11 +566,7 @@ const AddExpenseModal = ({
             {isSubmitting ? "Añadiendo..." : "Añadir Gasto"}
           </Button>
         </form>
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+    </BottomSheet>
   );
 };
 

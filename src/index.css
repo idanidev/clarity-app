@@ -6,7 +6,9 @@
    ESTILOS MÓVIL-FIRST PARA CAPACITOR
    ============================================ */
 
-/* Safe Area Variables (para iOS notch y home indicator) */
+/* ============================================
+   SAFE AREA VARIABLES (iOS notch y home indicator)
+   ============================================ */
 :root {
   --sat: env(safe-area-inset-top);
   --sar: env(safe-area-inset-right);
@@ -14,13 +16,46 @@
   --sal: env(safe-area-inset-left);
 }
 
+/* ============================================
+   RESET Y OPTIMIZACIONES GLOBALES
+   ============================================ */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  transition-property: background-color, border-color, color, fill, stroke;
+  /* Solo animar propiedades GPU-aceleradas */
+  transition-property: transform, opacity;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
+  /* Eliminar tap highlight y delay en móvil */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Prevenir zoom en input focus (iOS) */
+input,
+textarea,
+select {
+  font-size: 16px; /* Mínimo 16px para evitar zoom automático en iOS */
+}
+
+/* Smooth scroll nativo */
+.scrollable,
+.overflow-y-auto,
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  scroll-behavior: smooth;
+}
+
+/* Viewport dinámico (Chrome URL bar) */
+.fullscreen,
+.h-screen {
+  height: 100dvh; /* NOT 100vh - usa dynamic viewport height */
+}
+
+.min-h-screen {
+  min-height: 100dvh;
 }
 
 html,

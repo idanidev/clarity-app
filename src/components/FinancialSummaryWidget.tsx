@@ -61,11 +61,11 @@ const FinancialSummaryWidget: React.FC<FinancialSummaryWidgetProps> = ({
         )}
 
         {/* Monto disponible */}
-        <div className="flex flex-col items-start">
-          <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+        <div className="flex flex-col items-start min-w-0">
+          <span className={`text-[10px] sm:text-xs truncate ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
             Disponible
           </span>
-          <span className={`text-sm font-bold ${
+          <span className={`text-xs sm:text-sm font-bold truncate ${
             available >= 0 
               ? 'text-green-600 dark:text-green-400' 
               : 'text-red-600 dark:text-red-400'
