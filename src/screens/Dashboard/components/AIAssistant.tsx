@@ -34,7 +34,7 @@ import {
   useState,
   useTransition,
 } from "react";
-import { List } from "react-window";
+import { FixedSizeList, FixedSizeList as List } from "react-window";
 
 // ============================================
 // TYPES
@@ -1850,6 +1850,7 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
 
     const inputRef = useRef<HTMLInputElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const listRef = useRef<FixedSizeList>(null);
     const keyboardHeight = useKeyboardHeight();
 
     // Análisis con caché (solo recalcula si cambian los datos)
@@ -1903,15 +1904,19 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
       handleVoiceEnd
     );
 
-    // Scroll optimizado
+    // Scroll optimizado - usa la lista virtualizada
     const scrollToBottom = useCallback(() => {
       requestAnimationFrame(() => {
-        messagesEndRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "end",
-        });
+        if (listRef.current && messages.length > 0) {
+          listRef.current.scrollToItem(messages.length - 1, "end");
+        } else {
+          messagesEndRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "end",
+          });
+        }
       });
-    }, []);
+    }, [messages.length]);
 
     useEffect(() => {
       if (messages.length > 0) {
@@ -2099,13 +2104,47 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
       setTimeout(() => inputRef.current?.focus(), 100);
     }, []);
 
-    // Altura dinámica
+    // Altura dinámica - optimizada para móvil
     const listHeight = useMemo(() => {
       if (typeof window === "undefined") return 400;
       const base = window.innerHeight;
-      const reserved = 220 + keyboardHeight;
-      return Math.max(320, base - reserved);
+      // En móvil: reservar menos espacio (header compacto + input compacto)
+      const isMobile = window.innerWidth < 768;
+      const reserved = isMobile ? 160 + keyboardHeight : 220 + keyboardHeight;
+      return Math.max(isMobile ? 280 : 320, base - reserved);
     }, [keyboardHeight]);
+
+    // Ancho del contenedor para react-window - se recalcula en resize
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [listWidth, setListWidth] = useState(() => {
+      if (typeof window === "undefined") return 600;
+      // En móvil: ancho completo menos padding (px-2 = 8px cada lado = 16px total)
+      return window.innerWidth < 768 ? window.innerWidth - 16 : 600;
+    });
+
+    // Actualizar ancho cuando cambia el tamaño de la ventana o el contenedor
+    useEffect(() => {
+      const updateWidth = () => {
+        if (typeof window === "undefined" || !containerRef.current) return;
+        const containerWidth = containerRef.current.clientWidth;
+        // Usar el ancho del contenedor real
+        setListWidth(containerWidth || (window.innerWidth < 768 ? window.innerWidth - 16 : 600));
+      };
+
+      // Usar ResizeObserver para detectar cambios en el contenedor
+      const resizeObserver = new ResizeObserver(updateWidth);
+      if (containerRef.current) {
+        resizeObserver.observe(containerRef.current);
+      }
+
+      window.addEventListener("resize", updateWidth);
+      updateWidth(); // Llamar inmediatamente
+      
+      return () => {
+        window.removeEventListener("resize", updateWidth);
+        resizeObserver.disconnect();
+      };
+    }, []);
 
     const renderRow = useCallback(
       ({ index, style }: { index: number; style: React.CSSProperties }) => {
@@ -2125,8 +2164,6 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
       [messages, darkMode, handleCopyMessage, copiedIndex]
     );
 
-    const VirtualizedList = List as unknown as React.ComponentType<any>;
-
     return (
       <div
         className="flex flex-col w-full"
@@ -2135,16 +2172,16 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
           height: "100%",
         }}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3 px-2">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-purple-500" />
-            <h3 className={`text-sm font-semibold ${textClass}`}>
+        {/* Header - compacto en móvil */}
+        <div className="flex items-center justify-between mb-2 md:mb-3 px-1 md:px-2">
+          <div className="flex items-center gap-1.5 md:gap-2">
+            <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-purple-500" />
+            <h3 className={`text-xs md:text-sm font-semibold ${textClass}`}>
               Asistente IA
             </h3>
             {messages.length > 0 && (
               <span
-                className={`text-xs ${textSecondaryClass} px-2 py-0.5 rounded-full ${
+                className={`text-[10px] md:text-xs ${textSecondaryClass} px-1.5 md:px-2 py-0.5 rounded-full ${
                   darkMode ? "bg-gray-700" : "bg-gray-100"
                 }`}
               >
@@ -2156,20 +2193,21 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
           {messages.length > 0 && (
             <button
               onClick={handleClearChat}
-              className={`p-2 rounded-lg transition-all min-h-[44px] min-w-[44px] flex items-center justify-center active:scale-95 ${
+              className={`p-1.5 md:p-2 rounded-lg transition-all min-h-[36px] min-w-[36px] md:min-h-[44px] md:min-w-[44px] flex items-center justify-center active:scale-95 ${
                 darkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
               }`}
               title="Limpiar chat"
               aria-label="Limpiar conversación"
             >
-              <Trash2 className="w-4 h-4 text-red-500" />
+              <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4 text-red-500" />
             </button>
           )}
         </div>
 
-        {/* Contenedor de mensajes */}
+        {/* Contenedor de mensajes - optimizado para móvil */}
         <div
-          className={`flex-1 rounded-xl border mb-4 transition-all ${
+          ref={containerRef}
+          className={`flex-1 rounded-lg md:rounded-xl border mb-2 md:mb-4 transition-all ${
             darkMode
               ? "bg-gray-800/50 border-gray-700"
               : "bg-white border-gray-200 shadow-sm"
@@ -2177,17 +2215,17 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
           style={{
             height: listHeight,
             maxHeight: listHeight,
-            minHeight: "400px",
+            minHeight: "280px",
           }}
         >
-          <div
-            className="flex-1 overflow-y-auto px-3 md:px-4 py-3 md:py-4"
-            style={{
-              WebkitOverflowScrolling: "touch",
-              overscrollBehavior: "contain",
-            }}
-          >
-            {messages.length === 0 ? (
+          {messages.length === 0 ? (
+            <div
+              className="flex-1 overflow-y-auto px-2 md:px-4 py-2 md:py-4"
+              style={{
+                WebkitOverflowScrolling: "touch",
+                overscrollBehavior: "contain",
+              }}
+            >
               <WelcomeScreen
                 textClass={textClass}
                 textSecondaryClass={textSecondaryClass}
@@ -2196,32 +2234,30 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
                 smartPrompts={smartPrompts}
                 insights={insights}
               />
-            ) : (
-              <>
-                <VirtualizedList
-                  height={listHeight - 100}
-                  itemCount={messages.length}
-                  itemSize={ITEM_HEIGHT}
-                  width="100%"
-                  overscanCount={5}
-                  style={{
-                    WebkitOverflowScrolling: "touch",
-                    overscrollBehavior: "contain",
-                  }}
-                >
-                  {renderRow as any}
-                </VirtualizedList>
-                <div ref={messagesEndRef} />
-              </>
-            )}
-          </div>
+            </div>
+          ) : (
+            <List
+              ref={listRef}
+              height={listHeight - (isLoading ? 60 : 0)}
+              itemCount={messages.length}
+              itemSize={ITEM_HEIGHT}
+              width={listWidth}
+              overscanCount={3}
+              style={{
+                WebkitOverflowScrolling: "touch",
+                overscrollBehavior: "contain",
+              }}
+            >
+              {renderRow}
+            </List>
+          )}
 
-          {/* Loading indicator */}
+          {/* Loading indicator - compacto en móvil */}
           {isLoading && (
-            <div className="px-3 md:px-4 py-3 border-t border-opacity-10">
+            <div className="px-2 md:px-4 py-2 md:py-3 border-t border-opacity-10">
               <div className="flex justify-start">
                 <div
-                  className={`rounded-xl px-4 py-3 ${
+                  className={`rounded-lg md:rounded-xl px-3 md:px-4 py-2 md:py-3 ${
                     darkMode ? "bg-gray-700" : "bg-gray-100"
                   }`}
                 >
@@ -2229,7 +2265,7 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
                     {[0, 150, 300].map((delay, i) => (
                       <div
                         key={i}
-                        className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"
+                        className="w-1.5 h-1.5 md:w-2 md:h-2 bg-purple-500 rounded-full animate-bounce"
                         style={{ animationDelay: `${delay}ms` }}
                       />
                     ))}
@@ -2240,9 +2276,9 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
           )}
         </div>
 
-        {/* Input Area */}
-        <div className="pb-2">
-          <div className="flex gap-2">
+        {/* Input Area - compacto en móvil */}
+        <div className="pb-1 md:pb-2">
+          <div className="flex gap-1.5 md:gap-2">
             <input
               ref={inputRef}
               type="text"
@@ -2251,7 +2287,7 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
               onKeyPress={handleKeyPress}
               placeholder="Pregúntame sobre tus gastos..."
               disabled={isLoading || isPending}
-              className={`flex-1 px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all text-base min-h-[44px] ${
+              className={`flex-1 px-3 md:px-4 py-2 md:py-3 rounded-lg md:rounded-xl border focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all text-sm md:text-base min-h-[44px] ${
                 darkMode
                   ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
                   : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
@@ -2261,7 +2297,7 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
             <button
               onClick={toggleListening}
               disabled={isLoading || isPending}
-              className={`px-4 py-3 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center active:scale-95 ${
+              className={`px-3 md:px-4 py-2 md:py-3 rounded-lg md:rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center active:scale-95 ${
                 isListening
                   ? "bg-red-500 text-white shadow-lg shadow-red-500/50 animate-pulse"
                   : darkMode
@@ -2273,22 +2309,22 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
               }
             >
               {isListening ? (
-                <MicOff className="w-5 h-5" />
+                <MicOff className="w-4 h-4 md:w-5 md:h-5" />
               ) : (
-                <Mic className="w-5 h-5" />
+                <Mic className="w-4 h-4 md:w-5 md:h-5" />
               )}
             </button>
 
             <button
               onClick={sendMessage}
               disabled={!input.trim() || isLoading || isPending}
-              className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all min-h-[44px] flex items-center justify-center active:scale-95 shadow-lg shadow-purple-500/20"
+              className="px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg md:rounded-xl hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all min-h-[44px] flex items-center justify-center active:scale-95 shadow-lg shadow-purple-500/20"
               aria-label="Enviar mensaje"
             >
               {isLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" />
               ) : (
-                <Send className="w-5 h-5" />
+                <Send className="w-4 h-4 md:w-5 md:h-5" />
               )}
             </button>
           </div>
