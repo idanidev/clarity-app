@@ -3,7 +3,8 @@
 @tailwind utilities;
 
 /* ============================================
-   ESTILOS MÓVIL-FIRST PARA CAPACITOR
+   ESTILOS MÓVIL-FIRST PARA CAPACITOR iOS
+   ✅ OPTIMIZADO - Sin overscroll excesivo
    ============================================ */
 
 /* ============================================
@@ -58,6 +59,9 @@ select {
   min-height: 100dvh;
 }
 
+/* ============================================
+   HTML - BASE LAYER (sin height fijo)
+   ============================================ */
 html {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
     "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
@@ -67,11 +71,17 @@ html {
   margin: 0;
   padding: 0;
   width: 100%;
-  height: 100%;
+  /* ❌ NO height: 100% - causa overscroll en iOS */
   /* ✅ CRÍTICO: Fondo oscuro desde el inicio para evitar espacios blancos */
   background-color: #0f172a !important;
+  /* ✅ CRÍTICO: Prevenir overscroll bounce en iOS */
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
 }
 
+/* ============================================
+   BODY - MAIN CONTAINER (sin altura fija)
+   ============================================ */
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
     "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
@@ -81,7 +91,7 @@ body {
   margin: 0;
   padding: 0;
   width: 100%;
-  height: 100%;
+  /* ❌ NO min-height ni height - deja que el contenido defina la altura */
   /* ✅ CRÍTICO: Fondo oscuro desde el inicio */
   background-color: #0f172a !important;
   color: #f3f4f6;
@@ -89,9 +99,17 @@ body {
   padding-top: env(safe-area-inset-top, 0);
   /* ❌ NO padding bottom - lo maneja la barra de navegación */
   padding-bottom: 0;
+  /* ✅ CRÍTICO: Prevenir overscroll bounce en iOS */
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
+  -webkit-overflow-scrolling: touch;
+  /* ✅ CRÍTICO: Prevenir scroll extra */
+  position: relative;
 }
 
-/* Fondo dinámico según modo oscuro/claro - aplicado al body */
+/* ============================================
+   MODOS CLARO/OSCURO
+   ============================================ */
 body.dark-mode {
   background-color: #0f172a !important; /* slate-900 - mismo que status bar */
   color: #f3f4f6;
@@ -103,49 +121,27 @@ body.light-mode {
     #faf5ff,
     #fdf2f8,
     #eff6ff
-  ); /* purple-50, pink-50, blue-50 */
+  ) !important; /* purple-50, pink-50, blue-50 */
   color: #1f2937;
 }
 
+/* ============================================
+   ROOT CONTAINER (altura automática)
+   ============================================ */
 #root {
-  min-height: 100vh;
+  /* ❌ NO min-height: 100vh - causa overscroll en iOS */
+  /* ✅ Altura automática según contenido */
   width: 100%;
   /* ✅ Asegurar fondo oscuro en el root también */
-  background-color: #0f172a;
-  /* ✅ Asegurar que el fondo cubra todo el scroll */
+  background-color: #0f172a !important;
+  /* ✅ Prevenir overscroll bounce */
+  overscroll-behavior: none;
   position: relative;
 }
 
-/* ✅ Asegurar que el fondo cubra todo el scroll en iOS */
-body.dark-mode #root {
-  background-color: #0f172a !important;
-  min-height: 100vh;
-  height: auto;
-}
-
-/* ✅ CRÍTICO: Asegurar que NO haya espacios blancos al final del scroll */
-body.dark-mode {
-  background-color: #0f172a !important;
-  min-height: 100vh;
-  height: 100%;
-}
-
-/* ✅ CRÍTICO: Asegurar que el html también tenga fondo oscuro */
-html.dark,
-html[class*="dark"] {
-  background-color: #0f172a !important;
-}
-
-/* ✅ Asegurar que html también tenga fondo */
-html {
-  background-color: #0f172a !important;
-}
-
-body.dark-mode html {
-  background-color: #0f172a !important;
-}
-
-/* Scrollbar personalizado */
+/* ============================================
+   SCROLLBAR PERSONALIZADO
+   ============================================ */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -173,7 +169,9 @@ body.dark-mode html {
   background: rgba(167, 139, 250, 0.5);
 }
 
-/* Input type month - mejor visibilidad */
+/* ============================================
+   INPUT STYLES
+   ============================================ */
 input[type="month"] {
   color-scheme: light;
 }
@@ -182,12 +180,36 @@ input[type="month"] {
   color-scheme: dark;
 }
 
-/* Select mejorado para modo oscuro */
 .dark select {
   color-scheme: dark;
 }
 
-/* Animaciones personalizadas */
+input[type="date"],
+input[type="month"] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+/* Prevenir zoom automático en móviles cuando se enfoca un input */
+input,
+textarea,
+select {
+  font-size: 16px !important;
+}
+
+/* Para pantallas grandes, permitir tamaños más pequeños */
+@media (min-width: 640px) {
+  input,
+  textarea,
+  select {
+    font-size: inherit !important;
+  }
+}
+
+/* ============================================
+   ANIMACIONES PERSONALIZADAS
+   ============================================ */
 @keyframes slideInFromTop {
   from {
     opacity: 0;
@@ -221,12 +243,40 @@ input[type="month"] {
   }
 }
 
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 .animate-in {
   animation: slideInFromTop 0.3s ease-out;
   animation-fill-mode: both;
 }
 
-/* Mejoras para móvil */
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+/* ============================================
+   OPTIMIZACIONES MÓVIL
+   ============================================ */
 @media (max-width: 640px) {
   /* Mejor feedback táctil */
   button,
@@ -247,7 +297,9 @@ input[type="month"] {
   }
 }
 
-/* Focus visible mejorado */
+/* ============================================
+   FOCUS VISIBLE
+   ============================================ */
 *:focus-visible {
   outline: 2px solid rgba(139, 92, 246, 0.5);
   outline-offset: 2px;
@@ -257,30 +309,9 @@ input[type="month"] {
   outline: 2px solid rgba(167, 139, 250, 0.5);
 }
 
-input[type="date"],
-input[type="month"] {
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-}
-
-/* Prevenir zoom automático en móviles cuando se enfoca un input */
-input,
-textarea,
-select {
-  font-size: 16px !important;
-}
-
-/* Para pantallas grandes, permitir tamaños más pequeños */
-@media (min-width: 640px) {
-  input,
-  textarea,
-  select {
-    font-size: inherit !important;
-  }
-}
-
-/* Utilidad para ocultar scrollbar */
+/* ============================================
+   UTILIDADES
+   ============================================ */
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -298,7 +329,9 @@ select {
   }
 }
 
-/* Safe area support for mobile devices */
+/* ============================================
+   SAFE AREA SUPPORT
+   ============================================ */
 @supports (padding: max(0px)) {
   .pb-safe {
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
@@ -334,19 +367,9 @@ select {
   padding-right: max(1rem, env(safe-area-inset-right, 0px));
 }
 
-/* Animación para notificaciones */
-@keyframes slideInFromRight {
-  from {
-    opacity: 0;
-    transform: translateX(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-/* Fix para iOS - notificaciones fijas */
+/* ============================================
+   FIX iOS NOTIFICACIONES
+   ============================================ */
 @supports (-webkit-touch-callout: none) {
   /* iOS específico - forzar notificaciones a estar fijas */
   [role="status"] {
@@ -359,40 +382,24 @@ select {
   }
 }
 
-/* Animación para bottom sheet */
-@keyframes slideUp {
-  from {
-    transform: translateY(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
+/* ============================================
+   BARRA DE NAVEGACIÓN + SAFE AREAS iOS
+   ✅ OPTIMIZADO - Configuración definitiva
+   ============================================ */
 
-.animate-slide-up {
-  animation: slideUp 0.3s ease-out;
-}
-
-/* ================================================
-   FIX: Barra de Navegación + Safe Areas iOS
-   ✅ SIMPLIFICADO - Solo reglas esenciales
-   ================================================ */
-
-/* ✅ SOLO padding para el home indicator en la barra de navegación */
+/* ✅ Barra de navegación fija - Solo padding safe area */
 .fixed.bottom-0.z-50 {
   padding-bottom: env(safe-area-inset-bottom, 0) !important;
 }
 
-/* ✅ Contenido principal - espacio para la barra (72px de barra + safe area) */
+/* ✅ Contenido principal - Espacio suficiente para la barra */
 .main-content {
-  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0)) !important;
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0)) !important;
 }
 
-/* ================================================
-   OPTIMIZACIONES PARA BOTTOMSHEET
-   ================================================ */
+/* ============================================
+   OPTIMIZACIONES BOTTOM SHEET
+   ============================================ */
 
 /* Hardware acceleration para BottomSheet */
 .bottom-sheet,
@@ -402,7 +409,6 @@ select {
   -webkit-transform: translateZ(0);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-
   /* Smooth animations */
   will-change: transform;
 }

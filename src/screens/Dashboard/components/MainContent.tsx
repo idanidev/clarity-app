@@ -521,9 +521,7 @@ const MainContent = memo<MainContentProps>(
       <div
         className="max-w-7xl mx-auto px-2 md:px-4 py-2 md:py-6"
         style={{
-          // ✅ Padding mínimo: solo altura de la barra (~4.5rem) + safe area
-          paddingBottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px))",
-          // ✅ Fondo oscuro que cubre TODO
+          paddingBottom: "calc(5.5rem + env(safe-area-inset-bottom, 0px))",
           backgroundColor: darkMode ? "#0f172a" : "transparent",
         }}
       >
@@ -1209,6 +1207,7 @@ const MainContent = memo<MainContentProps>(
             paddingTop: "0.5rem",
             paddingLeft: "0.5rem",
             paddingRight: "0.5rem",
+            paddingBottom: "env(safe-area-inset-bottom, 0px)",
           }}
         >
           <div
@@ -1228,9 +1227,6 @@ const MainContent = memo<MainContentProps>(
           >
             <div
               className="grid grid-cols-5 gap-0.5 p-1.5"
-              style={{
-                paddingBottom: "env(safe-area-inset-bottom, 0px)", // ✅ SOLO AQUÍ
-              }}
             >
               <button
                 onClick={() => handleViewChange("table")}
