@@ -71,20 +71,40 @@ const checkMicrophonePermission = async (): Promise<PermissionStatus> => {
     return 'unsupported';
   }
 
-  try {
-    // En algunos navegadores, necesitamos intentar acceder para verificar
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    stream.getTracks().forEach(track => track.stop());
-    return 'granted';
-  } catch (error: any) {
-    if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+  // ✅ PRIMERO: Intentar usar la API de Permissions (no dispara diálogo)
+  if ('permissions' in navigator) {
+    try {
+      const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+      if (result.state === 'granted') return 'granted';
+      if (result.state === 'denied') return 'denied';
+      // Si es 'prompt', no intentar getUserMedia automáticamente
+      return 'prompt';
+    } catch (e) {
+      // La API de Permissions no está disponible o no soporta 'microphone'
+      // Continuar con el método alternativo
+    }
+  }
+
+  // ✅ SEGUNDO: Verificar estado guardado en localStorage antes de intentar acceso
+  const stored = getStoredState();
+  if (stored.microphone) {
+    // Si el estado guardado dice que está concedido, verificar sin disparar diálogo
+    if (stored.microphone.status === 'granted') {
+      // Solo verificar silenciosamente si el permiso realmente sigue siendo válido
+      // No llamar a getUserMedia aquí para evitar el diálogo
+      return 'granted';
+    }
+    // Si está denegado permanentemente, no intentar
+    if (stored.microphone.permanentlyDenied) {
       return 'denied';
     }
-    if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-      return 'unsupported';
-    }
-    return 'prompt';
+    // Si el estado guardado es 'prompt' o 'denied', no intentar acceso automático
+    return stored.microphone.status;
   }
+
+  // ✅ TERCERO: Si no hay estado guardado, retornar 'prompt' sin intentar acceso
+  // Esto evita disparar el diálogo automáticamente
+  return 'prompt';
 };
 
 const checkNotificationPermission = (): PermissionStatus => {
@@ -137,7 +157,44 @@ export const usePermissions = (userId?: string): UsePermissionsReturn => {
   // Cargar estado inicial
   useEffect(() => {
     const checkPermissions = async () => {
-      const micStatus = await checkMicrophonePermission();
+      // ✅ PRIMERO: Cargar estado guardado sin verificar permisos reales
+      const stored = getStoredState();
+      
+      // Si hay un estado guardado y dice que está concedido, confiar en él
+      // Solo verificar el permiso real si el estado guardado es 'prompt' o no existe
+      let micStatus: PermissionStatus = stored.microphone?.status || 'prompt';
+      
+      // ✅ NUNCA verificar permisos automáticamente al cargar
+      // Solo usar el estado guardado para evitar disparar el diálogo
+      if (stored.microphone) {
+        // Si hay estado guardado, usarlo directamente
+        micStatus = stored.microphone.status;
+        
+        // Solo verificar silenciosamente si está guardado como 'granted'
+        // para detectar si el usuario revocó el permiso manualmente
+        if (stored.microphone.status === 'granted' && 'permissions' in navigator) {
+          try {
+            const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+            // Solo actualizar si cambió a 'denied' (usuario revocó el permiso)
+            if (result.state === 'denied') {
+              micStatus = 'denied';
+              // Actualizar el estado guardado
+              const updatedState = { ...stored.microphone, status: 'denied' };
+              stored.microphone = updatedState;
+              saveStoredState(stored);
+            }
+            // Si es 'granted' o 'prompt', mantener el estado guardado
+          } catch {
+            // Si la API no está disponible, confiar en el estado guardado
+            // No hacer nada
+          }
+        }
+      } else {
+        // Si no hay estado guardado, retornar 'prompt' sin verificar
+        // Esto evita disparar el diálogo automáticamente
+        micStatus = 'prompt';
+      }
+
       const notifStatus = checkNotificationPermission();
 
       setMicrophoneState(prev => ({ ...prev, status: micStatus }));
@@ -159,13 +216,20 @@ export const usePermissions = (userId?: string): UsePermissionsReturn => {
 
     checkPermissions();
 
-    // Escuchar cambios de permisos
+    // Escuchar cambios de permisos (solo si la API está disponible)
     if ('permissions' in navigator) {
       navigator.permissions.query({ name: 'microphone' as PermissionName })
         .then(result => {
           result.onchange = async () => {
-            const status = await checkMicrophonePermission();
-            setMicrophoneState(prev => ({ ...prev, status }));
+            // ✅ Solo actualizar si el estado cambió, sin verificar de nuevo
+            const newStatus = result.state as PermissionStatus;
+            setMicrophoneState(prev => {
+              // Solo actualizar si realmente cambió
+              if (prev.status !== newStatus) {
+                return { ...prev, status: newStatus };
+              }
+              return prev;
+            });
           };
         })
         .catch(() => {

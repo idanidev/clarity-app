@@ -437,6 +437,7 @@ const VoiceExpenseButton = ({
       } else {
         console.log("[Voice] Starting web recognition");
         try {
+          // ✅ Verificar estado del permiso primero
           const micStatus = microphone.status;
           console.log("[Voice] Microphone permission status:", micStatus);
 
@@ -446,6 +447,16 @@ const VoiceExpenseButton = ({
               "error"
             );
             return;
+          }
+
+          // ✅ Si el permiso no está concedido, solicitarlo SOLO cuando el usuario presiona el botón
+          if (micStatus !== "granted") {
+            console.log("[Voice] Requesting microphone permission...");
+            const granted = await microphone.request();
+            if (!granted) {
+              showNotification?.("❌ Permiso de micrófono necesario para usar la voz", "error");
+              return;
+            }
           }
 
           setTranscript("");
