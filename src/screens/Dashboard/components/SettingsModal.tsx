@@ -293,67 +293,71 @@ const SettingsModal = ({
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="px-6 pt-4 flex gap-2 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
-          <button
-            onClick={() => setActiveTab("general")}
-            className={`px-4 py-2 rounded-t-lg text-base font-medium transition-all whitespace-nowrap ${
-              activeTab === "general"
-                ? darkMode
-                  ? "bg-gray-700 text-white border-b-2 border-purple-500"
-                  : "bg-purple-50 text-purple-600 border-b-2 border-purple-500"
-                : darkMode
-                ? "text-gray-400 hover:text-gray-200"
-                : "text-gray-600 hover:text-purple-600"
-            }`}
-          >
-            {t("settings.general")}
-          </button>
-          <button
-            onClick={() => setActiveTab("notifications")}
-            className={`px-4 py-2 rounded-t-lg text-base font-medium transition-all flex items-center gap-2 whitespace-nowrap ${
-              activeTab === "notifications"
-                ? darkMode
-                  ? "bg-gray-700 text-white border-b-2 border-purple-500"
-                  : "bg-purple-50 text-purple-600 border-b-2 border-purple-500"
-                : darkMode
-                ? "text-gray-400 hover:text-gray-200"
-                : "text-gray-600 hover:text-purple-600"
-            }`}
-          >
-            <Bell className="w-4 h-4" />
-            {t("settings.notifications")}
-          </button>
-          <button
-            onClick={() => setActiveTab("voice")}
-            className={`px-4 py-2 rounded-t-lg text-base font-medium transition-all flex items-center gap-2 whitespace-nowrap ${
-              activeTab === "voice"
-                ? darkMode
-                  ? "bg-gray-700 text-white border-b-2 border-purple-500"
-                  : "bg-purple-50 text-purple-600 border-b-2 border-purple-500"
-                : darkMode
-                ? "text-gray-400 hover:text-gray-200"
-                : "text-gray-600 hover:text-purple-600"
-            }`}
-          >
-            <Mic className="w-4 h-4" />
-            Voz
-          </button>
-          <button
-            onClick={() => setActiveTab("permissions")}
-            className={`px-4 py-2 rounded-t-lg text-base font-medium transition-all flex items-center gap-2 whitespace-nowrap ${
-              activeTab === "permissions"
-                ? darkMode
-                  ? "bg-gray-700 text-white border-b-2 border-purple-500"
-                  : "bg-purple-50 text-purple-600 border-b-2 border-purple-500"
-                : darkMode
-                ? "text-gray-400 hover:text-gray-200"
-                : "text-gray-600 hover:text-purple-600"
-            }`}
-          >
-            <Shield className="w-4 h-4" />
-            Permisos
-          </button>
+        {/* Tabs - Diseño moderno mejorado */}
+        <div className={`px-4 sm:px-6 pt-4 pb-0 border-b ${
+          darkMode ? "border-gray-700" : "border-gray-200"
+        }`}>
+          <div className="flex gap-1 sm:gap-2 overflow-x-auto scrollbar-hide -mx-4 sm:-mx-6 px-4 sm:px-6">
+            <button
+              onClick={() => setActiveTab("general")}
+              className={`px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-all whitespace-nowrap flex items-center justify-center min-h-[44px] ${
+                activeTab === "general"
+                  ? darkMode
+                    ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
+                    : "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
+                  : darkMode
+                  ? "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
+                  : "text-gray-600 hover:text-purple-600 hover:bg-purple-50"
+              }`}
+            >
+              {t("settings.general")}
+            </button>
+            <button
+              onClick={() => setActiveTab("notifications")}
+              className={`px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-all flex items-center gap-2 whitespace-nowrap justify-center min-h-[44px] ${
+                activeTab === "notifications"
+                  ? darkMode
+                    ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
+                    : "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
+                  : darkMode
+                  ? "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
+                  : "text-gray-600 hover:text-purple-600 hover:bg-purple-50"
+              }`}
+            >
+              <Bell className="w-4 h-4" />
+              {t("settings.notifications")}
+            </button>
+            <button
+              onClick={() => setActiveTab("voice")}
+              className={`px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-all flex items-center gap-2 whitespace-nowrap justify-center min-h-[44px] ${
+                activeTab === "voice"
+                  ? darkMode
+                    ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
+                    : "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
+                  : darkMode
+                  ? "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
+                  : "text-gray-600 hover:text-purple-600 hover:bg-purple-50"
+              }`}
+            >
+              <Mic className="w-4 h-4" />
+              Voz
+            </button>
+            <button
+              onClick={() => setActiveTab("permissions")}
+              className={`px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-all flex items-center gap-2 whitespace-nowrap justify-center min-h-[44px] ${
+                activeTab === "permissions"
+                  ? darkMode
+                    ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
+                    : "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
+                  : darkMode
+                  ? "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
+                  : "text-gray-600 hover:text-purple-600 hover:bg-purple-50"
+              }`}
+            >
+              <Shield className="w-4 h-4" />
+              Permisos
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-6 pb-24 space-y-6">
@@ -437,14 +441,21 @@ const SettingsModal = ({
                   </div>
                   <button
                     onClick={toggleDarkMode}
-                    className={`relative w-12 h-6 sm:w-14 sm:h-7 rounded-full transition-colors flex-shrink-0 ${
-                      darkMode ? "bg-purple-600" : "bg-gray-300"
-                    }`}
+                    className={`relative w-14 h-7 sm:w-16 sm:h-8 rounded-full transition-all duration-300 flex-shrink-0 shadow-inner ${
+                      darkMode 
+                        ? "bg-gradient-to-r from-purple-600 to-purple-700 shadow-lg shadow-purple-600/50" 
+                        : "bg-gray-300"
+                    } active:scale-95`}
                   >
                     <div
-                      className={`absolute top-0.5 sm:top-1 left-0.5 sm:left-1 w-5 h-5 bg-white rounded-full transition-transform ${
-                        darkMode ? "translate-x-6 sm:translate-x-7" : ""
+                      className={`absolute top-0.5 sm:top-1 left-0.5 sm:left-1 w-6 h-6 sm:w-7 sm:h-7 bg-white rounded-full transition-all duration-300 shadow-lg ${
+                        darkMode ? "translate-x-7 sm:translate-x-8" : "translate-x-0"
                       }`}
+                      style={{
+                        boxShadow: darkMode 
+                          ? "0 2px 8px rgba(0,0,0,0.3), 0 0 0 1px rgba(139,92,246,0.2)" 
+                          : "0 2px 8px rgba(0,0,0,0.15)"
+                      }}
                     ></div>
                   </button>
                 </div>
@@ -609,14 +620,21 @@ const SettingsModal = ({
                     <button
                       onClick={handleToggleNativeNotifications}
                       disabled={checkingNativeNotifications}
-                      className={`relative w-12 h-6 sm:w-14 sm:h-7 rounded-full transition-colors flex-shrink-0 ${
-                        nativeNotificationsEnabled ? "bg-purple-600" : "bg-gray-300"
-                      } ${checkingNativeNotifications ? "opacity-50 cursor-not-allowed" : ""}`}
+                      className={`relative w-14 h-7 sm:w-16 sm:h-8 rounded-full transition-all duration-300 flex-shrink-0 shadow-inner ${
+                        nativeNotificationsEnabled 
+                          ? "bg-gradient-to-r from-purple-600 to-purple-700 shadow-lg shadow-purple-600/50" 
+                          : "bg-gray-300"
+                      } ${checkingNativeNotifications ? "opacity-50 cursor-not-allowed" : "active:scale-95"}`}
                     >
                       <div
-                        className={`absolute top-0.5 sm:top-1 left-0.5 sm:left-1 w-5 h-5 bg-white rounded-full transition-transform ${
-                          nativeNotificationsEnabled ? "translate-x-6 sm:translate-x-7" : ""
+                        className={`absolute top-0.5 sm:top-1 left-0.5 sm:left-1 w-6 h-6 sm:w-7 sm:h-7 bg-white rounded-full transition-all duration-300 shadow-lg ${
+                          nativeNotificationsEnabled ? "translate-x-7 sm:translate-x-8" : "translate-x-0"
                         }`}
+                        style={{
+                          boxShadow: nativeNotificationsEnabled 
+                            ? "0 2px 8px rgba(0,0,0,0.3), 0 0 0 1px rgba(139,92,246,0.2)" 
+                            : "0 2px 8px rgba(0,0,0,0.15)"
+                        }}
                       ></div>
                     </button>
                   </div>
@@ -655,18 +673,23 @@ const SettingsModal = ({
                         },
                       });
                     }}
-                    className={`relative w-12 h-6 sm:w-14 sm:h-7 rounded-full transition-colors flex-shrink-0 ${
+                    className={`relative w-14 h-7 sm:w-16 sm:h-8 rounded-full transition-all duration-300 flex-shrink-0 shadow-inner active:scale-95 ${
                       localNotificationSettings.weeklyReminder?.enabled
-                        ? "bg-purple-600"
+                        ? "bg-gradient-to-r from-purple-600 to-purple-700 shadow-lg shadow-purple-600/50"
                         : "bg-gray-300"
                     }`}
                   >
                     <div
-                      className={`absolute top-0.5 sm:top-1 left-0.5 sm:left-1 w-5 h-5 bg-white rounded-full transition-transform ${
+                      className={`absolute top-0.5 sm:top-1 left-0.5 sm:left-1 w-6 h-6 sm:w-7 sm:h-7 bg-white rounded-full transition-all duration-300 shadow-lg ${
                         localNotificationSettings.weeklyReminder?.enabled
-                          ? "translate-x-6 sm:translate-x-7"
-                          : ""
+                          ? "translate-x-7 sm:translate-x-8"
+                          : "translate-x-0"
                       }`}
+                      style={{
+                        boxShadow: localNotificationSettings.weeklyReminder?.enabled
+                          ? "0 2px 8px rgba(0,0,0,0.3), 0 0 0 1px rgba(139,92,246,0.2)"
+                          : "0 2px 8px rgba(0,0,0,0.15)"
+                      }}
                     ></div>
                   </button>
                 </div>
@@ -808,18 +831,23 @@ const SettingsModal = ({
                         },
                       });
                     }}
-                    className={`relative w-12 h-6 sm:w-14 sm:h-7 rounded-full transition-colors flex-shrink-0 ${
+                    className={`relative w-14 h-7 sm:w-16 sm:h-8 rounded-full transition-all duration-300 flex-shrink-0 shadow-inner active:scale-95 ${
                       localNotificationSettings.monthlyIncomeReminder?.enabled
-                        ? "bg-purple-600"
+                        ? "bg-gradient-to-r from-purple-600 to-purple-700 shadow-lg shadow-purple-600/50"
                         : "bg-gray-300"
                     }`}
                   >
                     <div
-                      className={`absolute top-0.5 sm:top-1 left-0.5 sm:left-1 w-5 h-5 bg-white rounded-full transition-transform ${
+                      className={`absolute top-0.5 sm:top-1 left-0.5 sm:left-1 w-6 h-6 sm:w-7 sm:h-7 bg-white rounded-full transition-all duration-300 shadow-lg ${
                         localNotificationSettings.monthlyIncomeReminder?.enabled
-                          ? "translate-x-6 sm:translate-x-7"
-                          : ""
+                          ? "translate-x-7 sm:translate-x-8"
+                          : "translate-x-0"
                       }`}
+                      style={{
+                        boxShadow: localNotificationSettings.monthlyIncomeReminder?.enabled
+                          ? "0 2px 8px rgba(0,0,0,0.3), 0 0 0 1px rgba(139,92,246,0.2)"
+                          : "0 2px 8px rgba(0,0,0,0.15)"
+                      }}
                     ></div>
                   </button>
                 </div>

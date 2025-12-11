@@ -58,7 +58,20 @@ select {
   min-height: 100dvh;
 }
 
-html,
+html {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  /* ✅ CRÍTICO: Fondo oscuro desde el inicio para evitar espacios blancos */
+  background-color: #0f172a !important;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
     "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
@@ -69,11 +82,14 @@ body {
   padding: 0;
   width: 100%;
   height: 100%;
+  /* ✅ CRÍTICO: Fondo oscuro desde el inicio - NO añadir padding aquí */
+  background-color: #0f172a !important;
+  color: #f3f4f6;
 }
 
 /* Fondo dinámico según modo oscuro/claro - aplicado al body */
 body.dark-mode {
-  background-color: #111827; /* gray-900 */
+  background-color: #0f172a !important; /* slate-900 - mismo que status bar */
   color: #f3f4f6;
 }
 
@@ -85,6 +101,39 @@ body.light-mode {
 #root {
   min-height: 100vh;
   width: 100%;
+  /* ✅ Asegurar fondo oscuro en el root también */
+  background-color: #0f172a;
+  /* ✅ Asegurar que el fondo cubra todo el scroll */
+  position: relative;
+}
+
+/* ✅ Asegurar que el fondo cubra todo el scroll en iOS */
+body.dark-mode #root {
+  background-color: #0f172a !important;
+  min-height: 100vh;
+  height: auto;
+}
+
+/* ✅ CRÍTICO: Asegurar que NO haya espacios blancos al final del scroll */
+body.dark-mode {
+  background-color: #0f172a !important;
+  min-height: 100vh;
+  height: 100%;
+}
+
+/* ✅ CRÍTICO: Asegurar que el html también tenga fondo oscuro */
+html.dark,
+html[class*="dark"] {
+  background-color: #0f172a !important;
+}
+
+/* ✅ Asegurar que html también tenga fondo */
+html {
+  background-color: #0f172a !important;
+}
+
+body.dark-mode html {
+  background-color: #0f172a !important;
 }
 
 

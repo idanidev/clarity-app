@@ -1106,15 +1106,19 @@ const Dashboard = ({ user }) => {
     if (darkMode) {
       document.body.classList.remove("light-mode");
       document.body.classList.add("dark-mode");
-      document.documentElement.style.backgroundColor = "#111827";
+      // ✅ Mismo color que status bar para evitar espacios blancos
+      document.documentElement.style.backgroundColor = "#0f172a";
+      document.body.style.backgroundColor = "#0f172a";
     } else {
       document.body.classList.remove("dark-mode");
       document.body.classList.add("light-mode");
       document.documentElement.style.backgroundColor = "#faf5ff";
+      document.body.style.backgroundColor = "#faf5ff";
     }
     return () => {
       document.body.classList.remove("dark-mode", "light-mode");
       document.documentElement.style.backgroundColor = "";
+      document.body.style.backgroundColor = "";
     };
   }, [darkMode]);
 
@@ -1514,7 +1518,7 @@ const Dashboard = ({ user }) => {
   // Memoizar clases CSS para evitar recálculos
   const { bgClass, cardClass, textClass, textSecondaryClass, inputClass } = useMemo(() => ({
     bgClass: darkMode
-      ? "bg-gray-900"
+      ? "bg-[#0f172a]" // ✅ Mismo color que status bar
       : "bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50",
     cardClass: darkMode
       ? "bg-gray-800 border-gray-700"
@@ -1816,7 +1820,20 @@ const Dashboard = ({ user }) => {
   }
 
   return (
-    <div className={`min-h-screen ${bgClass} transition-colors duration-300 safe-area-top safe-area-bottom`}>
+    <div 
+      className={`min-h-screen ${bgClass} transition-colors duration-300`}
+      style={{
+        backgroundColor: darkMode ? '#0f172a' : undefined,
+        minHeight: '100vh',
+        height: 'auto',
+        paddingTop: 0,
+        // ✅ CRÍTICO: Extender fondo hasta el final - incluir safe area
+        paddingBottom: darkMode ? 'env(safe-area-inset-bottom, 0px)' : 0,
+        // ✅ Asegurar que el fondo cubra todo el scroll
+        position: 'relative',
+        backgroundImage: darkMode ? 'none' : undefined,
+      }}
+    >
       <Header
         darkMode={darkMode}
         textClass={textClass}

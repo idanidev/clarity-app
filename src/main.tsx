@@ -1,10 +1,17 @@
 // src/main.tsx
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { Capacitor } from '@capacitor/core';
+import { setupStatusBar } from './utils/statusBar';
 import App from "./App";
 import "./index.css";
 import "./styles/animations.css";
 import "./styles/mobile.css";
+
+// Configurar StatusBar antes de renderizar (solo en apps nativas)
+if (Capacitor.isNativePlatform()) {
+  setupStatusBar();
+}
 
 // Prevenir zoom permanente en móviles cuando se cierra el teclado
 if (typeof window !== "undefined") {
@@ -53,7 +60,6 @@ if (typeof window !== "undefined") {
   // Listener para cuando la página se muestra desde cache (iOS PWA)
   window.addEventListener("pageshow", (event: PageTransitionEvent) => {
     if (event.persisted) {
-      console.log("Página restaurada desde cache, forzando re-render");
       // Pequeño delay para asegurar que todo esté listo
       setTimeout(() => {
         // Forzar un reflow
@@ -80,8 +86,6 @@ if ("serviceWorker" in navigator && typeof window !== "undefined") {
         updateViaCache: "none", // Siempre verificar actualizaciones
       })
       .then((registration) => {
-        console.log("Service Worker registrado correctamente:", registration.scope);
-        
         // Verificar actualizaciones periódicamente (menos frecuente para iOS)
         const updateInterval = setInterval(() => {
           registration.update();
@@ -89,12 +93,10 @@ if ("serviceWorker" in navigator && typeof window !== "undefined") {
         
         // Escuchar actualizaciones del Service Worker
         registration.addEventListener("updatefound", () => {
-          console.log("Nueva versión del Service Worker encontrada");
           const newWorker = registration.installing;
           if (newWorker) {
             newWorker.addEventListener("statechange", () => {
               if (newWorker.state === "activated") {
-                console.log("Nueva versión del Service Worker activada");
                 // Solo recargar si la app está visible (evitar pantalla en blanco)
                 if (document.visibilityState === "visible") {
                   // Pequeño delay antes de recargar para evitar pantalla en blanco
@@ -107,8 +109,8 @@ if ("serviceWorker" in navigator && typeof window !== "undefined") {
           }
         });
       })
-      .catch((error) => {
-        console.error("Error al registrar Service Worker:", error);
+      .catch(() => {
+        // Error silencioso
       });
   };
 

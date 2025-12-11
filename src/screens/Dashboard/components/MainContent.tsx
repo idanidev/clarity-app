@@ -512,10 +512,12 @@ const MainContent = memo<MainContentProps>(
     // ============================================
     return (
       <div
-        className="max-w-7xl mx-auto px-2 md:px-4 py-2 md:py-6 md:pb-6"
+        className="max-w-7xl mx-auto px-2 md:px-4 py-2 md:py-6"
         style={{
-          paddingBottom:
-            "max(5.5rem, calc(5.5rem + env(safe-area-inset-bottom)))",
+          // ✅ Padding mínimo: solo altura de la barra (~4.5rem) + safe area
+          paddingBottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px))",
+          // ✅ Fondo oscuro que cubre TODO
+          backgroundColor: darkMode ? '#0f172a' : 'transparent',
         }}
       >
         {/* Estadísticas con estilo Liquid Glass - Solo en vista principal */}
@@ -756,7 +758,8 @@ const MainContent = memo<MainContentProps>(
                   style={{
                     WebkitOverflowScrolling: "touch",
                     touchAction: "pan-y",
-                    paddingBottom: "calc(2rem + env(safe-area-inset-bottom))",
+                    // ✅ Padding mínimo: solo para que no se solape con la barra
+                    paddingBottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px))",
                   }}
                 >
                   {/* Filtros rápidos */}
@@ -1192,16 +1195,22 @@ const MainContent = memo<MainContentProps>(
 
         {/* Barra inferior flotante estilo Liquid Glass para móvil */}
         <div
-          className="md:hidden fixed bottom-0 left-0 right-0 z-[100] px-2 pt-1 pointer-events-none"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-[100]"
           style={{
-            paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))",
+            // ✅ Fondo oscuro sólido
+            backgroundColor: darkMode ? '#0f172a' : '#ffffff',
+            // ✅ Padding mínimo pero suficiente para que se vea
+            paddingBottom: "env(safe-area-inset-bottom, 0px)",
+            paddingTop: "0.5rem",
+            paddingLeft: "0.5rem",
+            paddingRight: "0.5rem",
           }}
         >
           <div
             className={`max-w-md mx-auto rounded-t-2xl shadow-xl border-t border-l border-r backdrop-blur-xl pointer-events-auto ${
               darkMode
-                ? "bg-gray-900/90 border-gray-700/50"
-                : "bg-white/90 border-white/40"
+                ? "bg-gray-900/95 border-gray-700/50"
+                : "bg-white/95 border-white/40"
             }`}
             style={{
               boxShadow: darkMode
@@ -1213,10 +1222,10 @@ const MainContent = memo<MainContentProps>(
             }}
           >
             <div
-              className="grid grid-cols-5 gap-0.5 p-1"
+              className="grid grid-cols-5 gap-0.5 p-1.5"
               style={{
-                paddingBottom:
-                  "max(0.5rem, calc(0.5rem + env(safe-area-inset-bottom)))",
+                // ✅ Padding mínimo para safe area
+                paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom, 0px))",
               }}
             >
               <button

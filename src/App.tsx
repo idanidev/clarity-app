@@ -37,25 +37,24 @@ const App = () => {
   const timeoutIdRef = useRef<NodeJS.Timeout | null>(null);
   const unsubscribeRef = useRef<(() => void) | null>(null);
 
-  // Configurar Capacitor (StatusBar y SplashScreen)
+  // Configurar Capacitor (SplashScreen)
   useEffect(() => {
     if (isNative) {
       const configureCapacitor = async () => {
         try {
-          // Configurar StatusBar
-          await StatusBar.setStyle({ style: Style.Light });
-          await StatusBar.setBackgroundColor({ color: '#8B5CF6' });
+          // StatusBar ya se configura en main.tsx con setupStatusBar()
+          // Solo configuramos SplashScreen aquí
           
           // Ocultar splash después de cargar
           setTimeout(async () => {
             try {
               await SplashScreen.hide();
             } catch (error) {
-              console.warn('Error hiding splash screen:', error);
+              // Error silencioso
             }
           }, 2000);
         } catch (error) {
-          console.warn('Error configuring Capacitor:', error);
+          // Error silencioso
         }
       };
       
@@ -74,7 +73,6 @@ const App = () => {
       // Timeout de seguridad para evitar pantalla en blanco infinita
       timeoutIdRef.current = setTimeout(() => {
         if (isMountedRef.current) {
-          console.warn("Auth initialization timeout, forcing completion");
           setInitializing(false);
         }
       }, 5000); // 5 segundos máximo
@@ -82,24 +80,13 @@ const App = () => {
       unsubscribeRef.current = onAuthStateChanged(
         auth,
         (currentUser) => {
-          console.log("🔐 App.tsx - Auth state changed:", {
-            hasUser: !!currentUser,
-            userId: currentUser?.uid,
-            email: currentUser?.email,
-            isMounted: isMountedRef.current,
-          });
           if (isMountedRef.current) {
             if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
             setUser(currentUser);
             setInitializing(false);
-            console.log("✅ App.tsx - User state updated:", {
-              hasUser: !!currentUser,
-              userId: currentUser?.uid,
-            });
           }
         },
         (error) => {
-          console.error("❌ App.tsx - Auth state error:", error);
           if (isMountedRef.current) {
             if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
             setInitializing(false);
@@ -114,7 +101,6 @@ const App = () => {
     // Listener para cuando la app vuelve a estar visible (iOS PWA)
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible" && isMountedRef.current) {
-        console.log("App became visible, re-checking auth state");
         // Forzar una verificación del estado de auth
         const currentUser = auth.currentUser;
         if (currentUser) {
@@ -140,7 +126,6 @@ const App = () => {
     const handlePageShow = (event: PageTransitionEvent) => {
       // Si la página se muestra desde cache (iOS PWA), re-inicializar
       if (event.persisted && isMountedRef.current) {
-        console.log("Page shown from cache, re-initializing");
         setInitializing(true);
         initializeAuth();
       }
@@ -149,7 +134,6 @@ const App = () => {
     // Listener para cuando la app se reactiva (iOS específico)
     const handleFocus = () => {
       if (isMountedRef.current) {
-        console.log("App focused, checking auth state");
         const currentUser = auth.currentUser;
         setUser((prevUser) => {
           if (currentUser !== prevUser) {
@@ -169,7 +153,6 @@ const App = () => {
     // Listener para cuando la app se restaura desde cache (iOS PWA)
     const handleAppRestored = () => {
       if (isMountedRef.current) {
-        console.log("App restored from cache, re-initializing");
         setInitializing(true);
         initializeAuth();
       }
@@ -196,7 +179,7 @@ const App = () => {
       try {
         await saveUserLanguage(user.uid, language);
       } catch (error) {
-        console.error("Error saving language:", error);
+        // Error silencioso
       }
     }
   };

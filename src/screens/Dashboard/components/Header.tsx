@@ -74,6 +74,13 @@ const Header = memo<HeaderProps>(({
   return (
     <div
       className={`${headerClasses} backdrop-blur-md border-b ${borderClasses} sticky top-0 z-40`}
+      style={{
+        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)',
+        marginTop: 0,
+        top: 0,
+        // ✅ Asegurar fondo oscuro en el header para iOS
+        backgroundColor: darkMode ? 'rgba(15, 23, 42, 0.95)' : undefined,
+      }}
     >
       <div className="max-w-7xl mx-auto px-2 sm:px-4 py-3 sm:py-4">
         <div className="flex justify-between items-center gap-2">
