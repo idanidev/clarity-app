@@ -22,9 +22,16 @@ import {
   Target,
   // UtensilsCrossed,
   Wallet,
-  X
+  X,
 } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+} from "react";
 import { getTransition } from "../../../config/framerMotion";
 import { useTranslation } from "../../../contexts/LanguageContext";
 import { formatCurrency } from "../../../utils/currency";
@@ -45,7 +52,7 @@ import {
   ResponsiveContainer,
   Tooltip,
   XAxis,
-  YAxis
+  YAxis,
 } from "recharts";
 import VoiceExpenseButton from "./VoiceExpenseButton.tsx";
 
@@ -517,7 +524,7 @@ const MainContent = memo<MainContentProps>(
           // ✅ Padding mínimo: solo altura de la barra (~4.5rem) + safe area
           paddingBottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px))",
           // ✅ Fondo oscuro que cubre TODO
-          backgroundColor: darkMode ? '#0f172a' : 'transparent',
+          backgroundColor: darkMode ? "#0f172a" : "transparent",
         }}
       >
         {/* Estadísticas con estilo Liquid Glass - Solo en vista principal */}
@@ -759,7 +766,8 @@ const MainContent = memo<MainContentProps>(
                     WebkitOverflowScrolling: "touch",
                     touchAction: "pan-y",
                     // ✅ Padding mínimo: solo para que no se solape con la barra
-                    paddingBottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px))",
+                    paddingBottom:
+                      "calc(4.5rem + env(safe-area-inset-bottom, 0px))",
                   }}
                 >
                   {/* Filtros rápidos */}
@@ -1197,10 +1205,7 @@ const MainContent = memo<MainContentProps>(
         <div
           className="md:hidden fixed bottom-0 left-0 right-0 z-[100]"
           style={{
-            // ✅ Fondo oscuro sólido
-            backgroundColor: darkMode ? '#0f172a' : '#ffffff',
-            // ✅ Padding mínimo pero suficiente para que se vea
-            paddingBottom: "env(safe-area-inset-bottom, 0px)",
+            backgroundColor: darkMode ? "#0f172a" : "#ffffff",
             paddingTop: "0.5rem",
             paddingLeft: "0.5rem",
             paddingRight: "0.5rem",
@@ -1224,8 +1229,7 @@ const MainContent = memo<MainContentProps>(
             <div
               className="grid grid-cols-5 gap-0.5 p-1.5"
               style={{
-                // ✅ Padding mínimo para safe area
-                paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom, 0px))",
+                paddingBottom: "env(safe-area-inset-bottom, 0px)", // ✅ SOLO AQUÍ
               }}
             >
               <button
@@ -1761,7 +1765,9 @@ const MainContent = memo<MainContentProps>(
                                     darkMode ? "text-white" : "text-purple-900"
                                   }`}
                                 >
-                                  {clickedCategory.value ? formatCurrency(clickedCategory.value) : '€0.00'}
+                                  {clickedCategory.value
+                                    ? formatCurrency(clickedCategory.value)
+                                    : "€0.00"}
                                 </p>
                                 <p
                                   className={`text-sm ${
@@ -2520,8 +2526,7 @@ const MainContent = memo<MainContentProps>(
                             <p
                               className={`text-xs sm:text-sm ${textSecondaryClass}`}
                             >
-                              Objetivo: {formatCurrency(savingsGoal)}{" "}
-                              este mes
+                              Objetivo: {formatCurrency(savingsGoal)} este mes
                             </p>
                           </div>
                         </div>
@@ -2549,7 +2554,11 @@ const MainContent = memo<MainContentProps>(
                             <span
                               className={`text-xl sm:text-2xl ${textSecondaryClass}`}
                             >
-                              / {formatCurrency(maxSpendingAllowed).replace('.00', '')}
+                              /{" "}
+                              {formatCurrency(maxSpendingAllowed).replace(
+                                ".00",
+                                ""
+                              )}
                             </span>
                           </div>
                           <p
@@ -2842,12 +2851,19 @@ const MainContent = memo<MainContentProps>(
                                           : "text-green-500"
                                       }`}
                                     >
-                                      {formatCurrency(categoryTotal).replace('.00', '')}
+                                      {formatCurrency(categoryTotal).replace(
+                                        ".00",
+                                        ""
+                                      )}
                                     </span>
                                     <span
                                       className={`text-sm sm:text-lg ${textSecondaryClass}`}
                                     >
-                                      / {formatCurrency(goalAmount).replace('.00', '')}
+                                      /{" "}
+                                      {formatCurrency(goalAmount).replace(
+                                        ".00",
+                                        ""
+                                      )}
                                     </span>
                                   </div>
                                   <p
@@ -2962,9 +2978,13 @@ const MainContent = memo<MainContentProps>(
 
                           // Manejo seguro de datos
                           const currentAmount =
-                            typeof goal.currentAmount === 'number' ? goal.currentAmount : (parseFloat(String(goal.currentAmount)) || 0);
+                            typeof goal.currentAmount === "number"
+                              ? goal.currentAmount
+                              : parseFloat(String(goal.currentAmount)) || 0;
                           const targetAmount =
-                            typeof goal.targetAmount === 'number' ? goal.targetAmount : (parseFloat(String(goal.targetAmount)) || 0);
+                            typeof goal.targetAmount === "number"
+                              ? goal.targetAmount
+                              : parseFloat(String(goal.targetAmount)) || 0;
                           if (targetAmount === 0) return null; // No mostrar objetivos sin objetivo definido
 
                           const progress = getLongTermGoalProgress(goal);
@@ -3047,12 +3067,19 @@ const MainContent = memo<MainContentProps>(
                                           : "text-purple-600"
                                       }`}
                                     >
-                                      {formatCurrency(currentAmount).replace('.00', '')}
+                                      {formatCurrency(currentAmount).replace(
+                                        ".00",
+                                        ""
+                                      )}
                                     </span>
                                     <span
                                       className={`text-lg sm:text-xl ${textSecondaryClass}`}
                                     >
-                                      / {formatCurrency(targetAmount).replace('.00', '')}
+                                      /{" "}
+                                      {formatCurrency(targetAmount).replace(
+                                        ".00",
+                                        ""
+                                      )}
                                     </span>
                                   </div>
                                   <p
@@ -3148,7 +3175,9 @@ const MainContent = memo<MainContentProps>(
                                     <p
                                       className={`text-xs sm:text-sm font-bold ${textClass}`}
                                     >
-                                      {formatCurrency(progress.remaining).replace('.00', '')}
+                                      {formatCurrency(
+                                        progress.remaining
+                                      ).replace(".00", "")}
                                     </p>
                                   </div>
                                 </div>

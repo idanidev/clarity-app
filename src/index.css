@@ -377,37 +377,17 @@ select {
 
 /* ================================================
    FIX: Barra de Navegación + Safe Areas iOS
+   ✅ SIMPLIFICADO - Solo reglas esenciales
    ================================================ */
 
-/* Barra de navegación - FIJA al fondo */
-.fixed.bottom-0,
-[class*="bottom-nav"],
-[class*="tab-bar"],
-.tab-bar-container,
-nav.fixed.bottom-0 {
-  position: fixed !important;
-  bottom: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-
-  /* Padding para el home indicator de iOS */
-  padding-bottom: env(safe-area-inset-bottom);
-  /* Asegurar que esté encima de todo */
-  z-index: 9999 !important;
-
-  /* Fondo con blur para efecto glass */
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+/* ✅ SOLO padding para el home indicator en la barra de navegación */
+.fixed.bottom-0.z-50 {
+  padding-bottom: env(safe-area-inset-bottom, 0) !important;
 }
 
-/* Contenido principal - espacio para la barra */
-.min-h-screen,
-main,
-[class*="dashboard"],
-.dashboard-container,
+/* ✅ Contenido principal - espacio para la barra (72px de barra + safe area) */
 .main-content {
-  /* Espacio para la barra de navegación (altura barra + safe area) */
-  padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0)) !important;
+  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0)) !important;
 }
 
 /* ================================================

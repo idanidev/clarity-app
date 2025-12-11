@@ -1,35 +1,34 @@
 import { signOut, User } from "firebase/auth";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  FormEvent,
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useLanguage } from "../../contexts/LanguageContext";
 import { auth, messaging } from "../../firebase";
 import { useNotifications } from "../../hooks/useNotifications";
-import styles from "./Dashboard.module.css";
-import type { Expense, ExpenseInput } from "../../types/expense";
-import type { Categories, Budgets } from "../../types/category";
-
-// Tipo para gastos recurrentes
-interface RecurringExpense {
-  id?: string;
-  name: string;
-  amount: number | string;
-  category: string;
-  subcategory?: string;
-  dayOfMonth: number;
-  frequency: "monthly" | "quarterly" | "semiannual" | "annual";
-  paymentMethod: "Tarjeta" | "Efectivo" | "Transferencia" | "Bizum";
-  active: boolean;
-  endDate?: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
-import { exportToCSV } from "../../utils/exportUtils";
-import { hapticSuccess, hapticError, hapticMedium } from "../../utils/haptics";
 import { useStatusBar } from "../../hooks/useSafeArea";
+import {
+  trackAddExpense,
+  trackBudgetAlert,
+  trackDeleteExpense,
+  trackEditExpense,
+  trackExportCSV,
+  trackFilter,
+  trackOpenModal,
+  trackSaveGoal,
+  trackViewChange,
+} from "../../services/analyticsService";
 import {
   addExpense as addExpenseDB,
   addRecurringExpense,
   deleteExpense as deleteExpenseDB,
   deleteRecurringExpense,
-  getCategoryColor,
   getCategorySubcategories,
   getChangelogSeenVersion,
   getOnboardingStatus,
@@ -55,51 +54,59 @@ import {
   updateExpense as updateExpenseDB,
   updateRecurringExpense,
 } from "../../services/firestoreService";
-import { useLanguage } from "../../contexts/LanguageContext";
 import {
-  trackAddExpense,
-  trackDeleteExpense,
-  trackEditExpense,
-  trackExportCSV,
-  trackFilter,
-  trackOpenModal,
-  trackSaveGoal,
-  trackViewChange,
-  trackBudgetAlert,
-} from "../../services/analyticsService";
-import {
+  getNotificationPermission,
   requestNotificationPermission,
   setupForegroundMessageListener,
-  areNotificationsEnabled,
-  getNotificationPermission,
   setVAPIDKey,
 } from "../../services/pushNotificationService";
+import type {
+  ActiveView,
+  Budgets,
+  Categories,
+  DeleteContext,
+  EditingCategory,
+  EditingSubcategory,
+  Expense,
+  ExpenseDataFromAI,
+  ExpenseInput,
+  FilterPeriodType,
+  Goals,
+  NotificationSettings,
+  RecurringExpense,
+} from "../../types/dashboard";
+import { exportToCSV } from "../../utils/exportUtils";
+import { hapticError, hapticMedium, hapticSuccess } from "../../utils/haptics";
+import styles from "./Dashboard.module.css";
 // Las notificaciones push ahora se manejan desde Cloud Functions
 import {
   calculateBadges,
   calculateStreak,
-  compareWithPreviousMonth,
-  updateMonthlyHistory,
   detectNewlyCompletedGoals,
+  updateMonthlyHistory,
 } from "../../services/goalsService";
 // import CelebrationModal from "../../components/CelebrationModal"; // Comentado temporalmente
-import AchievementsSection from "../../components/AchievementsSection";
-import LongTermGoalsSection from "../../components/LongTermGoalsSection";
 // Lazy loading para componentes pesados
-const AddExpenseModal = lazy(() => import("./components/AddExpenseModal.tsx"));
+const AddExpenseModal = lazy(() => import("./components/AddExpenseModal"));
 const CategoriesModal = lazy(() => import("./components/CategoriesModal"));
 const ChangelogModal = lazy(() => import("./components/ChangelogModal"));
-const DeleteConfirmationDialog = lazy(() => import("./components/DeleteConfirmationDialog"));
+const DeleteConfirmationDialog = lazy(
+  () => import("./components/DeleteConfirmationDialog")
+);
 const EditExpenseModal = lazy(() => import("./components/EditExpenseModal"));
 const GoalsModal = lazy(() => import("./components/GoalsModal"));
-const RecurringExpensesModal = lazy(() => import("./components/RecurringExpensesModal"));
-const SettingsModal = lazy(() => import("./components/SettingsModal.tsx"));
+const RecurringExpensesModal = lazy(
+  () => import("./components/RecurringExpensesModal")
+);
+const SettingsModal = lazy(() => import("./components/SettingsModal"));
 const TipsModal = lazy(() => import("./components/TipsModal"));
 const OnboardingModal = lazy(() => import("./components/OnboardingModal"));
-const PermissionsOnboarding = lazy(() => import("../../components/PermissionsOnboarding"));
+const PermissionsOnboarding = lazy(
+  () => import("../../components/PermissionsOnboarding")
+);
 
 // Componentes que se usan siempre, sin lazy loading
-import Header from "./components/Header.tsx";
+import Header from "./components/Header";
 import MainContent from "./components/MainContent";
 import MobileMenu from "./components/MobileMenu";
 import Notification from "./components/Notification";
@@ -123,18 +130,24 @@ const Dashboard = ({ user }: DashboardProps) => {
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-  const [activeView, setActiveView] = useState<"table" | "chart" | "assistant" | "budgets" | "goals">("table");
+  const [activeView, setActiveView] = useState<ActiveView>("table");
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<{ type: string; payload: any } | null>(null);
-  
+  const [showDeleteConfirm, setShowDeleteConfirm] =
+    useState<DeleteContext | null>(null);
+
   // ✅ Usar hook de notificaciones
-  const { notification, showNotification, hideNotification, showNotificationRef } = useNotifications();
+  const {
+    notification,
+    showNotification,
+    hideNotification,
+    showNotificationRef,
+  } = useNotifications();
 
   const [darkMode, setDarkMode] = useState(false);
-  
+
   // Actualizar StatusBar cuando cambia dark mode (solo en nativo)
   useStatusBar(darkMode);
   const [showSettings, setShowSettings] = useState(false);
@@ -143,11 +156,17 @@ const Dashboard = ({ user }: DashboardProps) => {
   const [showTips, setShowTips] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showPermissionsOnboarding, setShowPermissionsOnboarding] = useState(false);
-  const [editingRecurring, setEditingRecurring] = useState<RecurringExpense | null>(null);
-  const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
-  const [changelogSeenVersion, setChangelogSeenVersion] = useState<string | null>(null);
-  
+  const [showPermissionsOnboarding, setShowPermissionsOnboarding] =
+    useState(false);
+  const [editingRecurring, setEditingRecurring] =
+    useState<RecurringExpense | null>(null);
+  const [recurringExpenses, setRecurringExpenses] = useState<
+    RecurringExpense[]
+  >([]);
+  const [changelogSeenVersion, setChangelogSeenVersion] = useState<
+    string | null
+  >(null);
+
   // Versión actual del changelog - incrementar cuando hay nuevos cambios
   const CURRENT_CHANGELOG_VERSION = "2.1.0";
   const [newRecurring, setNewRecurring] = useState<Partial<RecurringExpense>>({
@@ -162,7 +181,8 @@ const Dashboard = ({ user }: DashboardProps) => {
     endDate: "",
   });
 
-  const [filterPeriodType, setFilterPeriodType] = useState("month"); // "month" | "year" | "all"
+  const [filterPeriodType, setFilterPeriodType] =
+    useState<FilterPeriodType>("month");
   const [selectedMonth, setSelectedMonth] = useState(
     new Date().toISOString().slice(0, 7)
   );
@@ -172,22 +192,25 @@ const Dashboard = ({ user }: DashboardProps) => {
   const [selectedCategory, setSelectedCategory] = useState("all");
 
   // Handlers para filtros
-  const handleFilterPeriodTypeChange = useCallback((value) => {
-    setFilterPeriodType(value);
-    trackFilter("period", value);
-  }, []);
+  const handleFilterPeriodTypeChange = useCallback(
+    (value: FilterPeriodType) => {
+      setFilterPeriodType(value);
+      trackFilter("period", value);
+    },
+    []
+  );
 
-  const handleMonthChange = useCallback((value) => {
+  const handleMonthChange = useCallback((value: string) => {
     setSelectedMonth(value);
     trackFilter("month", value);
   }, []);
 
-  const handleYearChange = useCallback((value) => {
+  const handleYearChange = useCallback((value: string) => {
     setSelectedYear(value);
     trackFilter("year", value);
   }, []);
 
-  const handleCategoryChange = useCallback((value) => {
+  const handleCategoryChange = useCallback((value: string) => {
     setSelectedCategory(value);
     trackFilter("category", value);
   }, []);
@@ -201,6 +224,7 @@ const Dashboard = ({ user }: DashboardProps) => {
     paymentMethod: "Tarjeta",
     isRecurring: false,
     recurringId: null,
+    userId: user?.uid || "",
   });
 
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
@@ -211,43 +235,43 @@ const Dashboard = ({ user }: DashboardProps) => {
   const [newCategoryColor, setNewCategoryColor] = useState("#8B5CF6");
   const [newSubcategory, setNewSubcategory] = useState("");
   const [selectedCategoryForSub, setSelectedCategoryForSub] = useState("");
-  const [editingCategory, setEditingCategory] = useState<{ name: string; color: string } | null>(null);
-  const [editingSubcategory, setEditingSubcategory] = useState<{ category: string; oldName: string; newName: string } | null>(null);
+  const [editingCategory, setEditingCategory] =
+    useState<EditingCategory | null>(null);
+  const [editingSubcategory, setEditingSubcategory] =
+    useState<EditingSubcategory | null>(null);
 
   const [budgetCategory, setBudgetCategory] = useState("");
   const [budgetAmount, setBudgetAmount] = useState("");
 
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const [expandedCategories, setExpandedCategories] = useState<
+    Record<string, boolean>
+  >({});
 
   // Nuevos estados para ingresos, objetivos y notificaciones
   const [income, setIncome] = useState<number>(0);
-  const [goals, setGoals] = useState<{
-    totalSavingsGoal: number;
-    categoryGoals: Record<string, number>;
-  }>({
+  const [goals, setGoals] = useState<Goals>({
     totalSavingsGoal: 0,
     categoryGoals: {},
   });
-  const [notificationSettings, setNotificationSettings] = useState<{
-    budgetAlerts: { enabled: boolean; at80: boolean; at90: boolean; at100: boolean };
-    recurringReminders: { enabled: boolean };
-    customReminders: { enabled: boolean; message: string };
-    weeklyReminder: { enabled: boolean; dayOfWeek: number; message: string };
-    pushNotifications: { enabled: boolean };
-  }>({
-    budgetAlerts: { enabled: true, at80: true, at90: true, at100: true },
-    recurringReminders: { enabled: true },
-    customReminders: { enabled: true, message: "No olvides registrar tus gastos" },
-    weeklyReminder: { enabled: true, dayOfWeek: 0, message: "¡No olvides registrar tus gastos de esta semana en Clarity!" },
-    pushNotifications: { enabled: false },
-  });
+  const [notificationSettings, setNotificationSettings] =
+    useState<NotificationSettings>({
+      budgetAlerts: { enabled: true, at80: true, at90: true, at100: true },
+      recurringReminders: { enabled: true },
+      customReminders: {
+        enabled: true,
+        message: "No olvides registrar tus gastos",
+      },
+      weeklyReminder: {
+        enabled: true,
+        dayOfWeek: 0,
+        message: "¡No olvides registrar tus gastos de esta semana en Clarity!",
+      },
+      pushNotifications: { enabled: false },
+    });
   const [showGoals, setShowGoals] = useState(false);
   // const [showCelebration, setShowCelebration] = useState(false); // Comentado temporalmente
   // const [completedGoal, setCompletedGoal] = useState(null); // Comentado temporalmente
-  const [previousGoals, setPreviousGoals] = useState<{
-    totalSavingsGoal: number;
-    categoryGoals: Record<string, number>;
-  } | null>(null);
+  const [previousGoals, setPreviousGoals] = useState<Goals | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -267,22 +291,35 @@ const Dashboard = ({ user }: DashboardProps) => {
     const loadUserData = async () => {
       console.log("🚀 [loadUserData] INICIO - Usuario:", user.uid);
       console.log("🚀 [loadUserData] Email:", user.email);
-      console.log("🚀 [loadUserData] Provider:", user.providerData[0]?.providerId);
+      console.log(
+        "🚀 [loadUserData] Provider:",
+        user.providerData[0]?.providerId
+      );
 
       setLoading(true);
 
       try {
         // 🔍 LOG ANTES DE INITIALIZAR
         console.log("🔍 [loadUserData] ANTES de initializeUser");
-        
+
         await initializeUser(user.uid, {
           email: user.email,
         });
-        
+
         // 🔍 LOG DESPUÉS DE INITIALIZAR
         console.log("✅ [loadUserData] DESPUÉS de initializeUser");
 
-        const [userCategories, userBudgets, userTheme, userLanguage, changelogSeen, userIncome, userGoals, userNotificationSettings, onboardingStatus] = await Promise.all([
+        const [
+          userCategories,
+          userBudgets,
+          userTheme,
+          userLanguage,
+          changelogSeen,
+          userIncome,
+          userGoals,
+          userNotificationSettings,
+          onboardingStatus,
+        ] = await Promise.all([
           getUserCategories(user.uid),
           getUserBudgets(user.uid),
           getUserTheme(user.uid),
@@ -314,19 +351,21 @@ const Dashboard = ({ user }: DashboardProps) => {
         } else {
           // Si es null, mantener {} solo en el estado local, NO escribir a Firestore
           setCategories({});
-          console.log('[Dashboard] Usuario no tiene categorías en Firestore, usando objeto vacío en estado local');
+          console.log(
+            "[Dashboard] Usuario no tiene categorías en Firestore, usando objeto vacío en estado local"
+          );
         }
-        
+
         if (userBudgets !== null && userBudgets !== undefined) {
           setBudgets(userBudgets);
         } else {
           setBudgets({});
         }
-        
+
         // Theme siempre tiene un valor por defecto, así que está bien
         setDarkMode(userTheme === "dark");
         setChangelogSeenVersion(changelogSeen);
-        
+
         // Solo establecer ingresos si el usuario los ha configurado (no null)
         // Si es null, mantener 0 en estado local pero NO escribir a Firestore
         if (userIncome !== null && userIncome !== undefined) {
@@ -334,28 +373,44 @@ const Dashboard = ({ user }: DashboardProps) => {
         } else {
           setIncome(0);
         }
-        
+
         // Solo establecer objetivos si el usuario los ha configurado (no null)
         if (userGoals !== null && userGoals !== undefined) {
           setGoals(userGoals);
         } else {
           setGoals({ totalSavingsGoal: 0, categoryGoals: {} });
         }
-        
+
         // Notificaciones: si no existen, usar valores por defecto solo en estado local
-        setNotificationSettings(userNotificationSettings || {
-          budgetAlerts: { enabled: true, at80: true, at90: true, at100: true },
-          recurringReminders: { enabled: true },
-          customReminders: { enabled: true, message: "No olvides registrar tus gastos" },
-          weeklyReminder: { enabled: true, dayOfWeek: 0, hour: 10, message: "¡No olvides registrar tus gastos de esta semana en Clarity!" },
-          pushNotifications: { enabled: false },
-        });
-        
+        setNotificationSettings(
+          userNotificationSettings || {
+            budgetAlerts: {
+              enabled: true,
+              at80: true,
+              at90: true,
+              at100: true,
+            },
+            recurringReminders: { enabled: true },
+            customReminders: {
+              enabled: true,
+              message: "No olvides registrar tus gastos",
+            },
+            weeklyReminder: {
+              enabled: true,
+              dayOfWeek: 0,
+              hour: 10,
+              message:
+                "¡No olvides registrar tus gastos de esta semana en Clarity!",
+            },
+            pushNotifications: { enabled: false },
+          }
+        );
+
         // Inicializar idioma
         if (userLanguage) {
           initializeLanguage(userLanguage);
         }
-        
+
         // Mostrar tutorial de onboarding si el usuario aún no lo ha completado
         if (!onboardingStatus?.completed) {
           setShowOnboarding(true);
@@ -364,24 +419,31 @@ const Dashboard = ({ user }: DashboardProps) => {
           // (después de 5 segundos, no ser intrusivo)
           setTimeout(async () => {
             try {
-              const { shouldShowPermissionsOnboarding } = await import('../../services/permissionsService');
-              const shouldShow = await shouldShowPermissionsOnboarding(user.uid);
+              const { shouldShowPermissionsOnboarding } = await import(
+                "../../services/permissionsService"
+              );
+              const shouldShow = await shouldShowPermissionsOnboarding(
+                user.uid
+              );
               if (shouldShow && isMounted) {
                 setShowPermissionsOnboarding(true);
               }
             } catch (error) {
-              console.error('Error checking permissions onboarding:', error);
+              console.error("Error checking permissions onboarding:", error);
             }
           }, 5000); // 5 segundos después del login
         }
 
         // Mostrar changelog solo a usuarios que ya han completado el onboarding
-        if (onboardingStatus?.completed && changelogSeen !== CURRENT_CHANGELOG_VERSION) {
+        if (
+          onboardingStatus?.completed &&
+          changelogSeen !== CURRENT_CHANGELOG_VERSION
+        ) {
           setShowChangelog(true);
         }
 
-        const initialExpanded = {};
-        Object.keys(userCategories).forEach((cat) => {
+        const initialExpanded: Record<string, boolean> = {};
+        Object.keys(userCategories || {}).forEach((cat) => {
           initialExpanded[cat] = true;
         });
         setExpandedCategories(initialExpanded);
@@ -428,19 +490,19 @@ const Dashboard = ({ user }: DashboardProps) => {
     }
   };
 
-  const handleAddRecurring = async (e) => {
+  const handleAddRecurring = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user) return;
 
     try {
-      const recurringData = {
-        name: newRecurring.name,
-        amount: parseFloat(newRecurring.amount),
-        category: newRecurring.category,
-        subcategory: newRecurring.subcategory,
-        dayOfMonth: parseInt(newRecurring.dayOfMonth, 10),
+      const recurringData: Partial<RecurringExpense> = {
+        name: newRecurring.name || "",
+        amount: parseFloat(String(newRecurring.amount || "0")),
+        category: newRecurring.category || "",
+        subcategory: newRecurring.subcategory || "",
+        dayOfMonth: parseInt(String(newRecurring.dayOfMonth || "1"), 10),
         frequency: newRecurring.frequency || "monthly",
-        paymentMethod: newRecurring.paymentMethod,
+        paymentMethod: newRecurring.paymentMethod || "Tarjeta",
         active: true,
       };
 
@@ -469,7 +531,7 @@ const Dashboard = ({ user }: DashboardProps) => {
     }
   };
 
-  const handleUpdateRecurring = async (id, updates) => {
+  const handleUpdateRecurring = async (id: string, updates: Partial<RecurringExpense>) => {
     if (!user) return;
 
     try {
@@ -481,7 +543,7 @@ const Dashboard = ({ user }: DashboardProps) => {
     }
   };
 
-  const handleEditRecurringSubmit = async (data) => {
+  const handleEditRecurringSubmit = async (data: RecurringExpense & { id: string }) => {
     if (!user || !data) return;
 
     try {
@@ -508,7 +570,7 @@ const Dashboard = ({ user }: DashboardProps) => {
     }
   };
 
-  const handleDeleteRecurring = async (id) => {
+  const handleDeleteRecurring = async (id: string) => {
     if (!user) return;
 
     try {
@@ -519,7 +581,7 @@ const Dashboard = ({ user }: DashboardProps) => {
     }
   };
 
-  const toggleCategory = useCallback((category) => {
+  const toggleCategory = useCallback((category: string) => {
     setExpandedCategories((prev) => ({
       ...prev,
       [category]: !prev[category],
@@ -533,84 +595,96 @@ const Dashboard = ({ user }: DashboardProps) => {
       setIsOnline(true);
       showNotificationRef.current("Conexión restaurada", "success");
     };
-    
+
     const handleOffline = () => {
       console.log("📴 Sin conexión, modo offline activado");
       setIsOnline(false);
-      showNotificationRef.current("Modo offline - Los cambios se sincronizarán cuando haya conexión", "info");
+      showNotificationRef.current(
+        "Modo offline - Los cambios se sincronizarán cuando haya conexión",
+        "info"
+      );
     };
-    
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
     };
   }, []); // ✅ Sin dependencias gracias al ref
 
   // ✅ Memoizar handleAddExpense para evitar re-renders
-  const handleAddExpense = useCallback(async (e) => {
-    e.preventDefault();
-    if (!user) return;
+  const handleAddExpense = useCallback(
+    async (e: FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      if (!user) return;
 
-    try {
-      const expenseAmount = parseFloat(newExpense.amount);
-      await addExpenseDB(user.uid, {
-        ...newExpense,
-        amount: expenseAmount,
-      });
+      try {
+        const expenseAmount = parseFloat(String(newExpense.amount || "0"));
+        await addExpenseDB(user.uid, {
+          ...newExpense,
+          amount: expenseAmount,
+        });
 
-      trackAddExpense(newExpense.category, expenseAmount);
+        trackAddExpense(newExpense.category, expenseAmount);
 
-      setNewExpense({
-        name: "",
-        amount: "",
-        category: "",
-        subcategory: "",
-        date: new Date().toISOString().slice(0, 10),
-        paymentMethod: "Tarjeta",
-        isRecurring: false,
-        recurringId: null,
-      });
+        setNewExpense({
+          name: "",
+          amount: "",
+          category: "",
+          subcategory: "",
+          date: new Date().toISOString().slice(0, 10),
+          paymentMethod: "Tarjeta",
+          isRecurring: false,
+          recurringId: null,
+        });
 
-      setShowAddExpense(false);
-      hapticSuccess();
-      showNotification("Gasto añadido correctamente");
-    } catch (error) {
-      hapticError();
-      showNotification("Error al añadir el gasto", "error");
-    } finally {
-      setIsSavingExpense(false);
-    }
-  }, [user, newExpense, showNotification]);
+        setShowAddExpense(false);
+        hapticSuccess();
+        showNotification("Gasto añadido correctamente");
+      } catch (error) {
+        hapticError();
+        showNotification("Error al añadir el gasto", "error");
+      } finally {
+        setIsSavingExpense(false);
+      }
+    },
+    [user, newExpense, showNotification]
+  );
 
   // Función wrapper para añadir gastos desde el AI Assistant
-  const handleAddExpenseFromAI = useCallback(async (expenseData) => {
-    if (!user) return;
+  const handleAddExpenseFromAI = useCallback(
+    async (expenseData: ExpenseDataFromAI) => {
+      if (!user) return;
 
-    try {
-      const expenseAmount = parseFloat(expenseData.amount);
-      await addExpenseDB(user.uid, {
-        name: expenseData.name || expenseData.description || "Gasto añadido desde chat",
-        amount: expenseAmount,
-        category: expenseData.category,
-        subcategory: expenseData.subcategory || "",
-        date: expenseData.date || new Date().toISOString().slice(0, 10),
-        paymentMethod: expenseData.paymentMethod || "Tarjeta",
-        isRecurring: false,
-        recurringId: null,
-      });
+      try {
+        const expenseAmount = parseFloat(String(expenseData.amount || "0"));
+        await addExpenseDB(user.uid, {
+          name:
+            expenseData.name ||
+            expenseData.description ||
+            "Gasto añadido desde chat",
+          amount: expenseAmount,
+          category: expenseData.category,
+          subcategory: expenseData.subcategory || "",
+          date: expenseData.date || new Date().toISOString().slice(0, 10),
+          paymentMethod: expenseData.paymentMethod || "Tarjeta",
+          isRecurring: false,
+          recurringId: null,
+        });
 
-      trackAddExpense(expenseData.category, expenseAmount);
-      // No mostrar notificación aquí, el AIAssistant lo maneja visualmente
-    } catch (error) {
-      console.error("Error añadiendo gasto desde AI:", error);
-      throw error;
-    }
-  }, [user]);
+        trackAddExpense(expenseData.category, expenseAmount);
+        // No mostrar notificación aquí, el AIAssistant lo maneja visualmente
+      } catch (error) {
+        console.error("Error añadiendo gasto desde AI:", error);
+        throw error;
+      }
+    },
+    [user]
+  );
 
-  const handleUpdateExpense = async (e) => {
+  const handleUpdateExpense = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user || !editingExpense || isUpdatingExpense) return;
 
@@ -618,7 +692,7 @@ const Dashboard = ({ user }: DashboardProps) => {
       setIsUpdatingExpense(true);
       await updateExpenseDB(user.uid, editingExpense.id, {
         name: editingExpense.name,
-        amount: parseFloat(editingExpense.amount),
+        amount: parseFloat(String(editingExpense.amount || "0")),
         category: editingExpense.category,
         subcategory: editingExpense.subcategory,
         date: editingExpense.date,
@@ -637,7 +711,7 @@ const Dashboard = ({ user }: DashboardProps) => {
     }
   };
 
-  const handleDeleteExpense = async (id) => {
+  const handleDeleteExpense = async (id: string) => {
     if (!user) return;
 
     try {
@@ -652,11 +726,11 @@ const Dashboard = ({ user }: DashboardProps) => {
     }
   };
 
-  const handleEditExpense = (expense) => {
+  const handleEditExpense = (expense: Expense) => {
     setEditingExpense(expense);
   };
 
-  const handleAddCategory = async (e) => {
+  const handleAddCategory = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user || !newCategory.trim()) return;
 
@@ -694,7 +768,7 @@ const Dashboard = ({ user }: DashboardProps) => {
     }
   };
 
-  const handleAddSubcategory = async (e) => {
+  const handleAddSubcategory = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user || !selectedCategoryForSub || !newSubcategory.trim()) return;
 
@@ -702,7 +776,7 @@ const Dashboard = ({ user }: DashboardProps) => {
       const categoryData = categories[selectedCategoryForSub];
       const subcategories = getCategorySubcategories(categoryData);
       const color = categoryData?.color || "#8B5CF6";
-      
+
       const updatedCategories = {
         ...categories,
         [selectedCategoryForSub]: {
@@ -720,7 +794,7 @@ const Dashboard = ({ user }: DashboardProps) => {
     }
   };
 
-  const handleDeleteCategory = async (category) => {
+  const handleDeleteCategory = async (category: string) => {
     if (!user) return;
 
     // Verificar gastos asociados
@@ -734,7 +808,9 @@ const Dashboard = ({ user }: DashboardProps) => {
     }
 
     // Verificar gastos recurrentes asociados
-    const hasRecurring = recurringExpenses.some((rec) => rec.category === category);
+    const hasRecurring = recurringExpenses.some(
+      (rec) => rec.category === category
+    );
     if (hasRecurring) {
       showNotification(
         "No puedes eliminar una categoría que tiene gastos recurrentes asociados",
@@ -758,7 +834,10 @@ const Dashboard = ({ user }: DashboardProps) => {
     }
   };
 
-  const handleDeleteSubcategory = async (category, subcategory) => {
+  const handleDeleteSubcategory = async (
+    category: string,
+    subcategory: string
+  ) => {
     if (!user) return;
 
     // Verificar gastos asociados
@@ -794,7 +873,7 @@ const Dashboard = ({ user }: DashboardProps) => {
 
       const subcategories = getCategorySubcategories(categoryData);
       const color = categoryData?.color || "#8B5CF6";
-      
+
       const updatedCategories = {
         ...categories,
         [category]: {
@@ -814,7 +893,11 @@ const Dashboard = ({ user }: DashboardProps) => {
     }
   };
 
-  const handleEditCategory = async (oldCategoryName, newCategoryName, newColor) => {
+  const handleEditCategory = async (
+    oldCategoryName: string,
+    newCategoryName: string,
+    newColor: string
+  ) => {
     if (!user || !oldCategoryName || !newCategoryName.trim()) return;
 
     // Validar que el nuevo nombre no exista (case-insensitive)
@@ -824,7 +907,10 @@ const Dashboard = ({ user }: DashboardProps) => {
         (cat) => cat.toLowerCase() === newNameTrimmed.toLowerCase()
       );
       if (existingCategory) {
-        showNotification(`Ya existe una categoría con ese nombre: "${existingCategory}"`, "error");
+        showNotification(
+          `Ya existe una categoría con ese nombre: "${existingCategory}"`,
+          "error"
+        );
         return;
       }
     }
@@ -835,18 +921,18 @@ const Dashboard = ({ user }: DashboardProps) => {
         showNotification("Categoría no encontrada", "error");
         return;
       }
-      
+
       const subcategories = getCategorySubcategories(categoryData);
-      
+
       // Crear objeto con todas las categorías actualizadas
       const updatedCategories = { ...categories };
       const updatedBudgets = { ...budgets };
-      
+
       // Si el nombre cambió, necesitamos actualizar gastos, presupuestos y gastos recurrentes
       if (oldCategoryName !== newNameTrimmed) {
         // Eliminar la categoría antigua del objeto
         delete updatedCategories[oldCategoryName];
-        
+
         // Actualizar presupuestos si la categoría tiene uno
         if (budgets[oldCategoryName]) {
           updatedBudgets[newNameTrimmed] = budgets[oldCategoryName];
@@ -854,24 +940,24 @@ const Dashboard = ({ user }: DashboardProps) => {
           await saveBudgets(user.uid, updatedBudgets);
           setBudgets(updatedBudgets);
         }
-        
+
         // Actualizar gastos con el nuevo nombre de categoría
         const expensesToUpdate = expenses.filter(
           (exp) => exp.category === oldCategoryName
         );
-        
+
         for (const expense of expensesToUpdate) {
           await updateExpenseDB(user.uid, expense.id, {
             ...expense,
             category: newNameTrimmed,
           });
         }
-        
+
         // Actualizar gastos recurrentes con el nuevo nombre de categoría
         const recurringToUpdate = recurringExpenses.filter(
           (rec) => rec.category === oldCategoryName
         );
-        
+
         for (const recurring of recurringToUpdate) {
           await updateRecurringExpense(user.uid, recurring.id, {
             ...recurring,
@@ -879,7 +965,7 @@ const Dashboard = ({ user }: DashboardProps) => {
           });
         }
       }
-      
+
       // Añadir/actualizar categoría con los nuevos datos
       updatedCategories[newNameTrimmed] = {
         subcategories: subcategories,
@@ -899,8 +985,18 @@ const Dashboard = ({ user }: DashboardProps) => {
     }
   };
 
-  const handleEditSubcategory = async (categoryName, oldSubcategoryName, newSubcategoryName) => {
-    if (!user || !categoryName || !oldSubcategoryName || !newSubcategoryName.trim()) return;
+  const handleEditSubcategory = async (
+    categoryName: string,
+    oldSubcategoryName: string,
+    newSubcategoryName: string
+  ) => {
+    if (
+      !user ||
+      !categoryName ||
+      !oldSubcategoryName ||
+      !newSubcategoryName.trim()
+    )
+      return;
 
     // Validar que el nuevo nombre no exista (case-insensitive)
     const newNameTrimmed = newSubcategoryName.trim();
@@ -911,7 +1007,10 @@ const Dashboard = ({ user }: DashboardProps) => {
         (sub) => sub.toLowerCase() === newNameTrimmed.toLowerCase()
       );
       if (existingSubcategory) {
-        showNotification(`Ya existe una subcategoría con ese nombre: "${existingSubcategory}"`, "error");
+        showNotification(
+          `Ya existe una subcategoría con ese nombre: "${existingSubcategory}"`,
+          "error"
+        );
         return;
       }
     }
@@ -924,7 +1023,7 @@ const Dashboard = ({ user }: DashboardProps) => {
       }
 
       const subcategories = getCategorySubcategories(categoryData);
-      const updatedSubcategories = subcategories.map(sub => 
+      const updatedSubcategories = subcategories.map((sub) =>
         sub === oldSubcategoryName ? newNameTrimmed : sub
       );
 
@@ -938,7 +1037,9 @@ const Dashboard = ({ user }: DashboardProps) => {
 
       // Actualizar gastos con el nuevo nombre de subcategoría
       const expensesToUpdate = expenses.filter(
-        (exp) => exp.category === categoryName && exp.subcategory === oldSubcategoryName
+        (exp) =>
+          exp.category === categoryName &&
+          exp.subcategory === oldSubcategoryName
       );
 
       for (const expense of expensesToUpdate) {
@@ -950,7 +1051,9 @@ const Dashboard = ({ user }: DashboardProps) => {
 
       // Actualizar gastos recurrentes con el nuevo nombre de subcategoría
       const recurringToUpdate = recurringExpenses.filter(
-        (rec) => rec.category === categoryName && rec.subcategory === oldSubcategoryName
+        (rec) =>
+          rec.category === categoryName &&
+          rec.subcategory === oldSubcategoryName
       );
 
       for (const recurring of recurringToUpdate) {
@@ -970,7 +1073,7 @@ const Dashboard = ({ user }: DashboardProps) => {
     }
   };
 
-  const handleAddBudget = async (e) => {
+  const handleAddBudget = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user || !budgetCategory || !budgetAmount) return;
 
@@ -990,7 +1093,7 @@ const Dashboard = ({ user }: DashboardProps) => {
     }
   };
 
-  const handleDeleteBudget = async (category) => {
+  const handleDeleteBudget = async (category: string) => {
     if (!user) return;
 
     try {
@@ -1053,14 +1156,16 @@ const Dashboard = ({ user }: DashboardProps) => {
   }, [filteredExpenses]);
 
   const expensesByCategory = useMemo(() => {
-    return filteredExpenses.reduce((acc, expense) => {
-      if (!acc[expense.category]) {
-        acc[expense.category] = {};
+    return filteredExpenses.reduce((acc: Record<string, Record<string, Expense[]>>, expense) => {
+      const category = expense.category;
+      const subcategory = expense.subcategory || "";
+      if (!acc[category]) {
+        acc[category] = {};
       }
-      if (!acc[expense.category][expense.subcategory]) {
-        acc[expense.category][expense.subcategory] = [];
+      if (!acc[category][subcategory]) {
+        acc[category][subcategory] = [];
       }
-      acc[expense.category][expense.subcategory].push(expense);
+      acc[category][subcategory].push(expense);
       return acc;
     }, {});
   }, [filteredExpenses]);
@@ -1079,11 +1184,12 @@ const Dashboard = ({ user }: DashboardProps) => {
   // Totales de categorías del mes actual (para presupuestos - siempre mes actual)
   const categoryTotalsForBudgets = useMemo(() => {
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
-    const totals = {};
+    const totals: Record<string, number> = {};
     expenses.forEach((expense) => {
       // Solo contar gastos del mes actual para presupuestos
       if (expense.date.startsWith(currentMonth)) {
-        totals[expense.category] = (totals[expense.category] || 0) + expense.amount;
+        totals[expense.category] =
+          (totals[expense.category] || 0) + expense.amount;
       }
     });
     return Object.entries(totals).map(([category, total]) => ({
@@ -1096,7 +1202,8 @@ const Dashboard = ({ user }: DashboardProps) => {
     return Object.entries(budgets)
       .filter(([category, budget]) => {
         const categoryTotal =
-          categoryTotalsForBudgets.find((ct) => ct.category === category)?.total || 0;
+          categoryTotalsForBudgets.find((ct) => ct.category === category)
+            ?.total || 0;
         return categoryTotal > budget;
       })
       .map(([category]) => category);
@@ -1104,16 +1211,21 @@ const Dashboard = ({ user }: DashboardProps) => {
 
   const recentExpenses = useMemo(() => {
     return [...expenses]
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
       .slice(0, 10);
   }, [expenses]);
 
   // Ref para prevenir loops infinitos en la restauración automática
   const isRestoringRef = useRef(false);
   const lastRestoreHashRef = useRef("");
-  
+
   // Ref para prevenir alertas duplicadas
-  const budgetAlertsShownRef = useRef(new Set());
+  const budgetAlertsShownRef = useRef<Set<string> & { lastCheckDate?: string }>(
+    Object.assign(new Set<string>(), { lastCheckDate: undefined })
+  );
   const unsubscribeRef = useRef(null);
   const listenerConfiguredRef = useRef(false);
   // ✅ showNotificationRef ahora viene del hook useNotifications
@@ -1121,7 +1233,7 @@ const Dashboard = ({ user }: DashboardProps) => {
   // ⚠️ DESHABILITADO: Efecto para restaurar categorías y subcategorías perdidas
   // Este código estaba causando que se sobrescribieran las categorías del usuario
   // con categorías predeterminadas. DESHABILITADO PERMANENTEMENTE.
-  // 
+  //
   // Si el usuario no tiene categorías o faltan algunas, es porque las eliminó intencionalmente
   // o porque nunca las configuró. NO crear categorías automáticamente.
   // El usuario debe crear sus propias categorías manualmente.
@@ -1153,7 +1265,12 @@ const Dashboard = ({ user }: DashboardProps) => {
 
   // Efecto para alertas de presupuesto (80%, 90%, 100%) - Solo cuando cambian los datos
   useEffect(() => {
-    if (!user || !notificationSettings?.budgetAlerts?.enabled || !budgets || Object.keys(budgets).length === 0) {
+    if (
+      !user ||
+      !notificationSettings?.budgetAlerts?.enabled ||
+      !budgets ||
+      Object.keys(budgets).length === 0
+    ) {
       return;
     }
 
@@ -1161,7 +1278,7 @@ const Dashboard = ({ user }: DashboardProps) => {
     const checkBudgetAlerts = () => {
       const today = new Date().toDateString();
       const lastCheckDate = budgetAlertsShownRef.current.lastCheckDate;
-      
+
       // Limpiar alertas mostradas al cambiar de día
       if (lastCheckDate !== today) {
         budgetAlertsShownRef.current.clear();
@@ -1169,7 +1286,9 @@ const Dashboard = ({ user }: DashboardProps) => {
       }
 
       Object.entries(budgets).forEach(([category, budget]) => {
-        const categoryTotal = categoryTotalsForBudgets.find((ct) => ct.category === category)?.total || 0;
+        const categoryTotal =
+          categoryTotalsForBudgets.find((ct) => ct.category === category)
+            ?.total || 0;
         const percentage = (categoryTotal / budget) * 100;
         const alertKey = `${category}-${Math.floor(percentage / 10) * 10}`; // Agrupar por decenas
 
@@ -1179,12 +1298,14 @@ const Dashboard = ({ user }: DashboardProps) => {
         }
 
         const alerts = notificationSettings.budgetAlerts;
-        
+
         // Solo mostrar si realmente alcanzó el umbral (no si ya estaba por encima)
         if (percentage >= 100 && alerts.at100) {
           budgetAlertsShownRef.current.add(alertKey);
           showNotification(
-            `⚠️ Presupuesto de ${category} superado al ${percentage.toFixed(0)}%`,
+            `⚠️ Presupuesto de ${category} superado al ${percentage.toFixed(
+              0
+            )}%`,
             "error"
           );
           trackBudgetAlert(category, percentage);
@@ -1212,11 +1333,22 @@ const Dashboard = ({ user }: DashboardProps) => {
     }, 1000); // Esperar 1 segundo después de cambios
 
     return () => clearTimeout(timeoutId);
-  }, [budgets, categoryTotalsForBudgets, notificationSettings, user, showNotification]);
+  }, [
+    budgets,
+    categoryTotalsForBudgets,
+    notificationSettings,
+    user,
+    showNotification,
+  ]);
 
   // Efecto para recordatorios de gastos recurrentes - Solo una vez al día
   useEffect(() => {
-    if (!user || !notificationSettings?.recurringReminders?.enabled || !recurringExpenses || recurringExpenses.length === 0) {
+    if (
+      !user ||
+      !notificationSettings?.recurringReminders?.enabled ||
+      !recurringExpenses ||
+      recurringExpenses.length === 0
+    ) {
       return;
     }
 
@@ -1224,27 +1356,30 @@ const Dashboard = ({ user }: DashboardProps) => {
       const today = new Date();
       const dayOfMonth = today.getDate();
       const todayKey = today.toDateString();
-      
+
       // Verificar si ya se mostró hoy
-      const lastCheck = localStorage.getItem(`recurringCheck_${user.uid}_${todayKey}`);
+      const lastCheck = localStorage.getItem(
+        `recurringCheck_${user.uid}_${todayKey}`
+      );
       if (lastCheck) {
         return; // Ya se mostró hoy
       }
 
-      const remindersToShow = recurringExpenses
-        .filter((recurring) => recurring.active && recurring.dayOfMonth === dayOfMonth);
+      const remindersToShow = recurringExpenses.filter(
+        (recurring) => recurring.active && recurring.dayOfMonth === dayOfMonth
+      );
 
       if (remindersToShow.length > 0) {
         // Mostrar solo una notificación con todos los recordatorios
         const remindersText = remindersToShow
-          .map((r) => `${r.name} (€${r.amount.toFixed(2)})`)
+          .map((r) => `${r.name} (€${Number(r.amount).toFixed(2)})`)
           .join(", ");
-        
+
         showNotification(
           `💡 Recordatorios de hoy: ${remindersText}`,
           "success"
         );
-        
+
         // Marcar como mostrado
         localStorage.setItem(`recurringCheck_${user.uid}_${todayKey}`, "true");
       }
@@ -1252,7 +1387,11 @@ const Dashboard = ({ user }: DashboardProps) => {
 
     // Solo verificar una vez cuando se carga la app, no en cada render
     checkRecurringReminders();
-  }, [recurringExpenses?.length, notificationSettings?.recurringReminders?.enabled, user?.uid]); // Dependencias más específicas
+  }, [
+    recurringExpenses?.length,
+    notificationSettings?.recurringReminders?.enabled,
+    user?.uid,
+  ]); // Dependencias más específicas
 
   // Efecto para recordatorios personalizados - Programar notificación local que se queda en la bandeja
   // Las notificaciones ahora se manejan desde Cloud Functions
@@ -1263,7 +1402,9 @@ const Dashboard = ({ user }: DashboardProps) => {
     if (!user) {
       // Limpiar listener y tokens si el usuario cierra sesión
       if (unsubscribeRef.current) {
-        console.log("🧹 Limpiando listener de notificaciones push al cerrar sesión...");
+        console.log(
+          "🧹 Limpiando listener de notificaciones push al cerrar sesión..."
+        );
         unsubscribeRef.current();
         unsubscribeRef.current = null;
         listenerConfiguredRef.current = false;
@@ -1279,42 +1420,48 @@ const Dashboard = ({ user }: DashboardProps) => {
 
     // Clave VAPID obtenida de Firebase Console
     // Firebase Console > Project Settings > Cloud Messaging > Web Push certificates
-    const VAPID_KEY_FROM_FIREBASE = "BG-spFoiC7ziY8GRhsx9t5sEX_6yXgs6b87Ax6w6sOJeBk22WTQz2-GWvTgxcXannfTpa8rLqyQsTumeRw2khd8";
-    
+    const VAPID_KEY_FROM_FIREBASE =
+      "BG-spFoiC7ziY8GRhsx9t5sEX_6yXgs6b87Ax6w6sOJeBk22WTQz2-GWvTgxcXannfTpa8rLqyQsTumeRw2khd8";
+
     if (VAPID_KEY_FROM_FIREBASE) {
       setVAPIDKey(VAPID_KEY_FROM_FIREBASE);
-      
+
       // Asegurar que el Service Worker esté registrado y activo (solo una vez)
       let tokenRequested = false;
-      
+
       const ensureServiceWorkerActive = async () => {
         // Evitar múltiples solicitudes de token
         if (tokenRequested) {
           return;
         }
-        
+
         if ("serviceWorker" in navigator) {
           try {
             // Verificar si hay un Service Worker registrado
             let registration = await navigator.serviceWorker.getRegistration();
-            
+
             if (!registration) {
-              console.log("⚠️ No hay Service Worker registrado, registrando...");
-              registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js", {
-                scope: "/",
-                updateViaCache: "none",
-              });
+              console.log(
+                "⚠️ No hay Service Worker registrado, registrando..."
+              );
+              registration = await navigator.serviceWorker.register(
+                "/firebase-messaging-sw.js",
+                {
+                  scope: "/",
+                  updateViaCache: "none",
+                }
+              );
               console.log("✅ Service Worker registrado:", registration.scope);
             }
-            
+
             // Esperar a que el Service Worker esté listo
             await navigator.serviceWorker.ready;
             console.log("✅ Service Worker activo y listo");
-            
+
             // Verificar permisos y solicitar token FCM (solo una vez)
             const permission = getNotificationPermission();
             console.log("📱 Permisos de notificación:", permission);
-            
+
             if (permission === "granted") {
               if (!tokenRequested) {
                 tokenRequested = true;
@@ -1323,7 +1470,10 @@ const Dashboard = ({ user }: DashboardProps) => {
                   console.log("🔑 Solicitando token FCM...");
                   const token = await requestNotificationPermission(user.uid);
                   if (token) {
-                    console.log("✅ Token FCM obtenido y guardado:", token.substring(0, 20) + "...");
+                    console.log(
+                      "✅ Token FCM obtenido y guardado:",
+                      token.substring(0, 20) + "..."
+                    );
                   } else {
                     console.warn("⚠️ No se pudo obtener el token FCM");
                     tokenRequested = false; // Permitir reintento si falla
@@ -1334,7 +1484,9 @@ const Dashboard = ({ user }: DashboardProps) => {
                 }
               }
             } else if (permission === "default") {
-              console.log("ℹ️ Permisos de notificación pendientes. El usuario debe concederlos.");
+              console.log(
+                "ℹ️ Permisos de notificación pendientes. El usuario debe concederlos."
+              );
             } else if (permission === "denied") {
               console.warn("⚠️ Permisos de notificación denegados");
             }
@@ -1343,15 +1495,17 @@ const Dashboard = ({ user }: DashboardProps) => {
             tokenRequested = false; // Permitir reintento si falla
           }
         } else {
-          console.warn("⚠️ Service Worker no está disponible en este navegador");
+          console.warn(
+            "⚠️ Service Worker no está disponible en este navegador"
+          );
         }
       };
-      
+
       // Configurar listener para mensajes en primer plano (solo una vez)
       if (!listenerConfiguredRef.current) {
         listenerConfiguredRef.current = true;
         console.log("🔧 Configurando listener de notificaciones push...");
-        
+
         unsubscribeRef.current = setupForegroundMessageListener((payload) => {
           console.log("📬 ========== CALLBACK EJECUTADO ==========");
           console.log("📬 Payload recibido en callback:", payload);
@@ -1389,20 +1543,24 @@ const Dashboard = ({ user }: DashboardProps) => {
           }
           console.log("📬 Notificación interna mostrada");
         });
-        
+
         if (unsubscribeRef.current) {
-          console.log("✅ Listener de notificaciones push configurado correctamente");
+          console.log(
+            "✅ Listener de notificaciones push configurado correctamente"
+          );
         } else {
-          console.warn("⚠️ No se pudo configurar el listener de notificaciones push");
+          console.warn(
+            "⚠️ No se pudo configurar el listener de notificaciones push"
+          );
           listenerConfiguredRef.current = false;
         }
       }
-      
+
       // Ejecutar solo una vez después de un pequeño delay
       const timeoutId = setTimeout(() => {
         ensureServiceWorkerActive();
       }, 1000);
-      
+
       return () => {
         clearTimeout(timeoutId);
         if (unsubscribeRef.current) {
@@ -1413,14 +1571,19 @@ const Dashboard = ({ user }: DashboardProps) => {
         }
       };
     } else {
-      console.warn("VAPID key no configurada. Las notificaciones push no funcionarán hasta que la configures.");
+      console.warn(
+        "VAPID key no configurada. Las notificaciones push no funcionarán hasta que la configures."
+      );
     }
   }, [user]);
 
   // Handler para solicitar permisos desde SettingsModal
   const handleRequestPushPermission = useCallback(async () => {
     if (!user || !messaging) {
-      showNotification("El servicio de notificaciones no está disponible", "error");
+      showNotification(
+        "El servicio de notificaciones no está disponible",
+        "error"
+      );
       return;
     }
 
@@ -1440,10 +1603,16 @@ const Dashboard = ({ user }: DashboardProps) => {
           await saveNotificationSettings(user.uid, updatedSettings);
           setNotificationSettings(updatedSettings);
         } catch (error) {
-          console.error("Error guardando pushNotifications tras activar permisos:", error);
+          console.error(
+            "Error guardando pushNotifications tras activar permisos:",
+            error
+          );
         }
 
-        showNotification("Notificaciones push activadas correctamente", "success");
+        showNotification(
+          "Notificaciones push activadas correctamente",
+          "success"
+        );
       }
     } catch (error) {
       console.error("Error solicitando permisos push:", error);
@@ -1457,7 +1626,13 @@ const Dashboard = ({ user }: DashboardProps) => {
     // - No hay usuario
     // - No hay objetivos configurados (goals es null o está vacío)
     // - No hay ingresos configurados (income es null, undefined o 0)
-    if (!user || !goals || income === null || income === undefined || income === 0) {
+    if (
+      !user ||
+      !goals ||
+      income === null ||
+      income === undefined ||
+      income === 0
+    ) {
       return;
     }
 
@@ -1473,47 +1648,65 @@ const Dashboard = ({ user }: DashboardProps) => {
       return;
     }
 
-    const currentMonthExpenses = categoryTotalsForBudgets.reduce((sum, item) => sum + item.total, 0);
+    const currentMonthExpenses = categoryTotalsForBudgets.reduce(
+      (sum, item) => sum + item.total,
+      0
+    );
     const today = new Date();
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth() + 1;
     const currentDay = today.getDate();
     const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
-    const currentMonthKey = `${currentYear}-${String(currentMonth).padStart(2, "0")}`;
-    
+    const currentMonthKey = `${currentYear}-${String(currentMonth).padStart(
+      2,
+      "0"
+    )}`;
+
     // Obtener entrada actual del historial
     const currentHistoryEntry = goals.monthlyHistory?.[currentMonthKey];
     const monthlySavings = income - currentMonthExpenses;
     const monthlyGoal = goals.monthlySavingsGoal || goals.totalSavingsGoal || 0;
-    
+
     // Objetivo esperado según el día del mes (proporcional)
-    const expectedSavingsByNow = monthlyGoal > 0
-      ? (monthlyGoal * currentDay) / daysInMonth
-      : 0;
-    
+    const expectedSavingsByNow =
+      monthlyGoal > 0 ? (monthlyGoal * currentDay) / daysInMonth : 0;
+
     // Considerar objetivo completado solo si estamos al final de mes
     // y se ha alcanzado o superado el objetivo total
     const isEndOfMonth = currentDay >= daysInMonth - 1;
-    const completed = monthlyGoal > 0 && isEndOfMonth && monthlySavings >= monthlyGoal;
-    
+    const completed =
+      monthlyGoal > 0 && isEndOfMonth && monthlySavings >= monthlyGoal;
+
     // Solo actualizar si el valor cambió o no existe
-    const shouldUpdate = !currentHistoryEntry || 
-      currentHistoryEntry.savings !== monthlySavings || 
+    const shouldUpdate =
+      !currentHistoryEntry ||
+      currentHistoryEntry.savings !== monthlySavings ||
       currentHistoryEntry.completed !== completed;
-    
+
     if (shouldUpdate) {
       // Actualizar historial mensual
-      const updatedHistory = updateMonthlyHistory(goals, income, currentMonthExpenses);
-      
+      const updatedHistory = updateMonthlyHistory(
+        goals,
+        income,
+        currentMonthExpenses
+      );
+
       // Calcular badges y rachas
-      const badges = calculateBadges(goals, updatedHistory, income, currentMonthExpenses);
+      const badges = calculateBadges(
+        goals,
+        updatedHistory,
+        income,
+        currentMonthExpenses
+      );
       const streakMonths = calculateStreak(updatedHistory);
-      
+
       const updatedGoals = {
         ...goals,
         monthlyHistory: updatedHistory,
         achievements: {
-          totalCompleted: Object.values(updatedHistory).filter((h) => h.completed).length,
+          totalCompleted: Object.values(updatedHistory).filter(
+            (h) => h.completed
+          ).length,
           streakMonths: streakMonths,
           badges: badges.map((badge) => ({
             id: badge.id,
@@ -1523,41 +1716,47 @@ const Dashboard = ({ user }: DashboardProps) => {
           })),
         },
       };
-      
+
       // Detectar objetivos recién completados solo si el estado cambió de no completado a completado
       if (currentHistoryEntry && !currentHistoryEntry.completed && completed) {
-        const newlyCompleted = detectNewlyCompletedGoals(previousGoals || goals, updatedGoals);
+        const newlyCompleted = detectNewlyCompletedGoals(
+          previousGoals || goals,
+          updatedGoals
+        );
         if (newlyCompleted.length > 0) {
           // setCompletedGoal(newlyCompleted[0]); // Comentado temporalmente
           // setShowCelebration(true); // Comentado temporalmente
           setPreviousGoals(goals);
         }
       }
-      
+
       // Actualizar sin mostrar notificación (actualización automática)
       saveGoals(user.uid, updatedGoals).catch((error) => {
         console.error("Error auto-updating goals:", error);
       });
-      
+
       setGoals(updatedGoals);
     }
   }, [expenses.length, income, categoryTotalsForBudgets.length, user?.uid]); // Solo cuando cambian los gastos o ingresos
 
-
   // Memoizar clases CSS para evitar recálculos
-  const { bgClass, cardClass, textClass, textSecondaryClass, inputClass } = useMemo(() => ({
-    bgClass: darkMode
-      ? "bg-[#0f172a]" // ✅ Mismo color que status bar
-      : "bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50",
-    cardClass: darkMode
-      ? "bg-gray-800 border-gray-700"
-      : "bg-white/80 backdrop-blur-sm border-white/60",
-    textClass: darkMode ? "text-gray-100" : "text-purple-900",
-    textSecondaryClass: darkMode ? "text-gray-200" : "text-purple-600",
-    inputClass: darkMode
-      ? "bg-gray-700 border-gray-600 text-gray-100 focus:ring-purple-500"
-      : "bg-white border-purple-200 text-purple-900 focus:ring-purple-500",
-  }), [darkMode]);
+  const { bgClass, cardClass, textClass, textSecondaryClass, inputClass } =
+    useMemo(
+      () => ({
+        bgClass: darkMode
+          ? "bg-[#0f172a]" // ✅ Mismo color que status bar
+          : "bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50",
+        cardClass: darkMode
+          ? "bg-gray-800 border-gray-700"
+          : "bg-white/80 backdrop-blur-sm border-white/60",
+        textClass: darkMode ? "text-gray-100" : "text-purple-900",
+        textSecondaryClass: darkMode ? "text-gray-200" : "text-purple-600",
+        inputClass: darkMode
+          ? "bg-gray-700 border-gray-600 text-gray-100 focus:ring-purple-500"
+          : "bg-white border-purple-200 text-purple-900 focus:ring-purple-500",
+      }),
+      [darkMode]
+    );
 
   const handleOpenAddExpense = useCallback(() => {
     setShowAddExpense(true);
@@ -1570,80 +1769,88 @@ const Dashboard = ({ user }: DashboardProps) => {
     setShowAddExpense(false);
   }, []);
 
-  const handleAddCategoryFromModal = useCallback(async (categoryName) => {
-    if (!user || !categoryName) return;
-    try {
-      const updatedCategories = {
-        ...categories,
-        [categoryName]: {
-          subcategories: [],
-          color: newCategoryColor,
-        },
-      };
-      await saveCategories(user.uid, updatedCategories);
-      setCategories(updatedCategories);
-      setNewExpense((prev) => ({ ...prev, category: categoryName }));
-      showNotification("Categoría añadida correctamente");
-    } catch (error) {
-      showNotification("Error al añadir la categoría", "error");
-    }
-  }, [user, categories, newCategoryColor, showNotification]);
+  const handleAddCategoryFromModal = useCallback(
+    async (categoryName: string) => {
+      if (!user || !categoryName) return;
+      try {
+        const updatedCategories = {
+          ...categories,
+          [categoryName]: {
+            subcategories: [],
+            color: newCategoryColor,
+          },
+        };
+        await saveCategories(user.uid, updatedCategories);
+        setCategories(updatedCategories);
+        setNewExpense((prev) => ({ ...prev, category: categoryName }));
+        showNotification("Categoría añadida correctamente");
+      } catch (error) {
+        showNotification("Error al añadir la categoría", "error");
+      }
+    },
+    [user, categories, newCategoryColor, showNotification]
+  );
 
-  const handleAddSubcategoryFromModal = useCallback(async (subcategoryName) => {
-    if (!user || !newExpense.category || !subcategoryName) return;
-    try {
-      const categoryData = categories[newExpense.category];
-      const subcategories = getCategorySubcategories(categoryData);
-      const updatedCategories = {
-        ...categories,
-        [newExpense.category]: {
-          subcategories: [...subcategories, subcategoryName],
-          color: categoryData?.color || "#8B5CF6",
-        },
-      };
-      await saveCategories(user.uid, updatedCategories);
-      setCategories(updatedCategories);
-      setNewExpense((prev) => ({ ...prev, subcategory: subcategoryName }));
-      showNotification("Subcategoría añadida correctamente");
-    } catch (error) {
-      showNotification("Error al añadir la subcategoría", "error");
-    }
-  }, [user, newExpense.category, categories, showNotification]);
+  const handleAddSubcategoryFromModal = useCallback(
+    async (subcategoryName: string) => {
+      if (!user || !newExpense.category || !subcategoryName) return;
+      try {
+        const categoryData = categories[newExpense.category];
+        const subcategories = getCategorySubcategories(categoryData);
+        const updatedCategories = {
+          ...categories,
+          [newExpense.category]: {
+            subcategories: [...subcategories, subcategoryName],
+            color: categoryData?.color || "#8B5CF6",
+          },
+        };
+        await saveCategories(user.uid, updatedCategories);
+        setCategories(updatedCategories);
+        setNewExpense((prev) => ({ ...prev, subcategory: subcategoryName }));
+        showNotification("Subcategoría añadida correctamente");
+      } catch (error) {
+        showNotification("Error al añadir la subcategoría", "error");
+      }
+    },
+    [user, newExpense.category, categories, showNotification]
+  );
 
   // ✅ Memoizar props del modal para evitar re-renders
-  const addExpenseModalProps = useMemo(() => ({
-    visible: showAddExpense,
-    darkMode,
-    cardClass,
-    textClass,
-    inputClass,
-    categories,
-    newExpense,
-    onChange: setNewExpense,
-    onSubmit: handleAddExpense,
-    onClose: handleCloseAddExpense,
-    onAddCategory: handleAddCategoryFromModal,
-    onAddSubcategory: handleAddSubcategoryFromModal,
-  }), [
-    showAddExpense,
-    darkMode,
-    cardClass,
-    textClass,
-    inputClass,
-    categories,
-    newExpense,
-    handleAddExpense,
-    handleCloseAddExpense,
-    handleAddCategoryFromModal,
-    handleAddSubcategoryFromModal,
-  ]);
+  const addExpenseModalProps = useMemo(
+    () => ({
+      visible: showAddExpense,
+      darkMode,
+      cardClass,
+      textClass,
+      inputClass,
+      categories,
+      newExpense,
+      onChange: setNewExpense,
+      onSubmit: handleAddExpense,
+      onClose: handleCloseAddExpense,
+      onAddCategory: handleAddCategoryFromModal,
+      onAddSubcategory: handleAddSubcategoryFromModal,
+    }),
+    [
+      showAddExpense,
+      darkMode,
+      cardClass,
+      textClass,
+      inputClass,
+      categories,
+      newExpense,
+      handleAddExpense,
+      handleCloseAddExpense,
+      handleAddCategoryFromModal,
+      handleAddSubcategoryFromModal,
+    ]
+  );
 
   const handleOpenCategories = useCallback(() => {
     setShowCategories(true);
     setShowManagement(false);
     trackOpenModal("categories");
   }, []);
-
 
   const handleOpenGoals = useCallback(() => {
     setShowGoals(true);
@@ -1690,94 +1897,138 @@ const Dashboard = ({ user }: DashboardProps) => {
     }
   }, [user]);
 
-  const handleSaveIncome = useCallback(async (newIncome) => {
-    if (!user) return;
-    try {
-      // Si es null, undefined o 0, guardar null (no configurado)
-      const incomeToSave = newIncome === null || newIncome === undefined || newIncome === 0 ? null : newIncome;
-      await saveIncome(user.uid, incomeToSave);
-      setIncome(incomeToSave !== null ? incomeToSave : 0); // Para el estado local, usar 0 si es null
-      if (incomeToSave === null) {
-        showNotification("Ingresos eliminados. Recibirás un recordatorio al final del mes para ingresos variables.");
-      } else {
-        showNotification("Ingresos actualizados correctamente");
+  const handleSaveIncome = useCallback(
+    async (newIncome: number | null) => {
+      if (!user) return;
+      try {
+        // Si es null, undefined o 0, guardar null (no configurado)
+        const incomeToSave =
+          newIncome === null || newIncome === undefined || newIncome === 0
+            ? null
+            : newIncome;
+        await saveIncome(user.uid, incomeToSave);
+        setIncome(incomeToSave !== null ? incomeToSave : 0); // Para el estado local, usar 0 si es null
+        if (incomeToSave === null) {
+          showNotification(
+            "Ingresos eliminados. Recibirás un recordatorio al final del mes para ingresos variables."
+          );
+        } else {
+          showNotification("Ingresos actualizados correctamente");
+        }
+      } catch (error) {
+        console.error("Error saving income:", error);
+        showNotification("Error al guardar los ingresos", "error");
       }
-    } catch (error) {
-      console.error("Error saving income:", error);
-      showNotification("Error al guardar los ingresos", "error");
-    }
-  }, [user, showNotification]);
+    },
+    [user, showNotification]
+  );
 
-  const handleSaveNotificationSettings = useCallback(async (settings) => {
-    if (!user) return;
-    try {
-      await saveNotificationSettings(user.uid, settings);
-      setNotificationSettings(settings);
-      showNotification("Configuración de notificaciones actualizada", "success");
-    } catch (error) {
-      console.error("Error saving notification settings:", error);
-      showNotification("Error al guardar la configuración", "error");
-    }
-  }, [user, showNotification]);
+  const handleSaveNotificationSettings = useCallback(
+    async (settings: NotificationSettings) => {
+      if (!user) return;
+      try {
+        await saveNotificationSettings(user.uid, settings);
+        setNotificationSettings(settings);
+        showNotification(
+          "Configuración de notificaciones actualizada",
+          "success"
+        );
+      } catch (error) {
+        console.error("Error saving notification settings:", error);
+        showNotification("Error al guardar la configuración", "error");
+      }
+    },
+    [user, showNotification]
+  );
 
-  const handleSaveGoals = useCallback(async (newGoals) => {
-    if (!user) return;
-    try {
-      // Actualizar historial mensual
-      const currentMonthExpenses = categoryTotalsForBudgets.reduce((sum, item) => sum + item.total, 0);
-      const updatedHistory = updateMonthlyHistory(goals, income, currentMonthExpenses);
-      
-      // Calcular badges y rachas
-      const badges = calculateBadges(newGoals, updatedHistory, income, currentMonthExpenses);
-      const streakMonths = calculateStreak(updatedHistory);
-      
-      // Actualizar objetivos con historial y badges
-      const goalsToSave = {
-        ...newGoals,
-        monthlyHistory: updatedHistory,
-        achievements: {
-          totalCompleted: Object.values(updatedHistory).filter((h) => h.completed).length,
-          streakMonths: streakMonths,
-          badges: badges.map((badge) => ({
-            id: badge.id,
-            name: badge.name,
-            icon: badge.name.split(" ")[0],
-            unlockedAt: new Date().toISOString(),
-          })),
-        },
-      };
-      
-      // Detectar objetivos recién completados
-      const newlyCompleted = detectNewlyCompletedGoals(previousGoals || goals, goalsToSave);
-      if (newlyCompleted.length > 0) {
-        // setCompletedGoal(newlyCompleted[0]); // Comentado temporalmente
-        // setShowCelebration(true); // Comentado temporalmente
+  const handleSaveGoals = useCallback(
+    async (newGoals: Goals) => {
+      if (!user) return;
+      try {
+        // Actualizar historial mensual
+        const currentMonthExpenses = categoryTotalsForBudgets.reduce(
+          (sum, item) => sum + item.total,
+          0
+        );
+        const updatedHistory = updateMonthlyHistory(
+          goals,
+          income,
+          currentMonthExpenses
+        );
+
+        // Calcular badges y rachas
+        const badges = calculateBadges(
+          newGoals,
+          updatedHistory,
+          income,
+          currentMonthExpenses
+        );
+        const streakMonths = calculateStreak(updatedHistory);
+
+        // Actualizar objetivos con historial y badges
+        const goalsToSave = {
+          ...newGoals,
+          monthlyHistory: updatedHistory,
+          achievements: {
+            totalCompleted: Object.values(updatedHistory).filter(
+              (h) => h.completed
+            ).length,
+            streakMonths: streakMonths,
+            badges: badges.map((badge) => ({
+              id: badge.id,
+              name: badge.name,
+              icon: badge.name.split(" ")[0],
+              unlockedAt: new Date().toISOString(),
+            })),
+          },
+        };
+
+        // Detectar objetivos recién completados
+        const newlyCompleted = detectNewlyCompletedGoals(
+          previousGoals || goals,
+          goalsToSave
+        );
+        if (newlyCompleted.length > 0) {
+          // setCompletedGoal(newlyCompleted[0]); // Comentado temporalmente
+          // setShowCelebration(true); // Comentado temporalmente
+        }
+
+        // Guardar objetivos anteriores para comparar
+        setPreviousGoals(goals);
+
+        await saveGoals(user.uid, goalsToSave);
+        setGoals(goalsToSave);
+
+        // Trackear qué tipo de objetivos se guardaron
+        if (newGoals.monthlySavingsGoal > 0 || newGoals.totalSavingsGoal > 0) {
+          trackSaveGoal("total_savings");
+        }
+        if (
+          newGoals.categoryGoals &&
+          Object.keys(newGoals.categoryGoals).length > 0
+        ) {
+          trackSaveGoal("category_goal");
+        }
+        if (newGoals.longTermGoals && newGoals.longTermGoals.length > 0) {
+          trackSaveGoal("long_term_goal");
+        }
+
+        showNotification("Objetivos actualizados correctamente");
+        setShowGoals(false);
+      } catch (error) {
+        console.error("Error saving goals:", error);
+        showNotification("Error al guardar los objetivos", "error");
       }
-      
-      // Guardar objetivos anteriores para comparar
-      setPreviousGoals(goals);
-      
-      await saveGoals(user.uid, goalsToSave);
-      setGoals(goalsToSave);
-      
-      // Trackear qué tipo de objetivos se guardaron
-      if (newGoals.monthlySavingsGoal > 0 || newGoals.totalSavingsGoal > 0) {
-        trackSaveGoal("total_savings");
-      }
-      if (newGoals.categoryGoals && Object.keys(newGoals.categoryGoals).length > 0) {
-        trackSaveGoal("category_goal");
-      }
-      if (newGoals.longTermGoals && newGoals.longTermGoals.length > 0) {
-        trackSaveGoal("long_term_goal");
-      }
-      
-      showNotification("Objetivos actualizados correctamente");
-      setShowGoals(false);
-    } catch (error) {
-      console.error("Error saving goals:", error);
-      showNotification("Error al guardar los objetivos", "error");
-    }
-  }, [user, showNotification, goals, income, categoryTotalsForBudgets, previousGoals]);
+    },
+    [
+      user,
+      showNotification,
+      goals,
+      income,
+      categoryTotalsForBudgets,
+      previousGoals,
+    ]
+  );
 
   const handleExportCSV = useCallback(() => {
     try {
@@ -1801,7 +2052,14 @@ const Dashboard = ({ user }: DashboardProps) => {
       console.error("Error exporting CSV:", error);
       showNotification("Error al exportar los gastos", "error");
     }
-  }, [filteredExpenses, filterPeriodType, selectedMonth, selectedYear, showNotification, user]);
+  }, [
+    filteredExpenses,
+    filterPeriodType,
+    selectedMonth,
+    selectedYear,
+    showNotification,
+    user,
+  ]);
 
   const handleToggleFilters = useCallback(() => {
     setShowFilters((prev) => !prev);
@@ -1814,7 +2072,7 @@ const Dashboard = ({ user }: DashboardProps) => {
     setSelectedCategory("all");
   }, []);
 
-  const handleViewChange = useCallback((view) => {
+  const handleViewChange = useCallback((view: ActiveView) => {
     setActiveView(view);
     trackViewChange(view);
     // Si cambiamos a una vista que no debe tener filtros, ocultarlos
@@ -1823,16 +2081,15 @@ const Dashboard = ({ user }: DashboardProps) => {
     }
   }, []);
 
-
-  const handleRequestDelete = useCallback((payload) => {
+  const handleRequestDelete = useCallback((payload: DeleteContext) => {
     setShowDeleteConfirm(payload);
   }, []);
 
-  const handleRecurringStartEdit = useCallback((recurring) => {
+  const handleRecurringStartEdit = useCallback((recurring: RecurringExpense) => {
     setEditingRecurring(recurring);
   }, []);
 
-  const handleRecurringEditChange = useCallback((updated) => {
+  const handleRecurringEditChange = useCallback((updated: RecurringExpense) => {
     setEditingRecurring(updated);
   }, []);
 
@@ -1842,7 +2099,7 @@ const Dashboard = ({ user }: DashboardProps) => {
     setShowMenu(false);
   }, []);
 
-  const handleConfirmDeletion = (context) => {
+  const handleConfirmDeletion = (context: DeleteContext | null) => {
     if (!context) {
       return;
     }
@@ -1865,50 +2122,59 @@ const Dashboard = ({ user }: DashboardProps) => {
       handleSaveGoals(updatedGoals);
     } else if (context.type === "longTermGoal") {
       const updatedGoals = { ...goals };
-      updatedGoals.longTermGoals = (updatedGoals.longTermGoals || []).filter((g) => g.id !== context.goalId);
+      updatedGoals.longTermGoals = (updatedGoals.longTermGoals || []).filter(
+        (g) => g.id !== context.goalId
+      );
       handleSaveGoals(updatedGoals);
     }
   };
 
-  const handleUpdateLongTermGoalAmount = useCallback(async (goalId, newAmount) => {
-    if (!user) return;
-    try {
-      const updatedGoals = {
-        ...goals,
-        longTermGoals: (goals.longTermGoals || []).map((goal) =>
-          goal.id === goalId ? { ...goal, currentAmount: newAmount } : goal
-        ),
-      };
-      
-      // Detectar si se completó el objetivo
-      const updatedGoal = updatedGoals.longTermGoals.find((g) => g.id === goalId);
-      if (updatedGoal && updatedGoal.currentAmount >= updatedGoal.targetAmount && updatedGoal.status === "active") {
-        updatedGoal.status = "completed";
-        // setCompletedGoal({ // Comentado temporalmente
-        //   type: "longTerm",
-        //   name: updatedGoal.name,
-        //   amount: updatedGoal.currentAmount,
-        //   goal: updatedGoal.targetAmount,
-        // });
-        // setShowCelebration(true); // Comentado temporalmente
+  const handleUpdateLongTermGoalAmount = useCallback(
+    async (goalId: string, newAmount: number) => {
+      if (!user) return;
+      try {
+        const updatedGoals = {
+          ...goals,
+          longTermGoals: (goals.longTermGoals || []).map((goal) =>
+            goal.id === goalId ? { ...goal, currentAmount: newAmount } : goal
+          ),
+        };
+
+        // Detectar si se completó el objetivo
+        const updatedGoal = updatedGoals.longTermGoals.find(
+          (g) => g.id === goalId
+        );
+        if (
+          updatedGoal &&
+          updatedGoal.currentAmount >= updatedGoal.targetAmount &&
+          updatedGoal.status === "active"
+        ) {
+          updatedGoal.status = "completed";
+          // setCompletedGoal({ // Comentado temporalmente
+          //   type: "longTerm",
+          //   name: updatedGoal.name,
+          //   amount: updatedGoal.currentAmount,
+          //   goal: updatedGoal.targetAmount,
+          // });
+          // setShowCelebration(true); // Comentado temporalmente
+        }
+
+        await saveGoals(user.uid, updatedGoals);
+        setGoals(updatedGoals);
+      } catch (error) {
+        console.error("Error updating long-term goal:", error);
+        showNotification("Error al actualizar el objetivo", "error");
       }
-      
-      await saveGoals(user.uid, updatedGoals);
-      setGoals(updatedGoals);
-    } catch (error) {
-      console.error("Error updating long-term goal:", error);
-      showNotification("Error al actualizar el objetivo", "error");
-    }
-  }, [user, goals, showNotification]);
+    },
+    [user, goals, showNotification]
+  );
 
   if (loading) {
     return (
       <div className={styles.dashboardLoading}>
         <div className="text-center">
           <div className={styles.dashboardLoadingSpinner}></div>
-          <p className={styles.dashboardLoadingText}>
-            Cargando Clarity...
-          </p>
+          <p className={styles.dashboardLoadingText}>Cargando Clarity...</p>
         </div>
       </div>
     );
@@ -1920,7 +2186,9 @@ const Dashboard = ({ user }: DashboardProps) => {
 
   return (
     <div
-      className={`${styles.dashboardContainer} ${darkMode ? styles.darkMode : styles.lightMode} ${bgClass} transition-colors duration-300`}
+      className={`${styles.dashboardContainer} ${
+        darkMode ? styles.darkMode : styles.lightMode
+      } ${bgClass} transition-colors duration-300`}
     >
       <Header
         darkMode={darkMode}
@@ -2197,10 +2465,7 @@ const Dashboard = ({ user }: DashboardProps) => {
         />
       </Suspense>
 
-      <Notification
-        notification={notification}
-        onClose={hideNotification}
-      />
+      <Notification notification={notification} onClose={hideNotification} />
     </div>
   );
 };
