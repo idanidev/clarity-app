@@ -1,15 +1,9 @@
 import { Capacitor } from "@capacitor/core";
-import { SpeechRecognition } from "@capgo/capacitor-speech-recognition";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
+import { SpeechRecognition } from "@capgo/capacitor-speech-recognition";
 import { Loader2, Mic, MicOff } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePermissions } from "../../../hooks/usePermissions";
-
-/**
- * VoiceExpenseButton - Reconocimiento de voz HÍBRIDO
- * - iOS nativo (Capacitor): Plugin @capgo/capacitor-speech-recognition
- * - Web/PWA: Web Speech API
- */
 
 // ============================================
 // TYPES & INTERFACES
@@ -18,7 +12,7 @@ export interface VoiceSettings {
   autoConfirm: boolean;
   vibration: boolean;
   showSuggestions: boolean;
-  silenceTimeout: number; // en milisegundos
+  silenceTimeout: number;
 }
 
 export interface VoiceStats {
@@ -32,7 +26,7 @@ export const DEFAULT_VOICE_SETTINGS: VoiceSettings = {
   autoConfirm: true,
   vibration: true,
   showSuggestions: true,
-  silenceTimeout: 3000, // 3 segundos
+  silenceTimeout: 3000,
 };
 
 // ============================================
@@ -68,7 +62,10 @@ export const saveVoiceStats = (stats: VoiceStats) => {
 interface VoiceExpenseButtonProps {
   onAddExpense: (expense: any) => Promise<void>;
   darkMode: boolean;
-  showNotification?: (message: string, type: "success" | "error" | "info") => void;
+  showNotification?: (
+    message: string,
+    type: "success" | "error" | "info"
+  ) => void;
   hasFilterButton?: boolean;
   categories?: any[];
   subcategories?: any[];
@@ -79,164 +76,122 @@ const VoiceExpenseButton = ({
   darkMode,
   showNotification,
   hasFilterButton = false,
-  categories: _categories = [],
-  subcategories: _subcategories = [],
 }: VoiceExpenseButtonProps) => {
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
-  
+  const [voiceAvailable, setVoiceAvailable] = useState(false);
+
   const recognitionRef = useRef<any>(null);
+  const listenersAddedRef = useRef(false);
   const isNative = Capacitor.isNativePlatform();
-  const platform = Capacitor.getPlatform(); // 'ios', 'android', 'web'
-  
-  // Hook de permisos para verificar estado sin solicitar cada vez
+  const platform = Capacitor.getPlatform();
+
   const { microphone } = usePermissions();
 
-  // Inicializar voiceAvailable inmediatamente si Web Speech API está disponible (para web)
-  // Esto evita que el botón no aparezca hasta que se complete el useEffect
-  const hasWebSpeechAPI = typeof window !== 'undefined' && 
-    ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
-  
-  const [voiceAvailable, setVoiceAvailable] = useState(
-    isNative ? false : hasWebSpeechAPI
+  const hasWebSpeechAPI =
+    typeof window !== "undefined" &&
+    ("webkitSpeechRecognition" in window || "SpeechRecognition" in window);
+
+  console.log(
+    `[Voice] Platform: ${platform}, Native: ${isNative}, Web Speech: ${hasWebSpeechAPI}`
   );
 
-  console.log(`[Voice] Platform: ${platform}, Native: ${isNative}, Web Speech: ${hasWebSpeechAPI}`);
-
   // ============================================
-  // INICIALIZACIÓN
+  // INICIALIZACIÓN (SOLO UNA VEZ)
   // ============================================
   useEffect(() => {
-    const initSpeech = async () => {
+    let mounted = true;
+
+    const checkAvailability = async () => {
       if (isNative) {
-        // CAPACITOR: Usar plugin nativo
-        console.log("[Voice] Initializing native speech recognition");
+        // CAPACITOR: Solo verificar disponibilidad (NO solicitar permisos aquí)
+        console.log("[Voice] Checking native speech availability");
         try {
           const availableResult = await SpeechRecognition.available();
-          console.log("[Voice] Native speech available result:", availableResult);
-
           const available = availableResult?.available ?? false;
           console.log("[Voice] Native speech available:", available);
 
-          if (available) {
-            try {
-              const permission = await SpeechRecognition.requestPermissions();
-              console.log("[Voice] Permission result:", permission);
-
-              const hasPermission = permission?.speechRecognition === "granted";
-              setVoiceAvailable(hasPermission);
-
-              if (!hasPermission) {
-                console.warn("[Voice] Permission not granted");
-                // No mostrar error aquí, se mostrará cuando se intente usar
-              } else {
-                console.log("[Voice] ✅ Native speech recognition ready");
-              }
-            } catch (permError: any) {
-              console.error("[Voice] Error requesting permissions:", permError);
-              // Si el error es UNIMPLEMENTED, el plugin no está disponible
-              if (permError?.code === 'UNIMPLEMENTED') {
-                console.warn("[Voice] Plugin not implemented, trying Web Speech API fallback");
-                setVoiceAvailable(false);
-                // Intentar inicializar Web Speech API como fallback
-                initWebSpeech();
-                return;
-              }
-              setVoiceAvailable(false);
-            }
-          } else {
-            console.warn(
-              "[Voice] Speech recognition not available on this device"
-            );
-            setVoiceAvailable(false);
-            // Intentar Web Speech API como fallback
-            initWebSpeech();
+          if (mounted) {
+            setVoiceAvailable(available);
           }
         } catch (error: any) {
           console.error("[Voice] Error checking native speech:", error);
-          // Si el error es UNIMPLEMENTED, intentar Web Speech API
-          if (error?.code === 'UNIMPLEMENTED') {
-            console.warn("[Voice] Plugin not implemented, trying Web Speech API fallback");
-            setVoiceAvailable(false);
-            initWebSpeech();
-          } else {
+          if (mounted) {
             setVoiceAvailable(false);
           }
         }
       } else {
-        initWebSpeech();
+        // WEB/PWA: Web Speech API
+        console.log("[Voice] Checking Web Speech API");
+        if (hasWebSpeechAPI && mounted) {
+          setVoiceAvailable(true);
+          initWebSpeech();
+        }
       }
     };
 
     const initWebSpeech = () => {
-      // WEB/PWA: Web Speech API
       console.log("[Voice] Initializing Web Speech API");
-      const hasWebSpeech =
-        "webkitSpeechRecognition" in window || "SpeechRecognition" in window;
-      console.log("[Voice] Web Speech available:", hasWebSpeech);
-      
-      if (hasWebSpeech) {
-        setVoiceAvailable(true);
-        const SpeechRecognitionAPI =
-          window.SpeechRecognition || window.webkitSpeechRecognition;
-        const recognition = new SpeechRecognitionAPI();
+      const SpeechRecognitionAPI =
+        (window as any).SpeechRecognition ||
+        (window as any).webkitSpeechRecognition;
+      const recognition = new SpeechRecognitionAPI();
 
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = "es-ES";
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = "es-ES";
 
-        recognition.onresult = (event) => {
-          let interim = "";
-          let final = "";
+      recognition.onresult = (event: any) => {
+        let interim = "";
+        let final = "";
 
-          for (let i = (event as any).resultIndex; i < (event as any).results.length; i++) {
-            const result = (event as any).results[i];
-            if (result.isFinal) {
-              final += result[0].transcript;
-            } else {
-              interim += result[0].transcript;
-            }
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i];
+          if (result.isFinal) {
+            final += result[0].transcript;
+          } else {
+            interim += result[0].transcript;
           }
+        }
 
-          console.log("[Voice] Result - Final:", final, "Interim:", interim);
+        console.log("[Voice] Result - Final:", final, "Interim:", interim);
 
-          if (final) {
-            setTranscript((prev) => prev + " " + final);
-            processTranscript(final);
-          }
-          setInterimTranscript(interim);
-        };
+        if (final) {
+          setTranscript((prev) => prev + " " + final);
+          processTranscript(final);
+        }
+        setInterimTranscript(interim);
+      };
 
-        recognition.onerror = (event) => {
-          console.error("[Voice] Web Speech error:", event.error);
-          if (event.error === "not-allowed") {
-            showNotification?.("❌ Micrófono denegado", "error");
-          } else if (event.error === "service-not-allowed") {
-            showNotification?.("❌ Servicio de reconocimiento no disponible", "error");
-          } else if (event.error !== "no-speech" && event.error !== "aborted") {
-            showNotification?.(`❌ Error: ${event.error}`, "error");
-          }
-          setIsListening(false);
-        };
+      recognition.onerror = (event: any) => {
+        console.error("[Voice] Web Speech error:", event.error);
+        if (event.error === "not-allowed") {
+          showNotification?.("❌ Permiso de micrófono denegado", "error");
+        } else if (event.error !== "no-speech" && event.error !== "aborted") {
+          showNotification?.(`❌ Error: ${event.error}`, "error");
+        }
+        setIsListening(false);
+      };
 
-        recognition.onend = () => {
-          console.log("[Voice] Web Speech ended");
-          setIsListening(false);
-        };
+      recognition.onend = () => {
+        console.log("[Voice] Web Speech ended");
+        setIsListening(false);
+      };
 
-        recognitionRef.current = recognition;
-        console.log("[Voice] ✅ Web Speech API initialized");
-      } else {
-        setVoiceAvailable(false);
-        console.warn("[Voice] Web Speech API not available");
-      }
+      recognitionRef.current = recognition;
+      console.log("[Voice] ✅ Web Speech API initialized");
     };
 
-    initSpeech();
+    checkAvailability();
 
     return () => {
+      mounted = false;
+      console.log(
+        "[Voice] Cleanup: Stopping recognition and removing listeners"
+      );
+
       if (recognitionRef.current && !isNative) {
         try {
           recognitionRef.current.stop();
@@ -244,8 +199,18 @@ const VoiceExpenseButton = ({
           console.error("[Voice] Error stopping web recognition:", e);
         }
       }
+
+      if (isNative && listenersAddedRef.current) {
+        try {
+          SpeechRecognition.removeAllListeners();
+          console.log("[Voice] Native listeners removed");
+        } catch (e) {
+          console.error("[Voice] Error removing listeners:", e);
+        }
+        listenersAddedRef.current = false;
+      }
     };
-  }, [isNative, showNotification]);
+  }, []);
 
   // ============================================
   // PROCESAR TRANSCRIPCIÓN
@@ -258,7 +223,6 @@ const VoiceExpenseButton = ({
       setIsProcessing(true);
 
       try {
-        // Extraer información del texto
         const expenseData = parseExpense(text);
 
         if (!expenseData) {
@@ -268,18 +232,16 @@ const VoiceExpenseButton = ({
 
         console.log("[Voice] Parsed expense:", expenseData);
 
-        // Añadir gasto
         await onAddExpense(expenseData);
         showNotification?.(
           `✅ Añadido: €${expenseData.amount} en ${expenseData.category}`,
           "success"
         );
 
-        // Limpiar
         setTranscript("");
         setInterimTranscript("");
 
-        // Detener escucha después de añadir
+        // Detener después de añadir
         if (isListening) {
           setTimeout(() => {
             toggleListening();
@@ -299,18 +261,14 @@ const VoiceExpenseButton = ({
   // PARSER DE GASTOS
   // ============================================
   const parseExpense = (text: string) => {
-    // Convertir a minúsculas
     const lowerText = text.toLowerCase().trim();
 
-    // Extraer cantidad
     const amountMatch = lowerText.match(/(\d+(?:[.,]\d+)?)\s*(?:euros?|€)?/i);
     if (!amountMatch) return null;
 
     const amount = parseFloat(amountMatch[1].replace(",", "."));
 
-    // Buscar categoría (palabras clave)
     let category = "Otros";
-    let subcategory = null;
 
     const categoryKeywords = {
       Alimentación: [
@@ -341,14 +299,13 @@ const VoiceExpenseButton = ({
       }
     }
 
-    // Fecha (por defecto hoy)
     const date = new Date().toISOString().split("T")[0];
 
     return {
       amount,
       category,
-      subcategory,
-      description: `Añadido por voz: ${text}`,
+      subcategory: null,
+      name: `Añadido por voz: ${text}`,
       date,
       paymentMethod: "Tarjeta",
     };
@@ -360,14 +317,14 @@ const VoiceExpenseButton = ({
   const toggleListening = async () => {
     console.log("[Voice] Toggle listening, current state:", isListening);
 
-    // Haptic feedback (nativo)
+    // Haptic feedback
     if (isNative) {
       try {
         await Haptics.impact({
           style: isListening ? ImpactStyle.Medium : ImpactStyle.Light,
         });
       } catch (error) {
-        // Fallback silencioso
+        // Silencioso
       }
     }
 
@@ -382,54 +339,76 @@ const VoiceExpenseButton = ({
           setIsListening(false);
           setTranscript("");
           setInterimTranscript("");
+
+          // ✅ Limpiar listeners al detener
+          if (listenersAddedRef.current) {
+            await SpeechRecognition.removeAllListeners();
+            listenersAddedRef.current = false;
+          }
         } catch (error) {
           console.error("[Voice] Error stopping native recognition:", error);
         }
       } else {
         console.log("[Voice] Starting native recognition");
+
+        // ✅ Solicitar permisos SOLO cuando se presiona el botón
         try {
+          const permission = await SpeechRecognition.requestPermissions();
+          const hasPermission = permission?.speechRecognition === "granted";
+
+          if (!hasPermission) {
+            showNotification?.("❌ Permiso de micrófono denegado", "error");
+            return;
+          }
+
           setTranscript("");
           setInterimTranscript("");
 
-          // Iniciar reconocimiento
+          // ✅ Agregar listeners SOLO UNA VEZ
+          if (!listenersAddedRef.current) {
+            await SpeechRecognition.addListener(
+              "partialResults",
+              (data: any) => {
+                console.log("[Voice] Partial results:", data);
+                if (data.matches && data.matches.length > 0) {
+                  const text = data.matches[0];
+                  setInterimTranscript(text);
+                }
+              }
+            );
+
+            await SpeechRecognition.addListener(
+              "listeningState",
+              (data: any) => {
+                console.log("[Voice] Listening state:", data);
+                const isListeningState = data.status === "started";
+                setIsListening(isListeningState);
+
+                if (data.status === "stopped") {
+                  setTranscript((prev) => {
+                    const finalText = interimTranscript || prev;
+                    if (finalText) {
+                      processTranscript(finalText);
+                    }
+                    return finalText;
+                  });
+                }
+              }
+            );
+
+            listenersAddedRef.current = true;
+          }
+
           await SpeechRecognition.start({
             language: "es-ES",
             maxResults: 1,
             prompt: 'Di tu gasto (ej: "25 euros en supermercado")',
             partialResults: true,
-            popup: false, // No mostrar popup nativo de iOS
+            popup: false,
           });
 
           console.log("[Voice] Native recognition started");
           setIsListening(true);
-
-          // Listener de resultados parciales
-          await SpeechRecognition.addListener("partialResults", (data: any) => {
-            console.log("[Voice] Partial results:", data);
-            if (data.matches && data.matches.length > 0) {
-              const text = data.matches[0];
-              setInterimTranscript(text);
-            }
-          });
-
-          // Listener de estado
-          await SpeechRecognition.addListener("listeningState", (data: any) => {
-            console.log("[Voice] Listening state:", data);
-            const isListeningState = data.status === 'started';
-            setIsListening(isListeningState);
-            
-            // Cuando se detiene, procesar el texto final
-            if (data.status === 'stopped') {
-              // Usar el transcript intermedio actual
-              setTranscript((prev) => {
-                const finalText = interimTranscript || prev;
-                if (finalText) {
-                  processTranscript(finalText);
-                }
-                return finalText;
-              });
-            }
-          });
         } catch (error) {
           console.error("[Voice] Error starting native recognition:", error);
           showNotification?.("❌ Error al iniciar micrófono", "error");
@@ -447,53 +426,36 @@ const VoiceExpenseButton = ({
 
       if (isListening) {
         console.log("[Voice] Stopping web recognition");
-        recognitionRef.current.stop();
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {
+          console.error("[Voice] Error stopping:", e);
+        }
         setIsListening(false);
         setTranscript("");
         setInterimTranscript("");
       } else {
         console.log("[Voice] Starting web recognition");
         try {
-          // Verificar permiso usando el hook de permisos
           const micStatus = microphone.status;
           console.log("[Voice] Microphone permission status:", micStatus);
 
-          // Si el permiso ya está concedido, iniciar directamente
-          if (micStatus === 'granted') {
-            setTranscript("");
-            setInterimTranscript("");
-            recognitionRef.current.start();
-            setIsListening(true);
+          if (micStatus === "denied" || microphone.permanentlyDenied) {
+            showNotification?.(
+              "❌ Permiso de micrófono denegado. Habilítalo en la configuración.",
+              "error"
+            );
             return;
           }
 
-          // Si está denegado permanentemente, no intentar
-          if (micStatus === 'denied' || microphone.permanentlyDenied) {
-            showNotification?.("❌ Permiso de micrófono denegado. Por favor, habilítalo en la configuración del navegador.", "error");
-            return;
-          }
-
-          // Si está en 'prompt' o 'unsupported', solicitar permiso primero
-          // NOTA: La Web Speech API puede solicitar permisos automáticamente al llamar a start(),
-          // pero es mejor verificar primero para evitar múltiples solicitudes
-          if (micStatus === 'prompt' || micStatus === 'unsupported') {
-            // Intentar solicitar permiso explícitamente
-            const granted = await microphone.request();
-            if (!granted) {
-              showNotification?.("❌ Se necesita permiso de micrófono para usar esta función.", "error");
-              return;
-            }
-          }
-
-          // Ahora iniciar el reconocimiento
           setTranscript("");
           setInterimTranscript("");
           recognitionRef.current.start();
           setIsListening(true);
         } catch (error: any) {
           console.error("[Voice] Error starting web recognition:", error);
-          if (error.name === 'NotAllowedError' || error.message?.includes('not-allowed')) {
-            showNotification?.("❌ Permiso de micrófono denegado. Por favor, habilítalo en la configuración del navegador.", "error");
+          if (error.name === "NotAllowedError") {
+            showNotification?.("❌ Permiso de micrófono denegado", "error");
           } else {
             showNotification?.("❌ Error al iniciar micrófono", "error");
           }
@@ -505,19 +467,9 @@ const VoiceExpenseButton = ({
   // ============================================
   // RENDER
   // ============================================
-
-  // En web, mostrar botón si Web Speech API está disponible (aunque el permiso no esté concedido)
-  // En nativo, solo mostrar si voiceAvailable es true
-  const shouldShowButton = isNative 
-    ? voiceAvailable 
-    : hasWebSpeechAPI;
+  const shouldShowButton = isNative ? voiceAvailable : hasWebSpeechAPI;
 
   if (!shouldShowButton) {
-    if (!isNative && !hasWebSpeechAPI) {
-      console.warn("[Voice] Web Speech API not available in this browser");
-    } else if (isNative && !voiceAvailable) {
-      console.warn("[Voice] Native speech recognition not available");
-    }
     return null;
   }
 
@@ -595,7 +547,6 @@ const VoiceExpenseButton = ({
 
             {/* Contenido */}
             <div className="p-6 pt-12">
-              {/* Título */}
               <h3
                 className={`text-lg font-bold mb-4 ${
                   darkMode ? "text-white" : "text-gray-900"
@@ -604,7 +555,6 @@ const VoiceExpenseButton = ({
                 🎤 Di tu gasto
               </h3>
 
-              {/* Transcripción */}
               <div
                 className={`min-h-[100px] p-4 rounded-xl mb-4 ${
                   darkMode ? "bg-gray-900/50" : "bg-gray-100"
@@ -643,7 +593,6 @@ const VoiceExpenseButton = ({
                 )}
               </div>
 
-              {/* Botón detener */}
               <button
                 onClick={toggleListening}
                 className={`w-full py-3 rounded-xl font-medium transition-colors ${
