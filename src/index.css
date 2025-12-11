@@ -149,6 +149,7 @@ body.light-mode {
   background-color: #0f172a !important;
   /* ✅ Prevenir overscroll bounce */
   overscroll-behavior: none;
+  overscroll-behavior-y: none;
   position: relative;
 }
 
@@ -422,14 +423,19 @@ select {
    ✅ OPTIMIZADO - Configuración definitiva
    ============================================ */
 
-/* ✅ Barra de navegación fija - Solo padding safe area */
-.fixed.bottom-0.z-50 {
-  padding-bottom: env(safe-area-inset-bottom, 0) !important;
+/* ✅ Barra de navegación fija - Solo padding safe area (sin duplicar) */
+.fixed.bottom-0.z-\[100\] {
+  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
 }
 
-/* ✅ Contenido principal - Espacio suficiente para la barra */
+/* ✅ Asegurar que elementos fijos en bottom tengan fondo oscuro */
+[class*="fixed"][class*="bottom"] {
+  background-color: #0f172a !important;
+}
+
+/* ✅ Contenido principal - Espacio suficiente para la barra (72px = 4.5rem) */
 .main-content {
-  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0)) !important;
+  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px)) !important;
 }
 
 /* ============================================

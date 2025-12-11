@@ -521,11 +521,12 @@ const MainContent = memo<MainContentProps>(
       <div
         className="max-w-7xl mx-auto px-2 md:px-4 py-2 md:py-6"
         style={{
-          paddingBottom: "calc(5.5rem + env(safe-area-inset-bottom, 0px))",
+          // ✅ Padding suficiente para la barra (72px = 4.5rem) + safe area
+          paddingBottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px))",
           backgroundColor: darkMode ? "#0f172a" : "transparent",
           paddingTop: "0",
           marginTop: "0",
-          minHeight: "calc(100vh - env(safe-area-inset-top, 0px))",
+          // ❌ NO min-height - causa overscroll en iOS
         }}
       >
         {/* Estadísticas con estilo Liquid Glass - Solo en vista principal */}
@@ -1210,6 +1211,7 @@ const MainContent = memo<MainContentProps>(
             paddingTop: "0.5rem",
             paddingLeft: "0.5rem",
             paddingRight: "0.5rem",
+            // ✅ SOLO safe area bottom aquí, sin padding extra
             paddingBottom: "env(safe-area-inset-bottom, 0px)",
           }}
         >
@@ -1228,6 +1230,7 @@ const MainContent = memo<MainContentProps>(
               position: "relative",
             }}
           >
+            {/* ✅ Grid sin padding bottom adicional - solo el padding de la clase p-1.5 */}
             <div className="grid grid-cols-5 gap-0.5 p-1.5">
               <button
                 onClick={() => handleViewChange("table")}
