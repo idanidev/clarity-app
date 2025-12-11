@@ -34,6 +34,9 @@ const config: CapacitorConfig = {
   ios: {
     contentInset: 'automatic',
   },
+  // Especificar que solo iOS está disponible para evitar errores
+  // cuando se ejecuta 'cap sync' sin especificar plataforma
+  android: undefined,
 };
 
 export default config;

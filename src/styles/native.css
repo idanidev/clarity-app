@@ -1,0 +1,460 @@
+/* ============================================
+   OPTIMIZACIONES NATIVAS PARA APP MÓVIL
+   Experiencia similar a app nativa iOS/Android
+   ============================================ */
+
+/* ============================================
+   GPU ACCELERATION & PERFORMANCE
+   ============================================ */
+
+/* Forzar GPU acceleration en elementos interactivos */
+button,
+a,
+[role="button"],
+input,
+select,
+textarea {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  will-change: transform, opacity;
+}
+
+/* Optimizar contenedores con scroll */
+.scroll-container,
+.overflow-y-auto,
+.overflow-x-auto,
+[class*="overflow"] {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  overscroll-behavior-y: contain;
+  scroll-behavior: smooth;
+  /* Mejorar rendimiento de scroll */
+  contain: layout style paint;
+}
+
+/* ============================================
+   TRANSICIONES Y ANIMACIONES NATIVAS
+   ============================================ */
+
+/* Curvas de animación nativas iOS/Android */
+:root {
+  --ease-ios: cubic-bezier(0.36, 0, 0.1, 1);
+  --ease-android: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 350ms;
+  --duration-slower: 500ms;
+}
+
+/* Transiciones suaves y rápidas (estilo nativo) */
+* {
+  transition-timing-function: var(--ease-ios);
+}
+
+/* Botones con feedback táctil mejorado */
+button,
+a[role="button"],
+[role="button"] {
+  transition: transform var(--duration-fast) var(--ease-ios),
+              opacity var(--duration-fast) var(--ease-ios),
+              background-color var(--duration-fast) var(--ease-ios);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Feedback táctil nativo (scale down) */
+button:active,
+a:active,
+[role="button"]:active {
+  transform: scale(0.96) translateZ(0);
+  opacity: 0.8;
+  transition-duration: 50ms;
+}
+
+/* ============================================
+   SCROLL NATIVO MEJORADO
+   ============================================ */
+
+/* Momentum scrolling (iOS) */
+@supports (-webkit-overflow-scrolling: touch) {
+  .scroll-native {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    overscroll-behavior: contain;
+    /* Prevenir bounce en iOS */
+    overscroll-behavior-y: contain;
+  }
+}
+
+/* Scrollbar nativa (más delgada y discreta) */
+::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.2);
+  border-radius: 3px;
+  transition: background 200ms;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.4);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(167, 139, 250, 0.2);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(167, 139, 250, 0.4);
+}
+
+/* ============================================
+   ANIMACIONES DE ENTRADA/SALIDA NATIVAS
+   ============================================ */
+
+/* Slide from bottom (estilo iOS modal) */
+@keyframes slideUpNative {
+  from {
+    transform: translateY(100%) translateZ(0);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) translateZ(0);
+    opacity: 1;
+  }
+}
+
+/* Slide from top (estilo iOS sheet) */
+@keyframes slideDownNative {
+  from {
+    transform: translateY(-100%) translateZ(0);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) translateZ(0);
+    opacity: 1;
+  }
+}
+
+/* Fade in (rápido y suave) */
+@keyframes fadeInNative {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Scale in (para modales) */
+@keyframes scaleInNative {
+  from {
+    transform: scale(0.95) translateZ(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateZ(0);
+    opacity: 1;
+  }
+}
+
+/* Clases utilitarias */
+.animate-slide-up-native {
+  animation: slideUpNative var(--duration-base) var(--ease-ios) forwards;
+}
+
+.animate-slide-down-native {
+  animation: slideDownNative var(--duration-base) var(--ease-ios) forwards;
+}
+
+.animate-fade-in-native {
+  animation: fadeInNative var(--duration-fast) var(--ease-ios) forwards;
+}
+
+.animate-scale-in-native {
+  animation: scaleInNative var(--duration-base) var(--ease-ios) forwards;
+}
+
+/* ============================================
+   EFECTOS TÁCTILES MEJORADOS
+   ============================================ */
+
+/* Ripple effect mejorado (Material Design) */
+.ripple-native {
+  position: relative;
+  overflow: hidden;
+  transform: translateZ(0);
+}
+
+.ripple-native::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%) scale(0);
+  transition: width 0.4s var(--ease-ios), 
+              height 0.4s var(--ease-ios),
+              transform 0.4s var(--ease-ios),
+              opacity 0.4s var(--ease-ios);
+  pointer-events: none;
+  opacity: 0;
+}
+
+.ripple-native:active::before {
+  width: 200px;
+  height: 200px;
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  transition-duration: 0.2s;
+}
+
+/* Touch feedback mejorado */
+.touch-feedback {
+  position: relative;
+  transition: transform 50ms var(--ease-ios),
+              opacity 50ms var(--ease-ios);
+}
+
+.touch-feedback:active {
+  transform: scale(0.95) translateZ(0);
+  opacity: 0.7;
+}
+
+/* ============================================
+   OPTIMIZACIONES DE RENDIMIENTO
+   ============================================ */
+
+/* Containment para mejor rendimiento */
+.optimize-render {
+  contain: layout style paint;
+  will-change: transform, opacity;
+}
+
+/* Lazy loading de imágenes */
+img {
+  content-visibility: auto;
+  contain-intrinsic-size: 200px;
+}
+
+/* Optimizar re-renders */
+.static-content {
+  contain: layout style paint;
+}
+
+/* ============================================
+   MEJORAS DE INPUT NATIVAS
+   ============================================ */
+
+input,
+textarea,
+select {
+  /* Mejorar rendimiento */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  /* Transiciones suaves */
+  transition: border-color var(--duration-fast) var(--ease-ios),
+              background-color var(--duration-fast) var(--ease-ios),
+              box-shadow var(--duration-fast) var(--ease-ios);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  /* Feedback visual mejorado */
+  transform: translateZ(0) scale(1.01);
+  transition-duration: var(--duration-fast);
+}
+
+/* ============================================
+   MODALES Y SHEETS NATIVOS
+   ============================================ */
+
+/* Backdrop blur nativo */
+.backdrop-native {
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Modal sheet (estilo iOS) */
+.modal-sheet {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform;
+  animation: slideUpNative var(--duration-slow) var(--ease-spring) forwards;
+}
+
+/* ============================================
+   LISTAS Y CARDS NATIVAS
+   ============================================ */
+
+/* List items con feedback táctil */
+.list-item-native {
+  transition: background-color var(--duration-fast) var(--ease-ios),
+              transform var(--duration-fast) var(--ease-ios);
+  transform: translateZ(0);
+}
+
+.list-item-native:active {
+  background-color: rgba(139, 92, 246, 0.1);
+  transform: scale(0.98) translateZ(0);
+}
+
+/* Cards con elevación nativa */
+.card-native {
+  transition: transform var(--duration-fast) var(--ease-ios),
+              box-shadow var(--duration-fast) var(--ease-ios);
+  transform: translateZ(0);
+}
+
+.card-native:active {
+  transform: scale(0.98) translateZ(0);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================
+   SWIPE GESTURES
+   ============================================ */
+
+/* Optimizar para swipe */
+.swipeable {
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* ============================================
+   LOADING STATES NATIVOS
+   ============================================ */
+
+/* Skeleton loading mejorado */
+.skeleton-native {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmerNative 1.5s infinite;
+  border-radius: 4px;
+}
+
+@keyframes shimmerNative {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.dark .skeleton-native {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.05) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+/* ============================================
+   OPTIMIZACIONES ESPECÍFICAS iOS
+   ============================================ */
+
+@supports (-webkit-touch-callout: none) {
+  /* iOS específico */
+  * {
+    -webkit-touch-callout: none;
+  }
+  
+  /* Mejorar scroll en iOS */
+  .scroll-ios {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: none;
+  }
+  
+  /* Prevenir selección accidental */
+  button,
+  a,
+  [role="button"] {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
+/* ============================================
+   OPTIMIZACIONES ESPECÍFICAS ANDROID
+   ============================================ */
+
+/* Mejorar feedback táctil en Android */
+@supports not (-webkit-touch-callout: none) {
+  button:active,
+  a:active,
+  [role="button"]:active {
+    background-color: rgba(139, 92, 246, 0.1);
+  }
+}
+
+/* ============================================
+   REDUCED MOTION (ACCESIBILIDAD)
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================
+   UTILIDADES ADICIONALES
+   ============================================ */
+
+/* Elevación nativa (sombras suaves) */
+.elevation-1 {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+}
+
+.elevation-2 {
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
+}
+
+.elevation-3 {
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.19), 0 6px 6px rgba(0, 0, 0, 0.23);
+}
+
+/* Glass morphism mejorado */
+.glass-native {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark .glass-native {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+

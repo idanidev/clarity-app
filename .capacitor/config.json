@@ -1,0 +1,8 @@
+{
+  "platforms": {
+    "ios": {
+      "name": "ios",
+      "dir": "ios/App"
+    }
+  }
+}

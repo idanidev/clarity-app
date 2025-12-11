@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Importar optimizaciones nativas */
+@import './styles/native.css';
+
 /* ============================================
    ESTILOS MÓVIL-FIRST PARA CAPACITOR iOS
    ✅ OPTIMIZADO - Sin overscroll excesivo
@@ -26,11 +29,16 @@
   box-sizing: border-box;
   /* Solo animar propiedades GPU-aceleradas */
   transition-property: transform, opacity;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-timing-function: cubic-bezier(0.36, 0, 0.1, 1); /* iOS native easing */
   transition-duration: 150ms;
   /* Eliminar tap highlight y delay en móvil */
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  /* GPU acceleration */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 /* Prevenir zoom en input focus (iOS) */
@@ -40,13 +48,18 @@ select {
   font-size: 16px; /* Mínimo 16px para evitar zoom automático en iOS */
 }
 
-/* Smooth scroll nativo */
+/* Smooth scroll nativo mejorado */
 .scrollable,
 .overflow-y-auto,
 .overflow-x-auto {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
+  overscroll-behavior: contain;
   scroll-behavior: smooth;
+  /* Optimización de rendimiento */
+  contain: layout style paint;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
 }
 
 /* Viewport dinámico (Chrome URL bar) */
@@ -208,92 +221,114 @@ select {
 }
 
 /* ============================================
-   ANIMACIONES PERSONALIZADAS
+   ANIMACIONES PERSONALIZADAS (OPTIMIZADAS)
    ============================================ */
 @keyframes slideInFromTop {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(-10px) translateZ(0);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) translateZ(0);
   }
 }
 
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(20px) translateZ(0);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) translateZ(0);
   }
 }
 
 @keyframes scaleIn {
   from {
     opacity: 0;
-    transform: scale(0.95);
+    transform: scale(0.95) translateZ(0);
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: scale(1) translateZ(0);
   }
 }
 
 @keyframes slideInFromRight {
   from {
     opacity: 0;
-    transform: translateX(20px);
+    transform: translateX(20px) translateZ(0);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateX(0) translateZ(0);
   }
 }
 
 @keyframes slideUp {
   from {
-    transform: translateY(100%);
+    transform: translateY(100%) translateZ(0);
     opacity: 0;
   }
   to {
-    transform: translateY(0);
+    transform: translateY(0) translateZ(0);
     opacity: 1;
   }
 }
 
 .animate-in {
-  animation: slideInFromTop 0.3s ease-out;
+  animation: slideInFromTop 0.25s cubic-bezier(0.36, 0, 0.1, 1);
   animation-fill-mode: both;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
 }
 
 .animate-slide-up {
-  animation: slideUp 0.3s ease-out;
+  animation: slideUp 0.3s cubic-bezier(0.36, 0, 0.1, 1);
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
 }
 
 /* ============================================
-   OPTIMIZACIONES MÓVIL
+   OPTIMIZACIONES MÓVIL MEJORADAS
    ============================================ */
 @media (max-width: 640px) {
-  /* Mejor feedback táctil */
+  /* Mejor feedback táctil nativo */
   button,
   a,
   [role="button"] {
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
+    transition: transform 50ms cubic-bezier(0.36, 0, 0.1, 1),
+                opacity 50ms cubic-bezier(0.36, 0, 0.1, 1);
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+  }
+
+  button:active,
+  a:active,
+  [role="button"]:active {
+    transform: scale(0.96) translateZ(0);
+    opacity: 0.8;
   }
 
   /* Animaciones más rápidas en móvil */
   .animate-in {
     animation-duration: 0.2s;
+    animation-timing-function: cubic-bezier(0.36, 0, 0.1, 1);
   }
 
   /* Mejor scroll en móvil */
   * {
     -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Optimizar contenedores con scroll */
+  .overflow-y-auto,
+  .overflow-x-auto {
+    contain: layout style paint;
   }
 }
 

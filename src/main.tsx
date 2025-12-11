@@ -7,6 +7,7 @@ import App from "./App";
 import "./index.css";
 import "./styles/animations.css";
 import "./styles/mobile.css";
+import "./styles/native.css";
 
 // Configurar StatusBar antes de renderizar (solo en apps nativas)
 if (Capacitor.isNativePlatform()) {

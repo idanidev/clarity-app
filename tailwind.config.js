@@ -26,11 +26,17 @@ export default {
       transitionTimingFunction: {
         'smooth': 'cubic-bezier(0.4, 0, 0.2, 1)',
         'bounce-smooth': 'cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+        'ios': 'cubic-bezier(0.36, 0, 0.1, 1)',
+        'android': 'cubic-bezier(0.4, 0, 0.2, 1)',
+        'spring': 'cubic-bezier(0.68, -0.55, 0.265, 1.55)',
       },
       animation: {
         "fade-in": "fadeIn 0.15s ease-out",
         "slide-in": "slideIn 0.15s ease-out",
         "shimmer": "shimmer 1.5s ease-in-out infinite",
+        "slide-up-native": "slideUpNative 0.25s cubic-bezier(0.36, 0, 0.1, 1)",
+        "fade-in-native": "fadeInNative 0.15s cubic-bezier(0.36, 0, 0.1, 1)",
+        "scale-in-native": "scaleInNative 0.25s cubic-bezier(0.36, 0, 0.1, 1)",
       },
       keyframes: {
         fadeIn: {
@@ -101,6 +107,26 @@ export default {
         },
         '.min-h-dvh': {
           'min-height': '100dvh',
+        },
+        '.gpu-accelerate': {
+          transform: 'translateZ(0)',
+          '-webkit-transform': 'translateZ(0)',
+          'backface-visibility': 'hidden',
+          '-webkit-backface-visibility': 'hidden',
+          'will-change': 'transform, opacity',
+        },
+        '.touch-feedback': {
+          transition: 'transform 50ms cubic-bezier(0.36, 0, 0.1, 1), opacity 50ms cubic-bezier(0.36, 0, 0.1, 1)',
+        },
+        '.touch-feedback:active': {
+          transform: 'scale(0.96) translateZ(0)',
+          opacity: '0.8',
+        },
+        '.scroll-native': {
+          '-webkit-overflow-scrolling': 'touch',
+          'scroll-behavior': 'smooth',
+          'overscroll-behavior': 'contain',
+          'overscroll-behavior-y': 'contain',
         },
       });
     },
