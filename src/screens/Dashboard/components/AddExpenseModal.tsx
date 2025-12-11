@@ -1,7 +1,7 @@
 import { X, Plus } from "lucide-react";
 // @ts-ignore - No hay tipos para este módulo JS
 import { getCategorySubcategories } from "../../../services/firestoreService";
-import { useState, useEffect, useCallback, FormEvent } from "react";
+import { useState, useEffect, useCallback, useMemo, memo, FormEvent } from "react";
 import { useDisableBodyScroll } from "../../../hooks/useDisableBodyScroll";
 import { Input, Button } from "../../../components/ui";
 import { isValidAmount, isNotEmpty, isValidDate } from "../../../utils/validation";
@@ -28,7 +28,7 @@ interface FormErrors {
   [key: string]: string;
 }
 
-const AddExpenseModal = ({
+const AddExpenseModal = memo(({
   visible,
   darkMode,
   cardClass,
@@ -48,10 +48,10 @@ const AddExpenseModal = ({
   const [newSubcategoryName, setNewSubcategoryName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
-  
+
   // Deshabilitar scroll del body cuando el modal está abierto
   useDisableBodyScroll(visible);
-  
+
   // Limpiar estados cuando se cierra el modal
   useEffect(() => {
     if (!visible) {
@@ -63,7 +63,11 @@ const AddExpenseModal = ({
     }
   }, [visible]);
 
-  const textSecondaryClass = darkMode ? "text-gray-400" : "text-gray-600";
+  // ✅ useMemo para clases CSS que dependen de darkMode
+  const textSecondaryClass = useMemo(
+    () => darkMode ? "text-gray-400" : "text-gray-600",
+    [darkMode]
+  );
 
   const handleChange = useCallback((field: string, value: any) => {
     // Limpiar error del campo cuando el usuario empieza a escribir
@@ -568,7 +572,9 @@ const AddExpenseModal = ({
         </form>
     </BottomSheet>
   );
-};
+});
+
+AddExpenseModal.displayName = 'AddExpenseModal';
 
 export default AddExpenseModal;
 

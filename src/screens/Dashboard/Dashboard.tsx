@@ -150,7 +150,7 @@ const Dashboard = ({ user }: DashboardProps) => {
   
   // Versión actual del changelog - incrementar cuando hay nuevos cambios
   const CURRENT_CHANGELOG_VERSION = "2.1.0";
-  const [newRecurring, setNewRecurring] = useState({
+  const [newRecurring, setNewRecurring] = useState<Partial<RecurringExpense>>({
     name: "",
     amount: "",
     category: "",
@@ -217,15 +217,24 @@ const Dashboard = ({ user }: DashboardProps) => {
   const [budgetCategory, setBudgetCategory] = useState("");
   const [budgetAmount, setBudgetAmount] = useState("");
 
-  const [expandedCategories, setExpandedCategories] = useState({});
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
 
   // Nuevos estados para ingresos, objetivos y notificaciones
-  const [income, setIncome] = useState(0);
-  const [goals, setGoals] = useState({
+  const [income, setIncome] = useState<number>(0);
+  const [goals, setGoals] = useState<{
+    totalSavingsGoal: number;
+    categoryGoals: Record<string, number>;
+  }>({
     totalSavingsGoal: 0,
     categoryGoals: {},
   });
-  const [notificationSettings, setNotificationSettings] = useState({
+  const [notificationSettings, setNotificationSettings] = useState<{
+    budgetAlerts: { enabled: boolean; at80: boolean; at90: boolean; at100: boolean };
+    recurringReminders: { enabled: boolean };
+    customReminders: { enabled: boolean; message: string };
+    weeklyReminder: { enabled: boolean; dayOfWeek: number; message: string };
+    pushNotifications: { enabled: boolean };
+  }>({
     budgetAlerts: { enabled: true, at80: true, at90: true, at100: true },
     recurringReminders: { enabled: true },
     customReminders: { enabled: true, message: "No olvides registrar tus gastos" },
@@ -235,7 +244,10 @@ const Dashboard = ({ user }: DashboardProps) => {
   const [showGoals, setShowGoals] = useState(false);
   // const [showCelebration, setShowCelebration] = useState(false); // Comentado temporalmente
   // const [completedGoal, setCompletedGoal] = useState(null); // Comentado temporalmente
-  const [previousGoals, setPreviousGoals] = useState(null);
+  const [previousGoals, setPreviousGoals] = useState<{
+    totalSavingsGoal: number;
+    categoryGoals: Record<string, number>;
+  } | null>(null);
 
   useEffect(() => {
     if (!user) {

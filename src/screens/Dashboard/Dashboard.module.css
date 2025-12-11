@@ -1,0 +1,56 @@
+/* ================================================
+   DASHBOARD MODULE CSS
+   ================================================ */
+
+.dashboardContainer {
+  min-height: 100vh;
+  height: auto;
+  padding-top: 0;
+  position: relative;
+  transition: background-color 0.3s ease;
+}
+
+.dashboardContainer.darkMode {
+  background-color: #0f172a;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.dashboardContainer.lightMode {
+  background-image: linear-gradient(to bottom right, #faf5ff, #fdf2f8, #eff6ff);
+  padding-bottom: 0;
+}
+
+/* Loading State */
+.dashboardLoading {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(to bottom right, #faf5ff, #fdf2f8, #eff6ff);
+}
+
+.dashboardLoadingSpinner {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  border-top: 4px solid #9333ea;
+  border-bottom: 4px solid #9333ea;
+  animation: spin 1s linear infinite;
+  margin: 0 auto;
+}
+
+.dashboardLoadingText {
+  margin-top: 1rem;
+  color: #9333ea;
+  font-weight: 500;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+

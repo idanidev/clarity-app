@@ -1,238 +1,171 @@
-// ============================================
-// BottomSheet.tsx - Modal adaptativo móvil/desktop
-// iOS/Android-style bottom sheet en móvil, modal centrado en desktop
-// ============================================
-import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
-import { useEffect, useRef } from "react";
-import { getTransition } from "../config/framerMotion";
-import { Capacitor } from "@capacitor/core";
-import { Haptics, ImpactStyle } from "@capacitor/haptics";
+import { memo, ReactNode, useCallback, useEffect, useRef } from "react";
 
 interface BottomSheetProps {
   visible: boolean;
   onClose: () => void;
-  title?: string;
-  children: React.ReactNode;
+  title: string;
   darkMode: boolean;
-  showDragHandle?: boolean;
   maxHeight?: string;
-  className?: string;
+  children: ReactNode;
 }
 
-const isNative = Capacitor.isNativePlatform();
+/**
+ * BottomSheet optimizado con swipe gesture
+ * - Hardware accelerated animations
+ * - Memoized para evitar re-renders
+ * - Touch handlers optimizados
+ */
+const BottomSheet = memo(
+  ({
+    visible,
+    onClose,
+    title,
+    darkMode,
+    maxHeight = "90vh",
+    children,
+  }: BottomSheetProps) => {
+    const sheetRef = useRef<HTMLDivElement>(null);
+    const startY = useRef(0);
+    const currentY = useRef(0);
+    const isDragging = useRef(false);
 
-const BottomSheet = ({
-  visible,
-  onClose,
-  title,
-  children,
-  darkMode,
-  showDragHandle = true,
-  maxHeight = "90vh",
-  className = "",
-}: BottomSheetProps) => {
-  const sheetRef = useRef<HTMLDivElement>(null);
-  const startY = useRef(0);
-  const currentY = useRef(0);
-  const isDragging = useRef(false);
-
-  // Dismiss keyboard on backdrop tap (iOS)
-  useEffect(() => {
-    if (!visible) return;
-
-    const handleTap = (e: TouchEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.classList.contains("backdrop")) {
-        document.activeElement?.blur();
-      }
-    };
-
-    document.addEventListener("touchend", handleTap);
-    return () => document.removeEventListener("touchend", handleTap);
-  }, [visible]);
-
-  // Swipe to dismiss (móvil)
-  useEffect(() => {
-    if (!visible || !sheetRef.current) return;
-
-    const sheet = sheetRef.current;
-    let startYPos = 0;
-    let currentYPos = 0;
-
-    const handleTouchStart = (e: TouchEvent) => {
-      startYPos = e.touches[0].clientY;
+    // ✅ Handlers memoizados
+    const handleTouchStart = useCallback((e: TouchEvent) => {
+      const touch = e.touches[0];
+      startY.current = touch.clientY;
       isDragging.current = true;
-    };
+    }, []);
 
-    const handleTouchMove = (e: TouchEvent) => {
-      if (!isDragging.current) return;
-      currentYPos = e.touches[0].clientY;
-      const deltaY = currentYPos - startYPos;
+    const handleTouchMove = useCallback((e: TouchEvent) => {
+      if (!isDragging.current || !sheetRef.current) return;
 
-      if (deltaY > 0) {
-        sheet.style.transform = `translateY(${deltaY}px)`;
-        sheet.style.opacity = `${Math.max(0, 1 - deltaY / 200)}`;
+      const touch = e.touches[0];
+      currentY.current = touch.clientY;
+      const diff = currentY.current - startY.current;
+
+      // Solo permitir arrastrar hacia abajo
+      if (diff > 0) {
+        // ✅ GPU-accelerated transform
+        sheetRef.current.style.transform = `translateY(${diff}px)`;
+        e.preventDefault();
       }
-    };
+    }, []);
 
-    const handleTouchEnd = async () => {
-      if (!isDragging.current) return;
-      isDragging.current = false;
+    const handleTouchEnd = useCallback(() => {
+      if (!isDragging.current || !sheetRef.current) return;
 
-      const deltaY = currentYPos - startYPos;
-      if (deltaY > 100) {
-        // Swipe down suficiente para cerrar
-        if (isNative) {
-          try {
-            await Haptics.impact({ style: ImpactStyle.Medium });
-          } catch {}
-        }
+      const diff = currentY.current - startY.current;
+
+      if (diff > 100) {
+        // Arrastró suficiente para cerrar
         onClose();
       } else {
-        // Reset position
-        sheet.style.transform = "";
-        sheet.style.opacity = "";
+        // Volver a posición original
+        sheetRef.current.style.transition =
+          "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
+        sheetRef.current.style.transform = "translateY(0)";
+
+        setTimeout(() => {
+          if (sheetRef.current) {
+            sheetRef.current.style.transition = "";
+          }
+        }, 300);
       }
-    };
 
-    sheet.addEventListener("touchstart", handleTouchStart);
-    sheet.addEventListener("touchmove", handleTouchMove);
-    sheet.addEventListener("touchend", handleTouchEnd);
+      isDragging.current = false;
+      startY.current = 0;
+      currentY.current = 0;
+    }, [onClose]);
 
-    return () => {
-      sheet.removeEventListener("touchstart", handleTouchStart);
-      sheet.removeEventListener("touchmove", handleTouchMove);
-      sheet.removeEventListener("touchend", handleTouchEnd);
-    };
-  }, [visible, onClose]);
+    // ✅ Event listeners con cleanup
+    useEffect(() => {
+      const sheet = sheetRef.current;
+      if (!sheet || !visible) return;
 
-  // ESC key to close
-  useEffect(() => {
-    if (!visible) return;
+      const options = { passive: false };
+      sheet.addEventListener("touchstart", handleTouchStart, options);
+      sheet.addEventListener("touchmove", handleTouchMove, options);
+      sheet.addEventListener("touchend", handleTouchEnd);
 
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    };
+      return () => {
+        sheet.removeEventListener("touchstart", handleTouchStart);
+        sheet.removeEventListener("touchmove", handleTouchMove);
+        sheet.removeEventListener("touchend", handleTouchEnd);
+      };
+    }, [visible, handleTouchStart, handleTouchMove, handleTouchEnd]);
 
-    document.addEventListener("keydown", handleEsc);
-    return () => document.removeEventListener("keydown", handleEsc);
-  }, [visible, onClose]);
+    if (!visible) return null;
 
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
-
-  return (
-    <AnimatePresence>
-      {visible && (
-        <>
-          {/* Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={getTransition("fast")}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 backdrop"
-            onClick={onClose}
-          />
-
-          {/* Sheet */}
-          <motion.div
-            ref={sheetRef}
-            initial={
-              isMobile
-                ? { y: "100%", opacity: 0 }
-                : { scale: 0.95, opacity: 0 }
-            }
-            animate={
-              isMobile
-                ? { y: 0, opacity: 1 }
-                : { scale: 1, opacity: 1 }
-            }
-            exit={
-              isMobile
-                ? { y: "100%", opacity: 0 }
-                : { scale: 0.95, opacity: 0 }
-            }
-            transition={getTransition("modal")}
-            className={`
-              fixed z-50
-              ${isMobile ? "bottom-0 inset-x-0 rounded-t-2xl" : "inset-0 m-auto max-w-md max-h-[90vh] rounded-2xl"}
-              ${darkMode ? "bg-gray-900" : "bg-white"}
-              shadow-2xl
-              pb-safe
-              ${className}
-            `}
-            style={{
-              maxHeight: isMobile ? maxHeight : undefined,
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Drag handle (solo móvil) */}
-            {isMobile && showDragHandle && (
-              <div className="flex justify-center pt-3 pb-2">
-                <div
-                  className={`w-12 h-1 rounded-full ${
-                    darkMode ? "bg-gray-700" : "bg-gray-300"
-                  }`}
-                />
-              </div>
-            )}
-
-            {/* Header */}
-            {(title || !isMobile) && (
-              <div
-                className={`sticky top-0 z-10 px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center border-b ${
-                  darkMode
-                    ? "bg-gray-900/95 border-gray-700"
-                    : "bg-white/95 border-gray-200"
-                } backdrop-blur`}
-              >
-                {title && (
-                  <h3
-                    className={`text-lg sm:text-xl font-bold ${
-                      darkMode ? "text-white" : "text-gray-900"
-                    }`}
-                  >
-                    {title}
-                  </h3>
-                )}
-                <button
-                  onClick={onClose}
-                  className={`p-2 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors ${
-                    darkMode
-                      ? "hover:bg-gray-800 text-gray-300"
-                      : "hover:bg-gray-100 text-gray-600"
-                  }`}
-                  title="Cerrar"
-                >
-                  <X className="w-5 h-5 sm:w-6 sm:h-6" />
-                </button>
-              </div>
-            )}
-
-            {/* Content */}
+    return (
+      <div
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end justify-center z-50"
+        onClick={onClose}
+      >
+        <div
+          ref={sheetRef}
+          className={`w-full rounded-t-3xl shadow-2xl ${
+            darkMode ? "bg-gray-800" : "bg-white"
+          } animate-slide-up`}
+          style={{
+            maxHeight,
+            transform: "translateZ(0)", // ✅ Hardware acceleration
+            willChange: "transform", // ✅ Optimización GPU
+            backfaceVisibility: "hidden",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Handle visual para swipe */}
+          <div className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing">
             <div
-              className={`overflow-y-auto ${
-                isMobile ? "px-4 pb-6" : "px-6 py-6"
+              className={`w-12 h-1.5 rounded-full transition-all ${
+                darkMode ? "bg-gray-600" : "bg-gray-300"
               }`}
-              style={{
-                maxHeight: isMobile
-                  ? `calc(${maxHeight} - 80px)`
-                  : "calc(90vh - 100px)",
-                WebkitOverflowScrolling: "touch",
-                overscrollBehavior: "contain",
-              }}
+            />
+          </div>
+
+          {/* Header fijo */}
+          <div
+            className={`px-6 py-4 flex justify-between items-center border-b ${
+              darkMode ? "border-gray-700" : "border-gray-200"
+            }`}
+          >
+            <h3
+              className={`text-2xl font-bold ${
+                darkMode ? "text-white" : "text-gray-900"
+              }`}
             >
-              {children}
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
-  );
-};
+              {title}
+            </h3>
+            <button
+              onClick={onClose}
+              type="button"
+              className={`p-2 rounded-lg transition-colors ${
+                darkMode
+                  ? "hover:bg-gray-700 text-gray-400 hover:text-white"
+                  : "hover:bg-gray-100 text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          {/* Contenido scrollable */}
+          <div
+            className="overflow-y-auto overscroll-contain"
+            style={{
+              maxHeight: "calc(90vh - 100px)",
+              WebkitOverflowScrolling: "touch",
+            }}
+          >
+            {children}
+          </div>
+        </div>
+      </div>
+    );
+  }
+);
+
+BottomSheet.displayName = "BottomSheet";
 
 export default BottomSheet;
-
