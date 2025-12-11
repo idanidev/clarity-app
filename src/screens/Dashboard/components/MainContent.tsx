@@ -523,6 +523,9 @@ const MainContent = memo<MainContentProps>(
         style={{
           paddingBottom: "calc(5.5rem + env(safe-area-inset-bottom, 0px))",
           backgroundColor: darkMode ? "#0f172a" : "transparent",
+          paddingTop: "0",
+          marginTop: "0",
+          minHeight: "calc(100vh - env(safe-area-inset-top, 0px))",
         }}
       >
         {/* Estadísticas con estilo Liquid Glass - Solo en vista principal */}
@@ -1225,9 +1228,7 @@ const MainContent = memo<MainContentProps>(
               position: "relative",
             }}
           >
-            <div
-              className="grid grid-cols-5 gap-0.5 p-1.5"
-            >
+            <div className="grid grid-cols-5 gap-0.5 p-1.5">
               <button
                 onClick={() => handleViewChange("table")}
                 disabled={isPending}
