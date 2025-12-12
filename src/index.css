@@ -2,9 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Importar optimizaciones nativas */
-@import './styles/native.css';
-
 /* ============================================
    ESTILOS MÓVIL-FIRST PARA CAPACITOR iOS
    ✅ OPTIMIZADO - Sin overscroll excesivo
@@ -29,7 +26,7 @@
   box-sizing: border-box;
   /* Solo animar propiedades GPU-aceleradas */
   transition-property: transform, opacity;
-  transition-timing-function: cubic-bezier(0.36, 0, 0.1, 1); /* iOS native easing */
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
   /* Eliminar tap highlight y delay en móvil */
   -webkit-tap-highlight-color: transparent;
@@ -48,18 +45,13 @@ select {
   font-size: 16px; /* Mínimo 16px para evitar zoom automático en iOS */
 }
 
-/* Smooth scroll nativo mejorado */
+/* Smooth scroll nativo */
 .scrollable,
 .overflow-y-auto,
 .overflow-x-auto {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
-  overscroll-behavior: contain;
   scroll-behavior: smooth;
-  /* Optimización de rendimiento */
-  contain: layout style paint;
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
 }
 
 /* Viewport dinámico (Chrome URL bar) */
@@ -84,7 +76,6 @@ html {
   margin: 0;
   padding: 0;
   width: 100%;
-  /* ❌ NO height: 100% - causa overscroll en iOS */
   /* ✅ CRÍTICO: Fondo oscuro desde el inicio para evitar espacios blancos */
   background-color: #0f172a !important;
   /* ✅ CRÍTICO: Prevenir overscroll bounce en iOS */
@@ -104,27 +95,26 @@ body {
   margin: 0;
   padding: 0;
   width: 100%;
-  /* ❌ NO min-height ni height - deja que el contenido defina la altura */
   /* ✅ CRÍTICO: Fondo oscuro desde el inicio */
   background-color: #0f172a !important;
   color: #f3f4f6;
   /* ✅ Safe area top - para el status bar */
   padding-top: env(safe-area-inset-top, 0);
-  /* ❌ NO padding bottom - lo maneja la barra de navegación */
-  padding-bottom: 0;
+  /* ✅ Padding bottom para safe area */
+  padding-bottom: env(safe-area-inset-bottom, 0);
   /* ✅ CRÍTICO: Prevenir overscroll bounce en iOS */
-  overscroll-behavior: none;
-  overscroll-behavior-y: none;
+  overscroll-behavior: none !important;
+  overscroll-behavior-y: none !important;
   -webkit-overflow-scrolling: touch;
   /* ✅ CRÍTICO: Prevenir scroll extra */
-  position: relative;
+  position: relative !important;
 }
 
 /* ============================================
    MODOS CLARO/OSCURO
    ============================================ */
 body.dark-mode {
-  background-color: #0f172a !important; /* slate-900 - mismo que status bar */
+  background-color: #0f172a !important;
   color: #f3f4f6;
 }
 
@@ -134,7 +124,7 @@ body.light-mode {
     #faf5ff,
     #fdf2f8,
     #eff6ff
-  ) !important; /* purple-50, pink-50, blue-50 */
+  ) !important;
   color: #1f2937;
 }
 
@@ -142,12 +132,8 @@ body.light-mode {
    ROOT CONTAINER (altura automática)
    ============================================ */
 #root {
-  /* ❌ NO min-height: 100vh - causa overscroll en iOS */
-  /* ✅ Altura automática según contenido */
   width: 100%;
-  /* ✅ Asegurar fondo oscuro en el root también */
   background-color: #0f172a !important;
-  /* ✅ Prevenir overscroll bounce */
   overscroll-behavior: none;
   overscroll-behavior-y: none;
   position: relative;
@@ -174,7 +160,6 @@ body.light-mode {
   background: rgba(139, 92, 246, 0.5);
 }
 
-/* Scrollbar modo oscuro */
 .dark ::-webkit-scrollbar-thumb {
   background: rgba(167, 139, 250, 0.3);
 }
@@ -205,14 +190,12 @@ input[type="month"] {
   appearance: none;
 }
 
-/* Prevenir zoom automático en móviles cuando se enfoca un input */
 input,
 textarea,
 select {
   font-size: 16px !important;
 }
 
-/* Para pantallas grandes, permitir tamaños más pequeños */
 @media (min-width: 640px) {
   input,
   textarea,
@@ -222,114 +205,96 @@ select {
 }
 
 /* ============================================
-   ANIMACIONES PERSONALIZADAS (OPTIMIZADAS)
+   ANIMACIONES PERSONALIZADAS
    ============================================ */
 @keyframes slideInFromTop {
   from {
     opacity: 0;
-    transform: translateY(-10px) translateZ(0);
+    transform: translateY(-10px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) translateZ(0);
+    transform: translateY(0);
   }
 }
 
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(20px) translateZ(0);
+    transform: translateY(20px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) translateZ(0);
+    transform: translateY(0);
   }
 }
 
 @keyframes scaleIn {
   from {
     opacity: 0;
-    transform: scale(0.95) translateZ(0);
+    transform: scale(0.95);
   }
   to {
     opacity: 1;
-    transform: scale(1) translateZ(0);
+    transform: scale(1);
   }
 }
 
 @keyframes slideInFromRight {
   from {
     opacity: 0;
-    transform: translateX(20px) translateZ(0);
+    transform: translateX(20px);
   }
   to {
     opacity: 1;
-    transform: translateX(0) translateZ(0);
+    transform: translateX(0);
   }
 }
 
 @keyframes slideUp {
   from {
-    transform: translateY(100%) translateZ(0);
+    transform: translateY(100%);
     opacity: 0;
   }
   to {
-    transform: translateY(0) translateZ(0);
+    transform: translateY(0);
     opacity: 1;
   }
 }
 
 .animate-in {
-  animation: slideInFromTop 0.25s cubic-bezier(0.36, 0, 0.1, 1);
+  animation: slideInFromTop 0.3s ease-out;
   animation-fill-mode: both;
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
 }
 
 .animate-slide-up {
-  animation: slideUp 0.3s cubic-bezier(0.36, 0, 0.1, 1);
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
+  animation: slideUp 0.3s ease-out;
 }
 
 /* ============================================
-   OPTIMIZACIONES MÓVIL MEJORADAS
+   OPTIMIZACIONES MÓVIL
    ============================================ */
 @media (max-width: 640px) {
-  /* Mejor feedback táctil nativo */
   button,
   a,
   [role="button"] {
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
-    transition: transform 50ms cubic-bezier(0.36, 0, 0.1, 1),
-                opacity 50ms cubic-bezier(0.36, 0, 0.1, 1);
-    transform: translateZ(0);
-    -webkit-transform: translateZ(0);
   }
 
   button:active,
   a:active,
   [role="button"]:active {
-    transform: scale(0.96) translateZ(0);
+    transform: scale(0.96);
     opacity: 0.8;
   }
 
-  /* Animaciones más rápidas en móvil */
   .animate-in {
     animation-duration: 0.2s;
-    animation-timing-function: cubic-bezier(0.36, 0, 0.1, 1);
   }
 
-  /* Mejor scroll en móvil */
   * {
     -webkit-overflow-scrolling: touch;
-  }
-  
-  /* Optimizar contenedores con scroll */
-  .overflow-y-auto,
-  .overflow-x-auto {
-    contain: layout style paint;
   }
 }
 
@@ -357,7 +322,6 @@ select {
   display: none;
 }
 
-/* Mejoras para el efecto liquid glass en móvil */
 @supports (backdrop-filter: blur(20px)) {
   .backdrop-blur-2xl {
     backdrop-filter: blur(40px) saturate(180%);
@@ -386,7 +350,6 @@ select {
   }
 }
 
-/* Clases safe-area para uso directo */
 .safe-area-top {
   padding-top: max(1rem, env(safe-area-inset-top, 0px));
 }
@@ -407,7 +370,6 @@ select {
    FIX iOS NOTIFICACIONES
    ============================================ */
 @supports (-webkit-touch-callout: none) {
-  /* iOS específico - forzar notificaciones a estar fijas */
   [role="status"] {
     position: fixed !important;
     -webkit-transform: translateZ(0) !important;
@@ -419,42 +381,93 @@ select {
 }
 
 /* ============================================
-   BARRA DE NAVEGACIÓN + SAFE AREAS iOS
-   ✅ OPTIMIZADO - Configuración definitiva
+   BARRA DE NAVEGACIÓN FIJA - ESTILO INSTAGRAM
+   ✅ SOLUCIÓN DEFINITIVA
    ============================================ */
 
-/* ✅ Barra de navegación fija - Solo padding safe area (sin duplicar) */
-.fixed.bottom-0.z-\[100\] {
+/* Barra de navegación: SIEMPRE fija en bottom, sin moverse NUNCA */
+.bottom-nav,
+nav[class*="fixed"][class*="bottom"],
+.fixed.bottom-0,
+.fixed.bottom-0.z-50,
+.fixed.bottom-0.z-\[100\],
+[class*="fixed bottom-0"] {
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 9999 !important;
+
+  /* Fondo opaco para cubrir contenido detrás */
+  background-color: #0f172a !important;
+
+  /* Safe area iOS - padding SOLO en bottom */
   padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+
+  /* Hardware acceleration para mejor rendimiento */
+  transform: translateZ(0) !important;
+  -webkit-transform: translateZ(0) !important;
+  backface-visibility: hidden !important;
+  -webkit-backface-visibility: hidden !important;
+  will-change: transform !important;
+
+  /* Prevenir que se mueva con overscroll */
+  pointer-events: auto !important;
 }
 
-/* ✅ Asegurar que elementos fijos en bottom tengan fondo oscuro */
-[class*="fixed"][class*="bottom"] {
+/* Fondo oscuro en modo oscuro */
+.dark .bottom-nav,
+.dark nav[class*="fixed"][class*="bottom"],
+.dark .fixed.bottom-0 {
   background-color: #0f172a !important;
 }
 
-/* ✅ Contenido principal - Espacio suficiente para la barra (72px = 4.5rem) */
-.main-content {
-  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px)) !important;
+/* Fondo claro en modo claro */
+.light-mode .bottom-nav,
+.light-mode nav[class*="fixed"][class*="bottom"],
+.light-mode .fixed.bottom-0 {
+  background-color: #ffffff !important;
+  border-top: 1px solid #e5e7eb !important;
+}
+
+/* ✅ Contenido principal - Espacio para la barra (64px + safe area) */
+.main-content,
+main,
+.content-wrapper,
+[class*="main-content"] {
+  /* Altura total menos la barra de navegación */
+  min-height: calc(100dvh - 64px - env(safe-area-inset-bottom, 0px)) !important;
+  padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+
+  /* Prevenir overscroll que afecte la barra */
+  overscroll-behavior: contain !important;
+  overscroll-behavior-y: contain !important;
+}
+
+/* ✅ Forzar que elementos con position fixed se queden fijos (iOS específico) */
+@supports (-webkit-touch-callout: none) {
+  .bottom-nav,
+  nav[class*="fixed"][class*="bottom"],
+  .fixed.bottom-0 {
+    position: fixed !important;
+    -webkit-transform: translate3d(0, 0, 0) !important;
+    transform: translate3d(0, 0, 0) !important;
+  }
 }
 
 /* ============================================
    OPTIMIZACIONES BOTTOM SHEET
    ============================================ */
 
-/* Hardware acceleration para BottomSheet */
 .bottom-sheet,
 [class*="bottom-sheet"] {
-  /* GPU acceleration */
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  /* Smooth animations */
   will-change: transform;
 }
 
-/* Mejorar scroll en el contenido del modal */
 .bottom-sheet-content,
 [class*="bottom-sheet"] > div[class*="overflow"] {
   -webkit-overflow-scrolling: touch;
