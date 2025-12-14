@@ -389,10 +389,9 @@ select {
 
 /* ✅ Contenedor principal - Padding bottom para dejar espacio a la barra */
 .main-content-container {
-  /* Fallback para navegadores sin safe area */
-  padding-bottom: 6.5rem !important;
-  /* Altura navbar (~72px = 4.5rem) + margen (1.5rem) + safe area */
-  padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px)) !important;
+  /* pb-32 = 8rem = 128px (altura aproximada de la navbar) */
+  /* + safe area de iOS para asegurar que todo el contenido es visible */
+  padding-bottom: calc(8rem + env(safe-area-inset-bottom, 0px)) !important;
 }
 
 /* En desktop, no necesitamos padding extra */
@@ -404,16 +403,14 @@ select {
 
 /* ✅ Barra de navegación inferior - FIXED AL BOTTOM CON SAFE AREA */
 .navbar-bottom {
-  /* Position fixed AL BOTTOM */
-  position: fixed !important;
-  bottom: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  z-index: 100 !important;
-
-  /* CRÍTICO: Padding para safe area del iPhone */
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  /* ✅ Padding para el safe area de iOS (zona del botón home) */
   padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-
+  
   /* Asegurar rendering correcto */
   box-sizing: border-box !important;
   transform: translateZ(0) !important;
@@ -453,3 +450,4 @@ select {
     padding-bottom: calc(8rem + env(safe-area-inset-bottom, 0px)) !important;
   }
 }
+
