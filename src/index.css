@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Importar optimizaciones nativas */
+@import './styles/native.css';
+
 /* ============================================
    ESTILOS MÓVIL-FIRST PARA CAPACITOR iOS
    ✅ OPTIMIZADO - Sin overscroll excesivo
