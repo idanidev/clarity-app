@@ -24,6 +24,7 @@ import {
   Wallet,
   X,
 } from "lucide-react";
+import BottomSheet from "../../../components/BottomSheet";
 import {
   memo,
   useCallback,
@@ -689,85 +690,14 @@ const MainContent = memo<MainContentProps>(
           {/* Panel de filtros avanzados para móvil - Bottom sheet style */}
           {showFilters &&
             (activeView === "table" || activeView === "chart") && (
-              <>
-                <div
-                  className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[90] md:hidden"
-                  onClick={onToggleFilters}
-                />
-                <div className="fixed bottom-0 left-0 right-0 z-[110] md:hidden animate-slide-up">
-                  <div
-                    className={`rounded-t-3xl border-t shadow-2xl flex flex-col ${
-                      darkMode
-                        ? "bg-gray-800/95 border-gray-700/70"
-                        : "bg-white/95 border-purple-100"
-                    } backdrop-blur-xl`}
-                    style={{
-                      WebkitOverflowScrolling: "touch",
-                      touchAction: "pan-y",
-                      maxHeight:
-                        "calc(100vh - 5rem - env(safe-area-inset-bottom))",
-                      marginBottom: "calc(5rem + env(safe-area-inset-bottom))",
-                    }}
-                  >
-                    {/* Handle */}
-                    <div className="flex justify-center pt-3 pb-2 flex-shrink-0">
-                      <div
-                        className={`w-12 h-1.5 rounded-full ${
-                          darkMode ? "bg-gray-600" : "bg-gray-300"
-                        }`}
-                      />
-                    </div>
-
-                    {/* Header */}
-                    <div
-                      className={`flex items-center justify-between px-4 py-3 flex-shrink-0 border-b ${
-                        darkMode ? "border-gray-700" : "border-gray-200"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Filter className={`w-5 h-5 ${textSecondaryClass}`} />
-                        <h4 className={`text-base font-semibold ${textClass}`}>
-                          {t("filters.title")}
-                        </h4>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {onClearFilters && (
-                          <button
-                            onClick={() => {
-                              onClearFilters();
-                              onToggleFilters();
-                            }}
-                            className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-all ${
-                              darkMode
-                                ? "bg-gray-700 hover:bg-gray-600 text-gray-200"
-                                : "bg-purple-100 hover:bg-purple-200 text-purple-700"
-                            }`}
-                          >
-                            {t("filters.clear")}
-                          </button>
-                        )}
-                        <button
-                          onClick={onToggleFilters}
-                          className={`p-2 rounded-lg ${
-                            darkMode
-                              ? "hover:bg-gray-700"
-                              : "hover:bg-purple-100"
-                          } transition-all`}
-                        >
-                          <X className={`w-5 h-5 ${textSecondaryClass}`} />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Content - Scrollable */}
-                    <div
-                      className="flex-1 overflow-y-auto px-4 py-4 space-y-4"
-                      style={{
-                        WebkitOverflowScrolling: "touch",
-                        touchAction: "pan-y",
-                        paddingBottom: "1rem",
-                      }}
-                    >
+              <BottomSheet
+                visible={showFilters}
+                onClose={onToggleFilters}
+                title={t("filters.title")}
+                darkMode={darkMode}
+                maxHeight="90vh"
+              >
+                <div className="px-4 py-4 space-y-4">
                       {/* Filtros rápidos */}
                       <div>
                         <label
@@ -1004,10 +934,26 @@ const MainContent = memo<MainContentProps>(
                           ))}
                         </select>
                       </div>
-                    </div>
-                  </div>
+
+                      {onClearFilters && (
+                        <div className="pt-4">
+                          <button
+                            onClick={() => {
+                              onClearFilters();
+                              onToggleFilters();
+                            }}
+                            className={`w-full px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                              darkMode
+                                ? "bg-gray-700 hover:bg-gray-600 text-gray-200"
+                                : "bg-purple-100 hover:bg-purple-200 text-purple-700"
+                            }`}
+                          >
+                            {t("filters.clear")}
+                          </button>
+                        </div>
+                      )}
                 </div>
-              </>
+              </BottomSheet>
             )}
 
           {/* Barra superior estilo Liquid Glass para desktop */}

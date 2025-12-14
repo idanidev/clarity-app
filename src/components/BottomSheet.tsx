@@ -237,6 +237,7 @@ const BottomSheet = memo(
               overscrollBehavior: "contain",
               transform: "translateZ(0)",
               WebkitTransform: "translateZ(0)",
+              paddingBottom: "calc(2rem + env(safe-area-inset-bottom, 0px))",
             }}
           >
             {children}

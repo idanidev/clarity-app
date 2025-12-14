@@ -82,6 +82,8 @@ const VoiceExpenseButton = ({
   const [transcript, setTranscript] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
   const [voiceAvailable, setVoiceAvailable] = useState(false);
+  const [pendingExpense, setPendingExpense] = useState<any>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   const recognitionRef = useRef<any>(null);
   const listenersAddedRef = useRef(false);
@@ -215,47 +217,6 @@ const VoiceExpenseButton = ({
   // ============================================
   // PROCESAR TRANSCRIPCIÓN
   // ============================================
-  const processTranscript = useCallback(
-    async (text: string) => {
-      if (isProcessing) return;
-
-      console.log("[Voice] Processing transcript:", text);
-      setIsProcessing(true);
-
-      try {
-        const expenseData = parseExpense(text);
-
-        if (!expenseData) {
-          showNotification?.("❌ No se pudo entender el gasto", "error");
-          return;
-        }
-
-        console.log("[Voice] Parsed expense:", expenseData);
-
-        await onAddExpense(expenseData);
-        showNotification?.(
-          `✅ Añadido: €${expenseData.amount} en ${expenseData.category}`,
-          "success"
-        );
-
-        setTranscript("");
-        setInterimTranscript("");
-
-        // Detener después de añadir
-        if (isListening) {
-          setTimeout(() => {
-            toggleListening();
-          }, 1000);
-        }
-      } catch (error) {
-        console.error("[Voice] Error adding expense:", error);
-        showNotification?.("❌ Error al añadir gasto", "error");
-      } finally {
-        setIsProcessing(false);
-      }
-    },
-    [isProcessing, onAddExpense, showNotification, isListening]
-  );
 
   // ============================================
   // PARSER DE GASTOS
@@ -310,6 +271,90 @@ const VoiceExpenseButton = ({
       paymentMethod: "Tarjeta",
     };
   };
+
+  // ============================================
+  // CONFIRMAR GASTO
+  // ============================================
+  const confirmExpense = async () => {
+    if (!pendingExpense) return;
+
+    setIsProcessing(true);
+    try {
+      await onAddExpense(pendingExpense);
+      showNotification?.(
+        `✅ Añadido: €${pendingExpense.amount.toFixed(2)} en ${pendingExpense.category}`,
+        "success"
+      );
+      setShowConfirmDialog(false);
+      setPendingExpense(null);
+      setTranscript("");
+      setInterimTranscript("");
+    } catch (error) {
+      console.error("[Voice] Error adding expense:", error);
+      showNotification?.("❌ Error al añadir gasto", "error");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // ============================================
+  // CANCELAR
+  // ============================================
+  const cancelExpense = () => {
+    setShowConfirmDialog(false);
+    setPendingExpense(null);
+    setTranscript("");
+    setInterimTranscript("");
+  };
+
+  // ============================================
+  // PROCESAR TRANSCRIPCIÓN - NUEVA VERSIÓN CON DIÁLOGO
+  // ============================================
+  const processTranscript = useCallback(
+    async (text: string) => {
+      if (isProcessing) return;
+
+      console.log("[Voice] Processing transcript:", text);
+
+      try {
+        const expenseData = parseExpense(text);
+
+        if (!expenseData) {
+          showNotification?.("❌ No se pudo entender el gasto", "error");
+          return;
+        }
+
+        console.log("[Voice] Parsed expense:", expenseData);
+
+        // ✅ DETENER GRABACIÓN INMEDIATAMENTE
+        if (isListening) {
+          setIsListening(false);
+          if (isNative) {
+            try {
+              await SpeechRecognition.stop();
+              if (listenersAddedRef.current) {
+                await SpeechRecognition.removeAllListeners();
+                listenersAddedRef.current = false;
+              }
+            } catch (error) {
+              console.error("[Voice] Error stopping recognition:", error);
+            }
+          } else if (recognitionRef.current) {
+            recognitionRef.current.stop();
+          }
+        }
+
+        // ✅ MOSTRAR DIÁLOGO DE CONFIRMACIÓN
+        setPendingExpense(expenseData);
+        setShowConfirmDialog(true);
+
+      } catch (error) {
+        console.error("[Voice] Error parsing expense:", error);
+        showNotification?.("❌ Error al procesar gasto", "error");
+      }
+    },
+    [isProcessing, isListening, showNotification, isNative]
+  );
 
   // ============================================
   // TOGGLE LISTENING
@@ -484,8 +529,6 @@ const VoiceExpenseButton = ({
     return null;
   }
 
-  const displayText = transcript + interimTranscript;
-  const hasText = displayText.trim().length > 0;
 
   const voiceExamples = [
     '💡 "25 en supermercado"',
@@ -536,7 +579,10 @@ const VoiceExpenseButton = ({
 
       {/* Modal de transcripción */}
       {isListening && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none">
+        <div 
+          className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none"
+          style={{ zIndex: 9999999 }}
+        >
           <div
             className={`relative max-w-md w-full rounded-2xl shadow-2xl border backdrop-blur-xl transition-all pointer-events-auto ${
               darkMode
@@ -544,7 +590,6 @@ const VoiceExpenseButton = ({
                 : "bg-white/95 border-white/50"
             }`}
           >
-            {/* Indicador de grabación */}
             <div className="absolute top-4 right-4 flex items-center gap-2">
               <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
               <span
@@ -556,7 +601,6 @@ const VoiceExpenseButton = ({
               </span>
             </div>
 
-            {/* Contenido */}
             <div className="p-6 pt-12">
               <h3
                 className={`text-lg font-bold mb-4 ${
@@ -571,13 +615,13 @@ const VoiceExpenseButton = ({
                   darkMode ? "bg-gray-900/50" : "bg-gray-100"
                 }`}
               >
-                {hasText ? (
+                {(transcript + interimTranscript).trim() ? (
                   <p
                     className={`text-lg ${
                       darkMode ? "text-white" : "text-gray-900"
                     }`}
                   >
-                    {displayText}
+                    {transcript + interimTranscript}
                   </p>
                 ) : (
                   <div>
@@ -614,6 +658,114 @@ const VoiceExpenseButton = ({
               >
                 Detener
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ DIÁLOGO DE CONFIRMACIÓN */}
+      {showConfirmDialog && pendingExpense && (
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+          style={{ zIndex: 99999999 }}
+        >
+          <div
+            className={`max-w-md w-full rounded-2xl shadow-2xl border ${
+              darkMode
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-200"
+            }`}
+          >
+            <div className="p-6">
+              <h3
+                className={`text-xl font-bold mb-4 ${
+                  darkMode ? "text-white" : "text-gray-900"
+                }`}
+              >
+                ✅ ¿Añadir este gasto?
+              </h3>
+
+              <div
+                className={`p-4 rounded-xl mb-6 ${
+                  darkMode ? "bg-gray-900/50" : "bg-gray-100"
+                }`}
+              >
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span
+                      className={`text-sm ${
+                        darkMode ? "text-gray-400" : "text-gray-600"
+                      }`}
+                    >
+                      Cantidad:
+                    </span>
+                    <span
+                      className={`text-lg font-bold ${
+                        darkMode ? "text-white" : "text-gray-900"
+                      }`}
+                    >
+                      €{pendingExpense.amount.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span
+                      className={`text-sm ${
+                        darkMode ? "text-gray-400" : "text-gray-600"
+                      }`}
+                    >
+                      Categoría:
+                    </span>
+                    <span
+                      className={`text-sm font-medium ${
+                        darkMode ? "text-white" : "text-gray-900"
+                      }`}
+                    >
+                      {pendingExpense.category}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span
+                      className={`text-sm ${
+                        darkMode ? "text-gray-400" : "text-gray-600"
+                      }`}
+                    >
+                      Descripción:
+                    </span>
+                    <span
+                      className={`text-sm ${
+                        darkMode ? "text-gray-300" : "text-gray-700"
+                      }`}
+                    >
+                      {pendingExpense.name}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={cancelExpense}
+                  disabled={isProcessing}
+                  className={`py-3 rounded-xl font-medium transition-colors ${
+                    darkMode
+                      ? "bg-gray-700 hover:bg-gray-600 text-white"
+                      : "bg-gray-200 hover:bg-gray-300 text-gray-900"
+                  }`}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmExpense}
+                  disabled={isProcessing}
+                  className="py-3 rounded-xl font-medium bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:shadow-lg transition-all disabled:opacity-50"
+                >
+                  {isProcessing ? (
+                    <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+                  ) : (
+                    "Añadir"
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
