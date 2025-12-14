@@ -522,7 +522,8 @@ const MainContent = memo<MainContentProps>(
         <div
           className="max-w-7xl mx-auto px-2 md:px-4 py-2 md:py-6"
           style={{
-            paddingBottom: "calc(5rem + env(safe-area-inset-bottom, 0px))",
+            paddingBottom: "calc(5.5rem + env(safe-area-inset-bottom, 20px))",
+            minHeight: "100vh",
             backgroundColor: darkMode ? "#0f172a" : "transparent",
             paddingTop: "0",
             marginTop: "0",
@@ -1215,9 +1216,8 @@ const MainContent = memo<MainContentProps>(
 
           {/* Barra inferior flotante estilo Liquid Glass para móvil */}
           <div
-            className="md:hidden fixed left-0 right-0 z-[100]"
+            className="md:hidden fixed bottom-0 left-0 right-0 z-[100]"
             style={{
-              bottom: "0",
               transform: "translateZ(0)",
               WebkitTransform: "translateZ(0)",
             }}

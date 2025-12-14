@@ -103,8 +103,7 @@ body {
   /* ✅ Padding bottom para safe area */
   padding-bottom: env(safe-area-inset-bottom, 0);
   /* ✅ CRÍTICO: Prevenir overscroll bounce en iOS */
-  overscroll-behavior: none !important;
-  overscroll-behavior-y: none !important;
+  overscroll-behavior-y: none;
   -webkit-overflow-scrolling: touch;
   /* ✅ CRÍTICO: Prevenir scroll extra */
   position: relative !important;
@@ -381,78 +380,12 @@ select {
 }
 
 /* ============================================
-   BARRA DE NAVEGACIÓN FIJA - ESTILO INSTAGRAM
-   ✅ SOLUCIÓN DEFINITIVA
+   BARRA DE NAVEGACIÓN INFERIOR - Safe Area iOS
    ============================================ */
 
-/* Barra de navegación: SIEMPRE fija en bottom, sin moverse NUNCA */
-.bottom-nav,
-nav[class*="fixed"][class*="bottom"],
-.fixed.bottom-0,
-.fixed.bottom-0.z-50,
-.fixed.bottom-0.z-\[100\],
-[class*="fixed bottom-0"] {
-  position: fixed !important;
-  bottom: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  z-index: 9999 !important;
-
-  /* Fondo opaco para cubrir contenido detrás */
-  background-color: #0f172a !important;
-
-  /* Safe area iOS - padding SOLO en bottom */
-  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-
-  /* Hardware acceleration para mejor rendimiento */
-  transform: translateZ(0) !important;
-  -webkit-transform: translateZ(0) !important;
-  backface-visibility: hidden !important;
-  -webkit-backface-visibility: hidden !important;
-  will-change: transform !important;
-
-  /* Prevenir que se mueva con overscroll */
-  pointer-events: auto !important;
-}
-
-/* Fondo oscuro en modo oscuro */
-.dark .bottom-nav,
-.dark nav[class*="fixed"][class*="bottom"],
-.dark .fixed.bottom-0 {
-  background-color: #0f172a !important;
-}
-
-/* Fondo claro en modo claro */
-.light-mode .bottom-nav,
-.light-mode nav[class*="fixed"][class*="bottom"],
-.light-mode .fixed.bottom-0 {
-  background-color: #ffffff !important;
-  border-top: 1px solid #e5e7eb !important;
-}
-
-/* ✅ Contenido principal - Espacio para la barra (64px + safe area) */
-.main-content,
-main,
-.content-wrapper,
-[class*="main-content"] {
-  /* Altura total menos la barra de navegación */
-  min-height: calc(100dvh - 64px - env(safe-area-inset-bottom, 0px)) !important;
-  padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
-
-  /* Prevenir overscroll que afecte la barra */
-  overscroll-behavior: contain !important;
-  overscroll-behavior-y: contain !important;
-}
-
-/* ✅ Forzar que elementos con position fixed se queden fijos (iOS específico) */
-@supports (-webkit-touch-callout: none) {
-  .bottom-nav,
-  nav[class*="fixed"][class*="bottom"],
-  .fixed.bottom-0 {
-    position: fixed !important;
-    -webkit-transform: translate3d(0, 0, 0) !important;
-    transform: translate3d(0, 0, 0) !important;
-  }
+/* Barra de navegación fija - Posicionada encima del safe area */
+.fixed.bottom-0 {
+  bottom: env(safe-area-inset-bottom, 0px) !important;
 }
 
 /* ============================================
