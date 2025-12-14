@@ -3,11 +3,11 @@
 @tailwind utilities;
 
 /* Importar optimizaciones nativas */
-@import './styles/native.css';
+@import "./styles/native.css";
 
 /* ============================================
    ESTILOS MÓVIL-FIRST PARA CAPACITOR iOS
-   ✅ OPTIMIZADO - VERSIÓN FINAL
+   ✅ OPTIMIZADO - VERSIÓN FINAL CORREGIDA
    ============================================ */
 
 /* ============================================
@@ -384,24 +384,35 @@ select {
 
 /* ============================================
    BARRA DE NAVEGACIÓN + SAFE AREAS iOS
-   ✅ SOLUCIÓN DEFINITIVA
+   ✅ SOLUCIÓN DEFINITIVA CON PADDING AUMENTADO
    ============================================ */
 
-/* ✅ Contenedor principal - Padding bottom para dejar espacio a la barra */
+/* ✅ Contenedor principal - PADDING BOTTOM AUMENTADO A 7REM */
 .main-content-container {
-  /* Altura de la barra (aprox 68-72px = ~4.5rem) + safe area */
-  padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)) !important;
+  /* Fallback para navegadores antiguos */
+  padding-bottom: 7.5rem !important;
+  /* Altura real navbar (~72px = 4.5rem) + margen extra (2.5rem) + safe area */
+  padding-bottom: calc(7rem + env(safe-area-inset-bottom, 0px)) !important;
 }
 
-/* ✅ Barra de navegación inferior - Fixed en el bottom */
+/* ✅ Barra de navegación inferior - FIXED AL BOTTOM CON SAFE AREA */
 .navbar-bottom {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-  /* Solo padding safe area aquí */
+  /* Position fixed AL BOTTOM */
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 100 !important;
+
+  /* CRÍTICO: Padding para safe area del iPhone */
   padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+
+  /* Asegurar rendering correcto */
+  box-sizing: border-box !important;
+  transform: translateZ(0) !important;
+  -webkit-transform: translateZ(0) !important;
+  backface-visibility: hidden !important;
+  -webkit-backface-visibility: hidden !important;
 }
 
 /* ============================================
