@@ -1207,13 +1207,9 @@ const MainContent = memo<MainContentProps>(
 
           {/* Barra inferior flotante estilo Liquid Glass para móvil */}
           <div
-            className="md:hidden navbar-bottom"
-            style={{
-              backgroundColor: darkMode ? "#0f172a" : "#ffffff",
-              paddingTop: "0.5rem",
-              paddingLeft: "0.5rem",
-              paddingRight: "0.5rem",
-            }}
+            className={`md:hidden navbar-bottom ${
+              darkMode ? "navbar-dark" : "navbar-light"
+            }`}
           >
             <div
               className={`max-w-md mx-auto rounded-t-2xl shadow-xl border-t border-l border-r backdrop-blur-xl pointer-events-auto ${
@@ -1227,107 +1223,106 @@ const MainContent = memo<MainContentProps>(
                   : "0 -4px 20px 0 rgba(31, 38, 135, 0.15), 0 0 0 0.5px rgba(255, 255, 255, 0.8) inset",
                 backdropFilter: "blur(20px) saturate(180%)",
                 WebkitBackdropFilter: "blur(20px) saturate(180%)",
-                position: "relative",
               }}
             >
               {/* ✅ Grid sin padding bottom adicional - solo el padding de la clase p-1.5 */}
               <div className="grid grid-cols-5 gap-0.5 p-1.5">
-                    <button
-                      onClick={() => handleViewChange("table")}
-                      disabled={isPending}
-                      className={`flex flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 rounded-xl font-medium transition-all relative ${
-                        activeView === "table"
-                          ? darkMode
-                            ? "bg-purple-600/90 text-white"
-                            : "bg-purple-600/90 text-white"
-                          : darkMode
-                          ? "text-gray-300 hover:bg-gray-800/50"
-                          : "text-purple-600 hover:bg-white/50"
-                      }`}
-                    >
-                      <TableIcon className="w-4 h-4 flex-shrink-0" />
-                      <span className="text-[9px] leading-tight font-medium truncate max-w-full">
-                        {t("views.table")}
-                      </span>
-                      {activeView === "table" && (
-                        <div className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-white"></div>
-                      )}
-                    </button>
+                <button
+                  onClick={() => handleViewChange("table")}
+                  disabled={isPending}
+                  className={`flex flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 rounded-xl font-medium transition-all relative ${
+                    activeView === "table"
+                      ? darkMode
+                        ? "bg-purple-600/90 text-white"
+                        : "bg-purple-600/90 text-white"
+                      : darkMode
+                      ? "text-gray-300 hover:bg-gray-800/50"
+                      : "text-purple-600 hover:bg-white/50"
+                  }`}
+                >
+                  <TableIcon className="w-4 h-4 flex-shrink-0" />
+                  <span className="text-[9px] leading-tight font-medium truncate max-w-full">
+                    {t("views.table")}
+                  </span>
+                  {activeView === "table" && (
+                    <div className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-white"></div>
+                  )}
+                </button>
 
-                    <button
-                      onClick={() => handleViewChange("chart")}
-                      disabled={isPending}
-                      className={`flex flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 rounded-xl font-medium transition-all relative ${
-                        activeView === "chart"
-                          ? darkMode
-                            ? "bg-purple-600/90 text-white"
-                            : "bg-purple-600/90 text-white"
-                          : darkMode
-                          ? "text-gray-300 hover:bg-gray-800/50"
-                          : "text-purple-600 hover:bg-white/50"
-                      }`}
-                    >
-                      <BarChart3 className="w-4 h-4 flex-shrink-0" />
-                      <span className="text-[9px] leading-tight font-medium truncate max-w-full">
-                        {t("views.chart")}
-                      </span>
-                      {activeView === "chart" && (
-                        <div className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-white"></div>
-                      )}
-                    </button>
+                <button
+                  onClick={() => handleViewChange("chart")}
+                  disabled={isPending}
+                  className={`flex flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 rounded-xl font-medium transition-all relative ${
+                    activeView === "chart"
+                      ? darkMode
+                        ? "bg-purple-600/90 text-white"
+                        : "bg-purple-600/90 text-white"
+                      : darkMode
+                      ? "text-gray-300 hover:bg-gray-800/50"
+                      : "text-purple-600 hover:bg-white/50"
+                  }`}
+                >
+                  <BarChart3 className="w-4 h-4 flex-shrink-0" />
+                  <span className="text-[9px] leading-tight font-medium truncate max-w-full">
+                    {t("views.chart")}
+                  </span>
+                  {activeView === "chart" && (
+                    <div className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-white"></div>
+                  )}
+                </button>
 
-                    <button
-                      onClick={onAddExpenseClick}
-                      className="flex items-center justify-center p-2 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg transition-all active:scale-95 -mt-2 z-10"
-                      style={{ WebkitTapHighlightColor: "transparent" }}
-                    >
-                      <Plus className="w-6 h-6" />
-                    </button>
+                <button
+                  onClick={onAddExpenseClick}
+                  className="flex items-center justify-center p-2 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg transition-all active:scale-95 -mt-2 z-10"
+                  style={{ WebkitTapHighlightColor: "transparent" }}
+                >
+                  <Plus className="w-6 h-6" />
+                </button>
 
-                    <button
-                      onClick={() => handleViewChange("assistant")}
-                      disabled={isPending}
-                      className={`flex flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 rounded-xl font-medium transition-all relative ${
-                        activeView === "assistant"
-                          ? darkMode
-                            ? "bg-purple-600/90 text-white"
-                            : "bg-purple-600/90 text-white"
-                          : darkMode
-                          ? "text-gray-300 hover:bg-gray-800/50"
-                          : "text-purple-600 hover:bg-white/50"
-                      }`}
-                    >
-                      <Bot className="w-4 h-4 flex-shrink-0" />
-                      <span className="text-[9px] leading-tight font-medium truncate max-w-full">
-                        {t("views.assistant")}
-                      </span>
-                      {activeView === "assistant" && (
-                        <div className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-white"></div>
-                      )}
-                    </button>
+                <button
+                  onClick={() => handleViewChange("assistant")}
+                  disabled={isPending}
+                  className={`flex flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 rounded-xl font-medium transition-all relative ${
+                    activeView === "assistant"
+                      ? darkMode
+                        ? "bg-purple-600/90 text-white"
+                        : "bg-purple-600/90 text-white"
+                      : darkMode
+                      ? "text-gray-300 hover:bg-gray-800/50"
+                      : "text-purple-600 hover:bg-white/50"
+                  }`}
+                >
+                  <Bot className="w-4 h-4 flex-shrink-0" />
+                  <span className="text-[9px] leading-tight font-medium truncate max-w-full">
+                    {t("views.assistant")}
+                  </span>
+                  {activeView === "assistant" && (
+                    <div className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-white"></div>
+                  )}
+                </button>
 
-                    <button
-                      onClick={() => handleViewChange("goals")}
-                      disabled={isPending}
-                      className={`flex flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 rounded-xl font-medium transition-all relative ${
-                        activeView === "goals"
-                          ? darkMode
-                            ? "bg-purple-600/90 text-white"
-                            : "bg-purple-600/90 text-white"
-                          : darkMode
-                          ? "text-gray-300 hover:bg-gray-800/50"
-                          : "text-purple-600 hover:bg-white/50"
-                      }`}
-                    >
-                      <Target className="w-4 h-4 flex-shrink-0" />
-                      <span className="text-[9px] leading-tight font-medium truncate max-w-full">
-                        {t("views.goals")}
-                      </span>
-                      {activeView === "goals" && (
-                        <div className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-white"></div>
-                      )}
-                    </button>
-                  </div>
+                <button
+                  onClick={() => handleViewChange("goals")}
+                  disabled={isPending}
+                  className={`flex flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 rounded-xl font-medium transition-all relative ${
+                    activeView === "goals"
+                      ? darkMode
+                        ? "bg-purple-600/90 text-white"
+                        : "bg-purple-600/90 text-white"
+                      : darkMode
+                      ? "text-gray-300 hover:bg-gray-800/50"
+                      : "text-purple-600 hover:bg-white/50"
+                  }`}
+                >
+                  <Target className="w-4 h-4 flex-shrink-0" />
+                  <span className="text-[9px] leading-tight font-medium truncate max-w-full">
+                    {t("views.goals")}
+                  </span>
+                  {activeView === "goals" && (
+                    <div className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-white"></div>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
           {/* VISTAS CON ANIMATEPRESENECE */}
