@@ -1,9 +1,9 @@
+/* Importar optimizaciones nativas - DEBE IR ANTES DE @tailwind */
+@import "./styles/native.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Importar optimizaciones nativas */
-@import "./styles/native.css";
 
 /* ============================================
    ESTILOS MÓVIL-FIRST PARA CAPACITOR iOS
@@ -440,4 +440,16 @@ select {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
   overscroll-behavior: contain;
+}
+
+/* La clase que faltaba */
+.safe-area-inset-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+}
+
+/* Aumentar padding automáticamente en móvil */
+@media (max-width: 768px) {
+  .pb-32 {
+    padding-bottom: calc(8rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
 }
