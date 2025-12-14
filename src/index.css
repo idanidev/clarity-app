@@ -7,7 +7,7 @@
 
 /* ============================================
    ESTILOS MÓVIL-FIRST PARA CAPACITOR iOS
-   ✅ OPTIMIZADO - Sin overscroll excesivo
+   ✅ OPTIMIZADO - VERSIÓN FINAL
    ============================================ */
 
 /* ============================================
@@ -87,7 +87,8 @@ html {
 }
 
 /* ============================================
-   BODY - MAIN CONTAINER (sin altura fija)
+   BODY - MAIN CONTAINER
+   ✅ SIN PADDING-BOTTOM EXTRA
    ============================================ */
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
@@ -103,8 +104,7 @@ body {
   color: #f3f4f6;
   /* ✅ Safe area top - para el status bar */
   padding-top: env(safe-area-inset-top, 0);
-  /* ✅ Padding bottom para safe area */
-  padding-bottom: env(safe-area-inset-bottom, 0);
+  /* ❌ NO padding-bottom aquí - lo maneja el contenedor principal */
   /* ✅ CRÍTICO: Prevenir overscroll bounce en iOS */
   overscroll-behavior-y: none;
   -webkit-overflow-scrolling: touch;
@@ -384,17 +384,24 @@ select {
 
 /* ============================================
    BARRA DE NAVEGACIÓN + SAFE AREAS iOS
-   ✅ OPTIMIZADO - Configuración definitiva
+   ✅ SOLUCIÓN DEFINITIVA
    ============================================ */
 
-/* ✅ Barra de navegación fija - Solo padding safe area */
-.fixed.bottom-0.z-\[100\] {
-  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+/* ✅ Contenedor principal - Padding bottom para dejar espacio a la barra */
+.main-content-container {
+  /* Altura de la barra (aprox 68-72px = ~4.5rem) + safe area */
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)) !important;
 }
 
-/* ✅ Contenido principal - Espacio suficiente para la barra */
-.main-content {
-  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px)) !important;
+/* ✅ Barra de navegación inferior - Fixed en el bottom */
+.navbar-bottom {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  /* Solo padding safe area aquí */
+  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
 }
 
 /* ============================================

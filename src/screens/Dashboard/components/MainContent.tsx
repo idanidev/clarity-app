@@ -519,17 +519,7 @@ const MainContent = memo<MainContentProps>(
     // ============================================
     return (
       <>
-        <div
-          className="max-w-7xl mx-auto px-2 md:px-4 py-2 md:py-6"
-          style={{
-            // ✅ Padding suficiente para la barra (72px = 4.5rem) + safe area
-            paddingBottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px))",
-            backgroundColor: darkMode ? "#0f172a" : "transparent",
-            paddingTop: "0",
-            marginTop: "0",
-            // ❌ NO min-height - causa overscroll en iOS
-          }}
-        >
+        <div className="max-w-7xl mx-auto px-2 md:px-4 py-2 md:py-6 main-content-container">
           {/* Estadísticas con estilo Liquid Glass - Solo en vista principal */}
           {activeView === "table" && (
             <div className="relative mb-3 md:mb-6">
@@ -1217,14 +1207,12 @@ const MainContent = memo<MainContentProps>(
 
           {/* Barra inferior flotante estilo Liquid Glass para móvil */}
           <div
-            className="md:hidden fixed bottom-0 left-0 right-0 z-[100]"
+            className="md:hidden navbar-bottom"
             style={{
               backgroundColor: darkMode ? "#0f172a" : "#ffffff",
               paddingTop: "0.5rem",
               paddingLeft: "0.5rem",
               paddingRight: "0.5rem",
-              // ✅ SOLO safe area bottom aquí, sin padding extra
-              paddingBottom: "env(safe-area-inset-bottom, 0px)",
             }}
           >
             <div
