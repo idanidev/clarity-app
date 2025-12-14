@@ -31,6 +31,12 @@
   transition-duration: 150ms;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+}
+
+/* Aplicar transform SOLO a elementos que lo necesiten, NO a todo */
+button:not(.navbar-button),
+a:not(.navbar-button),
+[role="button"]:not(.navbar-button) {
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
   backface-visibility: hidden;
@@ -450,4 +456,14 @@ select {
   .pb-32 {
     padding-bottom: calc(8rem + env(safe-area-inset-bottom, 0px)) !important;
   }
+}
+
+/* NAVBAR SIEMPRE ENCIMA - PRIORIDAD MÁXIMA */
+.mobile-navbar-fixed {
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  z-index: 999999 !important;
 }
