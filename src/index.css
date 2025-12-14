@@ -387,12 +387,19 @@ select {
    ✅ SOLUCIÓN DEFINITIVA CON PADDING AUMENTADO
    ============================================ */
 
-/* ✅ Contenedor principal - PADDING BOTTOM AUMENTADO A 7REM */
+/* ✅ Contenedor principal - Padding bottom para dejar espacio a la barra */
 .main-content-container {
-  /* Fallback para navegadores antiguos */
-  padding-bottom: 7.5rem !important;
-  /* Altura real navbar (~72px = 4.5rem) + margen extra (2.5rem) + safe area */
-  padding-bottom: calc(7rem + env(safe-area-inset-bottom, 0px)) !important;
+  /* Fallback para navegadores sin safe area */
+  padding-bottom: 6.5rem !important;
+  /* Altura navbar (~72px = 4.5rem) + margen (1.5rem) + safe area */
+  padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+/* En desktop, no necesitamos padding extra */
+@media (min-width: 768px) {
+  .main-content-container {
+    padding-bottom: 1.5rem !important;
+  }
 }
 
 /* ✅ Barra de navegación inferior - FIXED AL BOTTOM CON SAFE AREA */
