@@ -380,12 +380,18 @@ select {
 }
 
 /* ============================================
-   BARRA DE NAVEGACIÓN INFERIOR - Safe Area iOS
+   BARRA DE NAVEGACIÓN + SAFE AREAS iOS
+   ✅ OPTIMIZADO - Configuración definitiva
    ============================================ */
 
-/* Barra de navegación fija - Posicionada encima del safe area */
-.fixed.bottom-0 {
-  bottom: env(safe-area-inset-bottom, 0px) !important;
+/* ✅ Barra de navegación fija - Solo padding safe area */
+.fixed.bottom-0.z-\[100\] {
+  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+}
+
+/* ✅ Contenido principal - Espacio suficiente para la barra */
+.main-content {
+  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px)) !important;
 }
 
 /* ============================================

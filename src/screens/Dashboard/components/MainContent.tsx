@@ -522,11 +522,12 @@ const MainContent = memo<MainContentProps>(
         <div
           className="max-w-7xl mx-auto px-2 md:px-4 py-2 md:py-6"
           style={{
-            paddingBottom: "calc(5.5rem + env(safe-area-inset-bottom, 20px))",
-            minHeight: "100vh",
+            // ✅ Padding suficiente para la barra (72px = 4.5rem) + safe area
+            paddingBottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px))",
             backgroundColor: darkMode ? "#0f172a" : "transparent",
             paddingTop: "0",
             marginTop: "0",
+            // ❌ NO min-height - causa overscroll en iOS
           }}
         >
           {/* Estadísticas con estilo Liquid Glass - Solo en vista principal */}
@@ -1218,35 +1219,31 @@ const MainContent = memo<MainContentProps>(
           <div
             className="md:hidden fixed bottom-0 left-0 right-0 z-[100]"
             style={{
-              transform: "translateZ(0)",
-              WebkitTransform: "translateZ(0)",
+              backgroundColor: darkMode ? "#0f172a" : "#ffffff",
+              paddingTop: "0.5rem",
+              paddingLeft: "0.5rem",
+              paddingRight: "0.5rem",
+              // ✅ SOLO safe area bottom aquí, sin padding extra
+              paddingBottom: "env(safe-area-inset-bottom, 0px)",
             }}
           >
-            {/* Contenedor con fondo que se extiende hasta el safe area */}
             <div
-              className="w-full pointer-events-auto"
+              className={`max-w-md mx-auto rounded-t-2xl shadow-xl border-t border-l border-r backdrop-blur-xl pointer-events-auto ${
+                darkMode
+                  ? "bg-gray-900/95 border-gray-700/50"
+                  : "bg-white/95 border-white/40"
+              }`}
               style={{
-                backgroundColor: darkMode ? "#0f172a" : "#ffffff",
-                paddingBottom: "env(safe-area-inset-bottom, 0px)",
+                boxShadow: darkMode
+                  ? "0 -4px 20px 0 rgba(0, 0, 0, 0.4), 0 0 0 0.5px rgba(255, 255, 255, 0.05) inset"
+                  : "0 -4px 20px 0 rgba(31, 38, 135, 0.15), 0 0 0 0.5px rgba(255, 255, 255, 0.8) inset",
+                backdropFilter: "blur(20px) saturate(180%)",
+                WebkitBackdropFilter: "blur(20px) saturate(180%)",
+                position: "relative",
               }}
             >
-              {/* Contenedor interno con padding y la barra redondeada */}
-              <div className="px-2 pt-2">
-                <div
-                  className={`max-w-md mx-auto rounded-t-2xl shadow-xl border-t border-l border-r backdrop-blur-xl ${
-                    darkMode
-                      ? "bg-gray-900/95 border-gray-700/50"
-                      : "bg-white/95 border-white/40"
-                  }`}
-                  style={{
-                    boxShadow: darkMode
-                      ? "0 -4px 20px 0 rgba(0, 0, 0, 0.4), 0 0 0 0.5px rgba(255, 255, 255, 0.05) inset"
-                      : "0 -4px 20px 0 rgba(31, 38, 135, 0.15), 0 0 0 0.5px rgba(255, 255, 255, 0.8) inset",
-                    backdropFilter: "blur(20px) saturate(180%)",
-                    WebkitBackdropFilter: "blur(20px) saturate(180%)",
-                  }}
-                >
-                  <div className="grid grid-cols-5 gap-0.5 p-1.5">
+              {/* ✅ Grid sin padding bottom adicional - solo el padding de la clase p-1.5 */}
+              <div className="grid grid-cols-5 gap-0.5 p-1.5">
                     <button
                       onClick={() => handleViewChange("table")}
                       disabled={isPending}
@@ -1343,8 +1340,6 @@ const MainContent = memo<MainContentProps>(
                       )}
                     </button>
                   </div>
-                </div>
-              </div>
             </div>
           </div>
           {/* VISTAS CON ANIMATEPRESENECE */}
