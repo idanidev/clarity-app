@@ -408,9 +408,9 @@ select {
   left: 0;
   right: 0;
   z-index: 100;
-  /* ✅ Padding para el safe area de iOS (zona del botón home) */
-  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-  
+  /* ✅ AUMENTADO: Padding mínimo de 1rem + safe area de iOS */
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px)) !important;
+
   /* Asegurar rendering correcto */
   box-sizing: border-box !important;
   transform: translateZ(0) !important;
@@ -450,4 +450,3 @@ select {
     padding-bottom: calc(8rem + env(safe-area-inset-bottom, 0px)) !important;
   }
 }
-
