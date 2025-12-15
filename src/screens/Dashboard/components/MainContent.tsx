@@ -29,11 +29,11 @@ import {
   memo,
   useCallback,
   useEffect,
-} from "react";
-import {
   useMemo,
   useState,
   useTransition,
+  lazy,
+  Suspense,
 } from "react";
 import { getTransition } from "../../../config/framerMotion";
 import { useTranslation } from "../../../contexts/LanguageContext";
@@ -42,7 +42,7 @@ import { formatCurrency } from "../../../utils/currency";
 import { getCategoryColor } from "../../../services/firestoreService";
 // @ts-ignore - No hay tipos para estos módulos JS
 import { getLongTermGoalProgress } from "../../../services/goalsService";
-import AIAssistant from "./AIAssistant";
+const AIAssistant = lazy(() => import("./AIAssistant"));
 import ExpenseCard from "./ExpenseCard";
 // @ts-ignore - No hay tipos para estos módulos JS
 import {
@@ -181,6 +181,7 @@ interface MainContentProps {
   onAddExpenseFromAI: (expense: any) => Promise<void>;
   allExpenses: Expense[];
   showNotification: (message: string, type?: string) => void;
+  voiceSettings: import("./VoiceExpenseButton").VoiceSettings;
 }
 
 // ============================================
@@ -287,6 +288,7 @@ const MainContent = memo<MainContentProps>(
     onAddExpenseFromAI,
     allExpenses,
     showNotification,
+    voiceSettings,
   }) => {
     const { t } = useTranslation();
     const [isMobile, setIsMobile] = useState(false);
@@ -503,6 +505,16 @@ const MainContent = memo<MainContentProps>(
       setSearchQuery("");
     }, []);
 
+    const handleDeleteExpense = useCallback(
+      (exp: Expense) => {
+        onRequestDelete({
+          type: "expense",
+          id: exp.id,
+        });
+      },
+      [onRequestDelete]
+    );
+
     // const handlePieClick = useCallback(
     //   (data: any, index: number) => {
     //     if (activeIndex === index) {
@@ -691,6 +703,7 @@ const MainContent = memo<MainContentProps>(
               onAddExpense={onAddExpenseFromAI}
               showNotification={showNotification}
               hasFilterButton={activeView === "table" || activeView === "chart"}
+              voiceSettings={voiceSettings}
             />
           )}
           {/* Panel de filtros avanzados para móvil - Bottom sheet style */}
@@ -1435,12 +1448,7 @@ const MainContent = memo<MainContentProps>(
                                                     category: category,
                                                   }}
                                                   onEdit={onEditExpense}
-                                                  onDelete={(exp: Expense) =>
-                                                    onRequestDelete({
-                                                      type: "expense",
-                                                      id: exp.id,
-                                                    })
-                                                  }
+                                                  onDelete={handleDeleteExpense}
                                                   darkMode={darkMode}
                                                   isMobile={isMobile}
                                                 />
@@ -2299,14 +2307,32 @@ const MainContent = memo<MainContentProps>(
               className="w-full"
               style={{ minHeight: "calc(100vh - 200px)" }}
             >
-              <AIAssistant
-                darkMode={darkMode}
-                textClass={textClass}
-                textSecondaryClass={textSecondaryClass}
-                categories={categories}
-                addExpense={onAddExpenseFromAI}
-                isActive={true}
-              />
+              <Suspense
+                fallback={
+                  <div className="flex items-center justify-center h-full py-10">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="animate-spin rounded-full h-8 w-8 border-t-4 border-b-4 border-purple-500" />
+                      <p className={`text-sm ${textSecondaryClass}`}>
+                        Cargando asistente IA...
+                      </p>
+                    </div>
+                  </div>
+                }
+              >
+                <AIAssistant
+                  darkMode={darkMode}
+                  textClass={textClass}
+                  textSecondaryClass={textSecondaryClass}
+                  categories={categories}
+                  addExpense={onAddExpenseFromAI}
+                  isActive={true}
+                  allExpenses={allExpenses}
+                  income={income}
+                  budgets={budgets}
+                  goals={goals}
+                  categoryTotals={categoryTotalsForBudgets}
+                />
+              </Suspense>
             </motion.div>
           )}
 

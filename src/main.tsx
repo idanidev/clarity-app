@@ -90,8 +90,11 @@ if ("serviceWorker" in navigator && typeof window !== "undefined") {
         // Verificar actualizaciones periódicamente (menos frecuente para iOS)
         const updateInterval = setInterval(() => {
           registration.update();
-        }, 300000); // Cada 5 minutos (reducido para iOS)
-        
+        }, 900000); // Cada 15 minutos
+        // Guardar el intervalo en la instancia por si se necesita limpiarlo en el futuro
+        // @ts-ignore - propiedad interna no tipada
+        registration.__clarityUpdateInterval = updateInterval;
+
         // Escuchar actualizaciones del Service Worker
         registration.addEventListener("updatefound", () => {
           const newWorker = registration.installing;

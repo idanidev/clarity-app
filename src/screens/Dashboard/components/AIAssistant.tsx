@@ -1125,6 +1125,73 @@ const createQueryProcessor = (analysis: Analysis, allExpenses: any[]) => {
   return (query: string): { content: string; action?: string } => {
     const lowerQuery = query.toLowerCase();
 
+    // ============================================
+    // ✅ CHECK GENERAL: Detectar queries que necesitan datos
+    // ============================================
+    const needsDataKeywords = [
+      "proyect",
+      "proyección",
+      "analiza",
+      "análisis",
+      "reporte",
+      "resumen",
+      "patrón",
+      "patrones",
+      "cuándo",
+      "cuánto",
+      "debo gastar",
+      "puedo gastar",
+      "hormiga",
+      "pequeño",
+      "presupuesto",
+      "límite",
+      "ahorrar",
+      "recortar",
+      "reducir",
+      "optimizar",
+      "qué día",
+      "cuándo gasto",
+      "compar",
+      "anterior",
+      "vs",
+      "versus",
+      "tendencia",
+      "predicc",
+    ];
+
+    const queryNeedsExpenses = needsDataKeywords.some((keyword) =>
+      lowerQuery.includes(keyword)
+    );
+
+    // Si la query necesita datos y realmente no hay movimientos, responder apropiadamente
+    const hasAnyExpense = Array.isArray(allExpenses) && allExpenses.length > 0;
+    if (queryNeedsExpenses && !hasAnyExpense) {
+      return {
+        content:
+          `📭 **No tienes gastos registrados aún**\n\n` +
+          `Para usar el análisis IA, necesito que primero añadas algunos gastos.\n\n` +
+          `💡 **Formas rápidas de empezar:**\n\n` +
+          `1️⃣ **Voz rápida:**\n` +
+          `   • "25€ en supermercado"\n` +
+          `   • "50€ en gasolina"\n` +
+          `   • "15€ en cenas"\n\n` +
+          `2️⃣ **Botón + (abajo):**\n` +
+          `   • Formulario completo con detalles\n\n` +
+          `3️⃣ **Gastos recurrentes:**\n` +
+          `   • Configura suscripciones mensuales\n` +
+          `   • Se añaden automáticamente cada mes\n\n` +
+          `📊 **Una vez tengas datos, podré:**\n` +
+          `• Analizar tus patrones de gasto\n` +
+          `• Hacer predicciones del mes completo\n` +
+          `• Detectar gastos hormiga\n` +
+          `• Darte recomendaciones personalizadas\n` +
+          `• Proyectar tus finanzas futuras\n` +
+          `• ¡Y mucho más!\n\n` +
+          `🚀 ¡Empieza ahora!`,
+        action: "insight",
+      };
+    }
+
     // PREDICCIONES
     if (
       lowerQuery.includes("cuándo") &&
@@ -2236,20 +2303,22 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
               />
             </div>
           ) : (
-            <List
-              ref={listRef}
-              height={listHeight - (isLoading ? 60 : 0)}
-              itemCount={messages.length}
-              itemSize={ITEM_HEIGHT}
-              width={listWidth}
-              overscanCount={3}
-              style={{
-                WebkitOverflowScrolling: "touch",
-                overscrollBehavior: "contain",
-              }}
-            >
-              {renderRow}
-            </List>
+            <div className="flex-1 px-2 md:px-4 py-2 md:py-3">
+              <List
+                ref={listRef}
+                height={listHeight - (isLoading ? 60 : 0)}
+                itemCount={messages.length}
+                itemSize={ITEM_HEIGHT}
+                width={listWidth - 16}
+                overscanCount={3}
+                style={{
+                  WebkitOverflowScrolling: "touch",
+                  overscrollBehavior: "contain",
+                }}
+              >
+                {renderRow}
+              </List>
+            </div>
           )}
 
           {/* Loading indicator - compacto en móvil */}

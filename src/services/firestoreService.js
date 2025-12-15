@@ -27,8 +27,6 @@ const getDocHybrid = async (docRef) => {
     const cachedDoc = await getDoc(docRef, { source: 'cache' });
     
     if (cachedDoc.exists()) {
-      console.log("📦 Leyendo del cache (offline-ready)");
-      
       // En background, verificar si hay actualizaciones en el servidor
       if (navigator.onLine) {
         getDoc(docRef, { source: 'server' })
@@ -36,7 +34,7 @@ const getDocHybrid = async (docRef) => {
             if (serverDoc.exists() && 
                 serverDoc.metadata.hasPendingWrites === false &&
                 JSON.stringify(serverDoc.data()) !== JSON.stringify(cachedDoc.data())) {
-              console.log("🔄 Datos actualizados en el servidor, sincronizando...");
+              // Datos actualizados en servidor: Firestore se encargará de sincronizar el cache
             }
           })
           .catch((err) => {
@@ -46,9 +44,7 @@ const getDocHybrid = async (docRef) => {
       
       return cachedDoc;
     }
-  } catch (cacheError) {
-    console.log("📡 Cache miss, leyendo del servidor...");
-  }
+  } catch (cacheError) {}
   
   // Si no está en cache, leer del servidor
   const serverDoc = await getDoc(docRef, { source: 'server' });
@@ -629,7 +625,6 @@ export const getUserCategories = async (userId) => {
     const userDoc = await getDocHybrid(userDocRef); // 👈 Usa estrategia híbrida
 
     if (!userDoc.exists()) {
-      console.log(`[getUserCategories] Usuario ${userId} no existe en Firestore`);
       return null;
     }
 
@@ -639,7 +634,6 @@ export const getUserCategories = async (userId) => {
     // CRÍTICO: Si categories es undefined o null, devolver null (usuario no tiene categorías)
     // Pero si es un objeto vacío {}, devolverlo (usuario tiene categorías vacías intencionalmente)
     if (categories === undefined || categories === null) {
-      console.log(`[getUserCategories] Usuario ${userId} no tiene categorías (null/undefined)`);
       return null;
     }
     
@@ -655,7 +649,6 @@ export const getUserCategories = async (userId) => {
     const needsMigration = Object.values(categories).some(cat => Array.isArray(cat));
     
     if (needsMigration) {
-      console.log(`[getUserCategories] Usuario ${userId} necesita migración de formato`);
       // Solo migrar formato (arrays -> objetos con color), pero PRESERVAR colores existentes
       const finalCategories = migrateCategoriesToNewFormat(categories);
       
@@ -666,7 +659,6 @@ export const getUserCategories = async (userId) => {
           categories: finalCategories,
           updatedAt: new Date().toISOString(),
         });
-        console.log(`[getUserCategories] Migrado formato de categorías para usuario ${userId}`);
       }
       
       // IMPORTANTE: NO fusionar categorías duplicadas automáticamente
@@ -676,7 +668,6 @@ export const getUserCategories = async (userId) => {
 
     // Si no necesita migración, devolver las categorías TAL CUAL están
     // NO hacer ninguna modificación automática
-    console.log(`[getUserCategories] Usuario ${userId} tiene ${Object.keys(categories).length} categorías, sin migración necesaria`);
     return categories;
   } catch (error) {
     console.error(`[getUserCategories] ERROR para usuario ${userId}:`, error);
@@ -854,23 +845,12 @@ export const getChangelogSeenVersion = async (userId) => {
  */
 export const initializeUser = async (userId, userData) => {
   try {
-    console.log(`[initializeUser] INICIO para usuario ${userId}`, { email: userData?.email });
     const userDocRef = doc(db, "users", userId);
     const userDoc = await getDoc(userDocRef);
 
     if (userDoc.exists()) {
       // Usuario existente: NO MODIFICAR NADA que ya exista
       const currentData = userDoc.data();
-      console.log(`[initializeUser] Usuario ${userId} EXISTE. Datos actuales:`, {
-        hasCategories: !!currentData.categories,
-        categoriesCount: currentData.categories ? Object.keys(currentData.categories).length : 0,
-        hasTheme: !!currentData.theme,
-        theme: currentData.theme,
-        hasIncome: currentData.income !== undefined && currentData.income !== null,
-        income: currentData.income,
-        hasGoals: !!currentData.goals,
-        hasBudgets: !!currentData.budgets,
-      });
       
       // CRÍTICO: Para usuarios existentes, NO hacer NINGUNA modificación automática
       // Solo actualizar el email si es diferente y se proporciona
@@ -880,7 +860,6 @@ export const initializeUser = async (userId, userData) => {
       if (userData.email && userData.email !== currentData.email) {
         updateData.email = userData.email;
         updateData.updatedAt = new Date().toISOString();
-        console.log(`[initializeUser] Email diferente, se actualizará: ${currentData.email} -> ${userData.email}`);
       }
 
       // NUNCA modificar estos campos para usuarios existentes:
@@ -897,16 +876,12 @@ export const initializeUser = async (userId, userData) => {
       // Solo actualizar si hay algo que actualizar (solo email)
       if (Object.keys(updateData).length > 0) {
         await updateDoc(userDocRef, updateData);
-        console.log(`[initializeUser] ✅ Usuario existente ${userId}: solo actualizado email`);
-      } else {
-        console.log(`[initializeUser] ✅ Usuario existente ${userId}: NO se modificó NADA (correcto)`);
       }
       return;
     }
 
     // Usuario nuevo: NO establecer categorías predeterminadas
     // El usuario debe crear sus propias categorías manualmente
-    console.log(`[initializeUser] Creando nuevo usuario ${userId} SIN categorías predeterminadas`);
     await setDoc(userDocRef, {
       ...userData,
       categories: {}, // ⚠️ VACÍO: El usuario debe crear sus propias categorías

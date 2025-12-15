@@ -1,4 +1,4 @@
-import { TrendingUp, Mic, Zap } from "lucide-react";
+import { TrendingUp, Mic } from "lucide-react";
 import { useState, useEffect } from "react";
 import { VoiceSettings, VoiceStats, loadVoiceStats } from "./VoiceExpenseButton";
 
@@ -47,22 +47,8 @@ const VoiceSettingsPanel = ({ darkMode, settings, onSettingsChange }: VoiceSetti
             Entrada por Voz
           </h3>
           <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
-            Configura cómo funciona el reconocimiento de voz
+            Ajusta cómo se comporta el micrófono (confirmaciones, vibración y tiempos)
           </p>
-
-          {/* Ejemplos de frases para el micrófono */}
-          <div
-            className={`mt-3 rounded-xl px-3 py-2 text-xs ${
-              darkMode ? "bg-gray-800/80 text-gray-300" : "bg-purple-50 text-purple-800"
-            }`}
-          >
-            <p className="font-medium mb-1">Ejemplos que entiende bien:</p>
-            <ul className="space-y-0.5">
-              <li>✅ “20€ en cenas con amigos”</li>
-              <li>✅ “Compra del super 45€”</li>
-              <li>✅ “Gasolina 60€”</li>
-            </ul>
-          </div>
         </div>
       </div>
 
@@ -75,7 +61,7 @@ const VoiceSettingsPanel = ({ darkMode, settings, onSettingsChange }: VoiceSetti
               Confirmación automática
             </p>
             <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
-              Guardar sin preguntar después de {settings.silenceTimeout / 1000}s de silencio
+              Guardar el gasto sin mostrar el diálogo cuando detecte que has terminado de hablar
             </p>
           </div>
           <label className="relative inline-block w-12 h-6 cursor-pointer">
@@ -179,22 +165,12 @@ const VoiceSettingsPanel = ({ darkMode, settings, onSettingsChange }: VoiceSetti
             value={settings.silenceTimeout}
             onChange={(e) => handleSliderChange(parseInt(e.target.value))}
             className={`
-              w-full h-2 rounded-full appearance-none cursor-pointer
+              voice-silence-slider w-full h-2 rounded-full cursor-pointer
               ${darkMode ? "bg-gray-700" : "bg-gray-200"}
-              [&::-webkit-slider-thumb]:appearance-none
-              [&::-webkit-slider-thumb]:w-4
-              [&::-webkit-slider-thumb]:h-4
-              [&::-webkit-slider-thumb]:rounded-full
-              [&::-webkit-slider-thumb]:${darkMode ? 'bg-purple-500' : 'bg-purple-600'}
-              [&::-moz-range-thumb]:w-4
-              [&::-moz-range-thumb]:h-4
-              [&::-moz-range-thumb]:rounded-full
-              [&::-moz-range-thumb]:border-0
-              [&::-moz-range-thumb]:${darkMode ? 'bg-purple-500' : 'bg-purple-600'}
             `}
           />
           <p className={`text-xs mt-1 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
-            Tiempo de espera entre múltiples gastos
+            Tiempo de silencio que se usa para detectar que has terminado una frase
           </p>
         </div>
       </div>

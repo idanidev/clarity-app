@@ -67,8 +67,8 @@ interface VoiceExpenseButtonProps {
     type: "success" | "error" | "info"
   ) => void;
   hasFilterButton?: boolean;
-  categories?: any[];
-  subcategories?: any[];
+  categories?: string[];
+  voiceSettings?: VoiceSettings;
 }
 
 const VoiceExpenseButton = ({
@@ -76,6 +76,8 @@ const VoiceExpenseButton = ({
   darkMode,
   showNotification,
   hasFilterButton = false,
+  categories = [],
+  voiceSettings = DEFAULT_VOICE_SETTINGS,
 }: VoiceExpenseButtonProps) => {
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -88,7 +90,13 @@ const VoiceExpenseButton = ({
   const recognitionRef = useRef<any>(null);
   const listenersAddedRef = useRef(false);
   const isNative = Capacitor.isNativePlatform();
-  const platform = Capacitor.getPlatform();
+  // Plataforma no utilizada actualmente, pero se deja Capacitor para detección nativa
+
+  // Mantener siempre los últimos ajustes de voz sin re-crear callbacks
+  const voiceSettingsRef = useRef<VoiceSettings>(voiceSettings);
+  useEffect(() => {
+    voiceSettingsRef.current = voiceSettings;
+  }, [voiceSettings]);
 
   const { microphone } = usePermissions();
 
@@ -96,9 +104,7 @@ const VoiceExpenseButton = ({
     typeof window !== "undefined" &&
     ("webkitSpeechRecognition" in window || "SpeechRecognition" in window);
 
-  console.log(
-    `[Voice] Platform: ${platform}, Native: ${isNative}, Web Speech: ${hasWebSpeechAPI}`
-  );
+  // Log de depuración eliminado para producción
 
   // ============================================
   // INICIALIZACIÓN (SOLO UNA VEZ)
@@ -109,7 +115,6 @@ const VoiceExpenseButton = ({
     const checkAvailability = async () => {
       if (isNative) {
         // CAPACITOR: Solo verificar disponibilidad (NO solicitar permisos aquí)
-        console.log("[Voice] Checking native speech availability");
         try {
           const availableResult = await SpeechRecognition.available();
           const available = availableResult?.available ?? false;
@@ -126,7 +131,6 @@ const VoiceExpenseButton = ({
         }
       } else {
         // WEB/PWA: Web Speech API
-        console.log("[Voice] Checking Web Speech API");
         if (hasWebSpeechAPI && mounted) {
           setVoiceAvailable(true);
           initWebSpeech();
@@ -135,7 +139,6 @@ const VoiceExpenseButton = ({
     };
 
     const initWebSpeech = () => {
-      console.log("[Voice] Initializing Web Speech API");
       const SpeechRecognitionAPI =
         (window as any).SpeechRecognition ||
         (window as any).webkitSpeechRecognition;
@@ -158,8 +161,6 @@ const VoiceExpenseButton = ({
           }
         }
 
-        console.log("[Voice] Result - Final:", final, "Interim:", interim);
-
         if (final) {
           setTranscript((prev) => prev + " " + final);
           processTranscript(final);
@@ -178,21 +179,16 @@ const VoiceExpenseButton = ({
       };
 
       recognition.onend = () => {
-        console.log("[Voice] Web Speech ended");
         setIsListening(false);
       };
 
       recognitionRef.current = recognition;
-      console.log("[Voice] ✅ Web Speech API initialized");
     };
 
     checkAvailability();
 
-    return () => {
+      return () => {
       mounted = false;
-      console.log(
-        "[Voice] Cleanup: Stopping recognition and removing listeners"
-      );
 
       if (recognitionRef.current && !isNative) {
         try {
@@ -205,7 +201,6 @@ const VoiceExpenseButton = ({
       if (isNative && listenersAddedRef.current) {
         try {
           SpeechRecognition.removeAllListeners();
-          console.log("[Voice] Native listeners removed");
         } catch (e) {
           console.error("[Voice] Error removing listeners:", e);
         }
@@ -344,16 +339,38 @@ const VoiceExpenseButton = ({
           }
         }
 
-        // ✅ MOSTRAR DIÁLOGO DE CONFIRMACIÓN
-        setPendingExpense(expenseData);
-        setShowConfirmDialog(true);
+        const currentSettings = voiceSettingsRef.current;
+
+        // ✅ Si está activada la confirmación automática, guardar sin mostrar diálogo
+        if (currentSettings?.autoConfirm) {
+          setIsProcessing(true);
+          try {
+            await onAddExpense(expenseData);
+            showNotification?.(
+              `✅ Añadido: €${expenseData.amount.toFixed(2)} en ${expenseData.category}`,
+              "success"
+            );
+            setPendingExpense(null);
+            setTranscript("");
+            setInterimTranscript("");
+          } catch (error) {
+            console.error("[Voice] Error adding expense (auto-confirm):", error);
+            showNotification?.("❌ Error al añadir gasto", "error");
+          } finally {
+            setIsProcessing(false);
+          }
+        } else {
+          // ✅ MOSTRAR DIÁLOGO DE CONFIRMACIÓN
+          setPendingExpense(expenseData);
+          setShowConfirmDialog(true);
+        }
 
       } catch (error) {
         console.error("[Voice] Error parsing expense:", error);
         showNotification?.("❌ Error al procesar gasto", "error");
       }
     },
-    [isProcessing, isListening, showNotification, isNative]
+    [isProcessing, isListening, showNotification, isNative, onAddExpense]
   );
 
   // ============================================
@@ -678,75 +695,145 @@ const VoiceExpenseButton = ({
           >
             <div className="p-6">
               <h3
-                className={`text-xl font-bold mb-4 ${
+                className={`text-xl font-bold mb-2 ${
                   darkMode ? "text-white" : "text-gray-900"
                 }`}
               >
                 ✅ ¿Añadir este gasto?
               </h3>
+              <p
+                className={`text-xs mb-4 ${
+                  darkMode ? "text-gray-400" : "text-gray-600"
+                }`}
+              >
+                Ejemplos que puedes decir:{" "}
+                <span className="font-medium">
+                  “20€ en cenas con amigos”, “Compra del super 45€”, “Gasolina 60€”
+                </span>
+              </p>
 
               <div
-                className={`p-4 rounded-xl mb-6 ${
+                className={`p-4 rounded-xl mb-6 space-y-4 ${
                   darkMode ? "bg-gray-900/50" : "bg-gray-100"
                 }`}
               >
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span
-                      className={`text-sm ${
-                        darkMode ? "text-gray-400" : "text-gray-600"
-                      }`}
+                <div className="flex justify-between items-center">
+                  <span
+                    className={`text-sm ${
+                      darkMode ? "text-gray-400" : "text-gray-600"
+                    }`}
+                  >
+                    Cantidad
+                  </span>
+                  <span
+                    className={`text-lg font-bold ${
+                      darkMode ? "text-white" : "text-gray-900"
+                    }`}
+                  >
+                    €{pendingExpense.amount.toFixed(2)}
+                  </span>
+                </div>
+
+                {/* Categoría editable */}
+                <div>
+                  <label
+                    className={`block text-xs font-medium mb-1 ${
+                      darkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
+                    Categoría
+                  </label>
+                  {categories.length > 0 ? (
+                    <select
+                      value={pendingExpense.category || categories[0]}
+                      onChange={(e) =>
+                        setPendingExpense({
+                          ...pendingExpense,
+                          category: e.target.value,
+                        })
+                      }
+                      className={`w-full px-3 py-2 rounded-lg border text-sm ${
+                        darkMode
+                          ? "bg-gray-900 border-gray-700 text-gray-100"
+                          : "bg-white border-gray-300 text-gray-900"
+                      } focus:outline-none focus:ring-2 focus:ring-purple-500`}
                     >
-                      Cantidad:
-                    </span>
-                    <span
-                      className={`text-lg font-bold ${
-                        darkMode ? "text-white" : "text-gray-900"
-                      }`}
-                    >
-                      €{pendingExpense.amount.toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span
-                      className={`text-sm ${
-                        darkMode ? "text-gray-400" : "text-gray-600"
-                      }`}
-                    >
-                      Categoría:
-                    </span>
-                    <span
-                      className={`text-sm font-medium ${
-                        darkMode ? "text-white" : "text-gray-900"
-                      }`}
-                    >
-                      {pendingExpense.category}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span
-                      className={`text-sm ${
-                        darkMode ? "text-gray-400" : "text-gray-600"
-                      }`}
-                    >
-                      Descripción:
-                    </span>
-                    <span
+                      {categories.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p
                       className={`text-sm ${
                         darkMode ? "text-gray-300" : "text-gray-700"
                       }`}
                     >
-                      {pendingExpense.name}
-                    </span>
-                  </div>
+                      {pendingExpense.category}
+                    </p>
+                  )}
+                </div>
+
+                {/* Subcategoría editable (texto libre) */}
+                <div>
+                  <label
+                    className={`block text-xs font-medium mb-1 ${
+                      darkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
+                    Subcategoría (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={pendingExpense.subcategory || ""}
+                    onChange={(e) =>
+                      setPendingExpense({
+                        ...pendingExpense,
+                        subcategory: e.target.value,
+                      })
+                    }
+                    placeholder="Ej: Cenas, Netflix, Farmacia..."
+                    className={`w-full px-3 py-2 rounded-lg border text-sm ${
+                      darkMode
+                        ? "bg-gray-900 border-gray-700 text-gray-100 placeholder-gray-500"
+                        : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
+                    } focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                  />
+                </div>
+
+                {/* Descripción editable */}
+                <div>
+                  <label
+                    className={`block text-xs font-medium mb-1 ${
+                      darkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
+                    Descripción
+                  </label>
+                  <input
+                    type="text"
+                    value={pendingExpense.name || ""}
+                    onChange={(e) =>
+                      setPendingExpense({
+                        ...pendingExpense,
+                        name: e.target.value,
+                      })
+                    }
+                    className={`w-full px-3 py-2 rounded-lg border text-sm ${
+                      darkMode
+                        ? "bg-gray-900 border-gray-700 text-gray-100"
+                        : "bg-white border-gray-300 text-gray-900"
+                    } focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                  />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="flex items-center justify-center gap-3">
                 <button
                   onClick={cancelExpense}
                   disabled={isProcessing}
-                  className={`py-3 rounded-xl font-medium transition-colors ${
+                  className={`min-w-[120px] py-3 rounded-xl font-medium transition-colors ${
                     darkMode
                       ? "bg-gray-700 hover:bg-gray-600 text-white"
                       : "bg-gray-200 hover:bg-gray-300 text-gray-900"
@@ -757,7 +844,7 @@ const VoiceExpenseButton = ({
                 <button
                   onClick={confirmExpense}
                   disabled={isProcessing}
-                  className="py-3 rounded-xl font-medium bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:shadow-lg transition-all disabled:opacity-50"
+                  className="min-w-[120px] py-3 rounded-xl font-medium bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:shadow-lg transition-all disabled:opacity-50"
                 >
                   {isProcessing ? (
                     <Loader2 className="w-5 h-5 animate-spin mx-auto" />

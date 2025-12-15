@@ -46,14 +46,10 @@ export const requestNotificationPermission = async (userId) => {
         // Si no existe, registrarlo
         if (!registration) {
           registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
-          console.log("Service Worker registrado:", registration.scope);
-        } else {
-          console.log("Service Worker ya registrado:", registration.scope);
         }
         
         // Esperar a que esté activo
         await navigator.serviceWorker.ready;
-        console.log("Service Worker activo y listo");
       } catch (error) {
         console.error("Error registrando service worker:", error);
         return null;
@@ -67,9 +63,7 @@ export const requestNotificationPermission = async (userId) => {
     }
 
     // Esperar a que el Service Worker esté completamente listo
-    console.log("⏳ Esperando a que el Service Worker esté listo...");
     const serviceWorkerRegistration = await navigator.serviceWorker.ready;
-    console.log("✅ Service Worker listo:", serviceWorkerRegistration.scope);
     
     // Verificar que el Service Worker esté activo
     if (!serviceWorkerRegistration.active) {
@@ -78,20 +72,16 @@ export const requestNotificationPermission = async (userId) => {
     }
     
     // Obtener el token FCM
-    console.log("🔑 Obteniendo token FCM...");
     const currentToken = await getToken(messaging, {
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration: serviceWorkerRegistration,
     });
 
     if (currentToken) {
-      console.log("✅ Token FCM obtenido:", currentToken.substring(0, 30) + "...");
-      
       // Guardar token en Firestore
       if (userId) {
         try {
           await saveFCMToken(userId, currentToken);
-          console.log("✅ Token FCM guardado en Firestore para usuario:", userId);
         } catch (error) {
           console.error("❌ Error guardando token FCM:", error);
         }
@@ -120,38 +110,23 @@ export const saveFCMToken = async (userId, token) => {
       throw new Error("Token FCM inválido");
     }
     
-    console.log(`💾 [saveFCMToken] Guardando token para usuario ${userId}...`);
-    console.log(`💾 [saveFCMToken] Token (primeros 30 caracteres): ${token.substring(0, 30)}...`);
-    
     const userDocRef = doc(db, "users", userId);
     const userDoc = await getDoc(userDocRef);
     
     if (userDoc.exists()) {
       const tokens = userDoc.data().fcmTokens || [];
-      console.log(`💾 [saveFCMToken] Tokens existentes antes: ${tokens.length}`);
       
       // SIEMPRE reemplazar todos los tokens anteriores con solo el nuevo token
       // Esto asegura que solo haya 1 token activo y elimina duplicados existentes
       const updatedTokens = [token];
       
-      console.log(`💾 [saveFCMToken] Actualizando tokens en Firestore...`);
       await updateDoc(userDocRef, {
         fcmTokens: updatedTokens,
         updatedAt: new Date().toISOString(),
       });
       
       // Verificar que se guardó correctamente
-      const verifyDoc = await getDoc(userDocRef);
-      const savedTokens = verifyDoc.data()?.fcmTokens || [];
-      console.log(`✅ [saveFCMToken] Tokens guardados en Firestore: ${savedTokens.length}`);
-      
-      if (tokens.length > 1) {
-        console.log(`✅ Token FCM actualizado para usuario ${userId}. Se eliminaron ${tokens.length - 1} token(s) duplicado(s). Ahora hay 1 token único.`);
-      } else if (tokens.length === 1 && tokens[0] !== token) {
-        console.log(`✅ Token FCM actualizado para usuario ${userId}. Token reemplazado.`);
-      } else {
-        console.log(`✅ Token FCM guardado en Firestore para usuario ${userId}. Token único actualizado.`);
-      }
+      // Verificación adicional no necesaria en producción; Firestore garantiza consistencia básica
     } else {
       console.warn(`⚠️ Usuario ${userId} no existe en Firestore`);
     }
@@ -192,21 +167,10 @@ export const setupForegroundMessageListener = (callback) => {
     return null;
   }
 
-  console.log("✅ Configurando listener de mensajes en primer plano...");
-  
   const unsubscribe = onMessage(messaging, (payload) => {
-    console.log("🔔 ========== MENSAJE RECIBIDO EN PRIMER PLANO ==========");
-    console.log("🔔 Payload completo:", JSON.stringify(payload, null, 2));
-    console.log("🔔 Título:", payload.notification?.title);
-    console.log("🔔 Mensaje:", payload.notification?.body || payload.data?.message);
-    console.log("🔔 Tipo:", payload.data?.type);
-    
-    // Primero ejecutar el callback para mostrar la notificación interna
     if (callback) {
-      console.log("✅ Ejecutando callback para mostrar notificación interna...");
       try {
         callback(payload);
-        console.log("✅ Callback ejecutado correctamente");
       } catch (error) {
         console.error("❌ Error ejecutando callback:", error);
       }
@@ -214,13 +178,7 @@ export const setupForegroundMessageListener = (callback) => {
       console.warn("⚠️ No hay callback configurado para mostrar notificación interna");
     }
     
-    // NO mostrar notificación del sistema cuando la app está en primer plano
-    // Solo mostrar la notificación interna (que ya se mostró con el callback)
-    // El Service Worker se encargará de mostrar notificaciones cuando la app esté en background
-    console.log("ℹ️ App en primer plano - Solo mostrando notificación interna, no notificación del sistema");
   });
-  
-  console.log("✅ Listener de mensajes en primer plano configurado correctamente");
   return unsubscribe;
 };
 

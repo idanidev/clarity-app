@@ -44,12 +44,6 @@ const getFirebaseConfig = () => {
     throw new Error("Firebase configuration is missing required fields");
   }
 
-  console.log("✅ Firebase config loaded:", {
-    projectId: config.projectId,
-    authDomain: config.authDomain,
-    hasApiKey: !!config.apiKey,
-  });
-
   return config;
 };
 
@@ -59,7 +53,6 @@ const firebaseConfig = getFirebaseConfig();
 let app: FirebaseApp;
 try {
   app = initializeApp(firebaseConfig);
-  console.log("✅ Firebase initialized successfully");
 } catch (error: any) {
   console.error("❌ Firebase initialization error:", error);
   // Si ya está inicializado (iOS nativo), obtener la instancia existente
@@ -67,7 +60,6 @@ try {
     const apps = getApps();
     if (apps.length > 0) {
       app = apps[0];
-      console.log("✅ Using existing Firebase app instance");
     } else {
       throw error;
     }
@@ -87,12 +79,10 @@ if (Capacitor.isNativePlatform()) {
     auth = initializeAuth(app, {
       persistence: indexedDBLocalPersistence,
     });
-    console.log("✅ Firebase Auth: Initialized with indexedDBLocalPersistence for native platform");
   } catch (error: any) {
     // Si ya está inicializado, obtener la instancia existente
     if (error.code === 'auth/already-initialized') {
       auth = getAuth(app);
-      console.log("✅ Firebase Auth: Using existing auth instance");
     } else {
       throw error;
     }
@@ -100,23 +90,11 @@ if (Capacitor.isNativePlatform()) {
 } else {
   // Web: usar getAuth (configuración por defecto)
   auth = getAuth(app);
-  console.log("✅ Firebase Auth: Using default web configuration");
 }
 
 // Configurar Auth
 if (typeof window !== 'undefined') {
   auth.settings.appVerificationDisabledForTesting = false;
-  
-  console.log("✅ Firebase Auth initialized:", {
-    platform: Capacitor.isNativePlatform() ? "native" : "web",
-    appName: auth.app.name,
-    currentUser: auth.currentUser?.uid || "no user",
-    config: {
-      apiKey: auth.app.options.apiKey?.substring(0, 10) + "...",
-      projectId: auth.app.options.projectId,
-      authDomain: auth.app.options.authDomain,
-    },
-  });
 }
 
 export { auth };
@@ -134,9 +112,6 @@ export const db: Firestore = initializeFirestore(app, {
 
 // Nota: NO llamar enableIndexedDbPersistence() porque persistentLocalCache ya lo maneja
 // Hacerlo causaría el error "SDK cache is already specified"
-if (typeof window !== 'undefined') {
-  console.log("✅ Persistencia offline habilitada mediante persistentLocalCache");
-}
 
 // Analytics solo en el cliente
 export const analytics: Analytics | null = 

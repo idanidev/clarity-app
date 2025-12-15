@@ -26,11 +26,15 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Transición suave solo para elementos interactivos que la necesiten */
+.smooth-transform {
   transition-property: transform, opacity;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
 }
 
 /* Aplicar transform SOLO a elementos que lo necesiten, NO a todo */
@@ -256,6 +260,34 @@ select {
 
 .animate-slide-up {
   animation: slideUp 0.3s ease-out;
+}
+
+/* ============================================
+   SLIDER ESPECÍFICO PARA TIEMPO DE SILENCIO (VOZ)
+   ============================================ */
+.voice-silence-slider {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.voice-silence-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #a855f7; /* purple-500 */
+  border: 2px solid #e5e7eb; /* gray-200 */
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.4);
+}
+
+.voice-silence-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #a855f7;
+  border: 2px solid #e5e7eb;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.4);
 }
 
 /* ============================================

@@ -110,6 +110,7 @@ import Header from "./components/Header";
 import MainContent from "./components/MainContent";
 import MobileMenu from "./components/MobileMenu";
 import Notification from "./components/Notification";
+import { VoiceSettings, DEFAULT_VOICE_SETTINGS } from "./components/VoiceExpenseButton";
 
 // Componente de carga para modales
 const ModalLoader = () => (
@@ -273,6 +274,33 @@ const Dashboard = ({ user }: DashboardProps) => {
   // const [completedGoal, setCompletedGoal] = useState(null); // Comentado temporalmente
   const [previousGoals, setPreviousGoals] = useState<Goals | null>(null);
 
+  // Ajustes de entrada por voz (solo local por dispositivo)
+  const [voiceSettings, setVoiceSettings] = useState<VoiceSettings>(() => {
+    try {
+      const stored = localStorage.getItem("voiceSettings");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return { ...DEFAULT_VOICE_SETTINGS, ...parsed };
+      }
+    } catch {
+      // ignorar errores de parseo
+    }
+    return DEFAULT_VOICE_SETTINGS;
+  });
+
+  const handleSaveVoiceSettings = useCallback(
+    (settings: VoiceSettings) => {
+      setVoiceSettings(settings);
+      try {
+        localStorage.setItem("voiceSettings", JSON.stringify(settings));
+      } catch {
+        // ignorar errores de localStorage
+      }
+      showNotification("✅ Ajustes de voz guardados", "success");
+    },
+    [showNotification]
+  );
+
   useEffect(() => {
     if (!user) {
       setExpenses([]);
@@ -289,25 +317,12 @@ const Dashboard = ({ user }: DashboardProps) => {
     let isMounted = true;
 
     const loadUserData = async () => {
-      console.log("🚀 [loadUserData] INICIO - Usuario:", user.uid);
-      console.log("🚀 [loadUserData] Email:", user.email);
-      console.log(
-        "🚀 [loadUserData] Provider:",
-        user.providerData[0]?.providerId
-      );
-
       setLoading(true);
 
       try {
-        // 🔍 LOG ANTES DE INITIALIZAR
-        console.log("🔍 [loadUserData] ANTES de initializeUser");
-
         await initializeUser(user.uid, {
           email: user.email,
         });
-
-        // 🔍 LOG DESPUÉS DE INITIALIZAR
-        console.log("✅ [loadUserData] DESPUÉS de initializeUser");
 
         const [
           userCategories,
@@ -330,15 +345,6 @@ const Dashboard = ({ user }: DashboardProps) => {
           getUserNotificationSettings(user.uid),
           getOnboardingStatus(user.uid),
         ]);
-
-        // 🔍 LOG DE DATOS CARGADOS
-        console.log("📊 [loadUserData] DATOS CARGADOS:", {
-          categories: userCategories ? Object.keys(userCategories).length : 0,
-          budgets: userBudgets ? Object.keys(userBudgets).length : 0,
-          theme: userTheme,
-          income: userIncome,
-          hasGoals: !!userGoals,
-        });
 
         if (!isMounted) {
           return;
@@ -1441,9 +1447,6 @@ const Dashboard = ({ user }: DashboardProps) => {
             let registration = await navigator.serviceWorker.getRegistration();
 
             if (!registration) {
-              console.log(
-                "⚠️ No hay Service Worker registrado, registrando..."
-              );
               registration = await navigator.serviceWorker.register(
                 "/firebase-messaging-sw.js",
                 {
@@ -1451,30 +1454,21 @@ const Dashboard = ({ user }: DashboardProps) => {
                   updateViaCache: "none",
                 }
               );
-              console.log("✅ Service Worker registrado:", registration.scope);
             }
 
             // Esperar a que el Service Worker esté listo
             await navigator.serviceWorker.ready;
-            console.log("✅ Service Worker activo y listo");
 
             // Verificar permisos y solicitar token FCM (solo una vez)
             const permission = getNotificationPermission();
-            console.log("📱 Permisos de notificación:", permission);
 
             if (permission === "granted") {
               if (!tokenRequested) {
                 tokenRequested = true;
                 // Solicitar token FCM (esto también lo guarda automáticamente)
                 try {
-                  console.log("🔑 Solicitando token FCM...");
                   const token = await requestNotificationPermission(user.uid);
-                  if (token) {
-                    console.log(
-                      "✅ Token FCM obtenido y guardado:",
-                      token.substring(0, 20) + "..."
-                    );
-                  } else {
+                  if (!token) {
                     console.warn("⚠️ No se pudo obtener el token FCM");
                     tokenRequested = false; // Permitir reintento si falla
                   }
@@ -1484,9 +1478,7 @@ const Dashboard = ({ user }: DashboardProps) => {
                 }
               }
             } else if (permission === "default") {
-              console.log(
-                "ℹ️ Permisos de notificación pendientes. El usuario debe concederlos."
-              );
+              // Permisos pendientes: no spamear logs en producción
             } else if (permission === "denied") {
               console.warn("⚠️ Permisos de notificación denegados");
             }
@@ -1504,11 +1496,8 @@ const Dashboard = ({ user }: DashboardProps) => {
       // Configurar listener para mensajes en primer plano (solo una vez)
       if (!listenerConfiguredRef.current) {
         listenerConfiguredRef.current = true;
-        console.log("🔧 Configurando listener de notificaciones push...");
 
         unsubscribeRef.current = setupForegroundMessageListener((payload) => {
-          console.log("📬 ========== CALLBACK EJECUTADO ==========");
-          console.log("📬 Payload recibido en callback:", payload);
 
           const type = payload?.data?.type || "unknown";
           const message =
@@ -1525,30 +1514,16 @@ const Dashboard = ({ user }: DashboardProps) => {
             type === "test";
 
           if (isServerReminder) {
-            console.log(
-              "📬 Notificación de servidor recibida en primer plano (type=%s). No se muestra banner interno para evitar duplicados.",
-              type
-            );
             return;
           }
-
-          console.log(
-            "📬 Mostrando notificación interna con mensaje:",
-            message
-          );
 
           // Usar la referencia actualizada al callback
           if (showNotificationRef.current) {
             showNotificationRef.current(message, "success");
           }
-          console.log("📬 Notificación interna mostrada");
         });
 
-        if (unsubscribeRef.current) {
-          console.log(
-            "✅ Listener de notificaciones push configurado correctamente"
-          );
-        } else {
+        if (!unsubscribeRef.current) {
           console.warn(
             "⚠️ No se pudo configurar el listener de notificaciones push"
           );
@@ -1564,7 +1539,6 @@ const Dashboard = ({ user }: DashboardProps) => {
       return () => {
         clearTimeout(timeoutId);
         if (unsubscribeRef.current) {
-          console.log("🧹 Limpiando listener de notificaciones push...");
           unsubscribeRef.current();
           unsubscribeRef.current = null;
           listenerConfiguredRef.current = false;
@@ -2265,6 +2239,7 @@ const Dashboard = ({ user }: DashboardProps) => {
         onAddExpenseFromAI={handleAddExpenseFromAI}
         allExpenses={expenses}
         showNotification={showNotification}
+        voiceSettings={voiceSettings}
       />
 
       <Suspense fallback={showAddExpense ? <ModalLoader /> : null}>
@@ -2408,6 +2383,8 @@ const Dashboard = ({ user }: DashboardProps) => {
           onRequestPushPermission={handleRequestPushPermission}
           showNotification={showNotification}
           userId={user?.uid}
+          voiceSettings={voiceSettings}
+          onSaveVoiceSettings={handleSaveVoiceSettings}
         />
       </Suspense>
 

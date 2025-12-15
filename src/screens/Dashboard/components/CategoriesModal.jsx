@@ -172,7 +172,7 @@ const CategoriesModal = ({
                     darkMode ? "bg-gray-700" : "bg-purple-50"
                   } border ${darkMode ? "border-gray-600" : "border-purple-100"}`}
                 >
-                  <div className="flex justify-between items-start mb-3">
+                  <div className="flex justify-between items-center mb-3">
                     {isEditing ? (
                       <div className="flex-1 flex gap-1.5 sm:gap-2 items-center flex-wrap">
                         <input
@@ -201,7 +201,7 @@ const CategoriesModal = ({
                         />
                         <button
                           onClick={() => onSaveEditCategory()}
-                          className={`p-1.5 sm:p-2 rounded-lg flex-shrink-0 ${
+                          className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
                             darkMode
                               ? "bg-green-700 hover:bg-green-600"
                               : "bg-green-500 hover:bg-green-600"
@@ -212,7 +212,7 @@ const CategoriesModal = ({
                         </button>
                         <button
                           onClick={() => onCancelEditCategory()}
-                          className={`p-1.5 sm:p-2 rounded-lg flex-shrink-0 ${
+                          className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
                             darkMode
                               ? "bg-gray-600 hover:bg-gray-500"
                               : "bg-gray-400 hover:bg-gray-500"

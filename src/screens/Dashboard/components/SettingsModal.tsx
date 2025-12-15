@@ -297,10 +297,10 @@ const SettingsModal = ({
         <div className={`px-4 sm:px-6 pt-4 pb-0 border-b ${
           darkMode ? "border-gray-700" : "border-gray-200"
         }`}>
-          <div className="flex gap-1 sm:gap-2 overflow-x-auto scrollbar-hide -mx-4 sm:-mx-6 px-4 sm:px-6">
+          <div className="flex gap-1 sm:gap-2 overflow-x-auto scrollbar-hide -mx-4 sm:-mx-6 px-4 sm:px-6 flex-nowrap">
             <button
               onClick={() => setActiveTab("general")}
-              className={`px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-all whitespace-nowrap flex items-center justify-center min-h-[44px] ${
+              className={`px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-all whitespace-nowrap flex items-center justify-center min-h-[44px] flex-shrink-0 ${
                 activeTab === "general"
                   ? darkMode
                     ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
@@ -314,7 +314,7 @@ const SettingsModal = ({
             </button>
             <button
               onClick={() => setActiveTab("notifications")}
-              className={`px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-all flex items-center gap-2 whitespace-nowrap justify-center min-h-[44px] ${
+              className={`px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-all flex items-center gap-2 whitespace-nowrap justify-center min-h-[44px] flex-shrink-0 ${
                 activeTab === "notifications"
                   ? darkMode
                     ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
@@ -329,7 +329,7 @@ const SettingsModal = ({
             </button>
             <button
               onClick={() => setActiveTab("voice")}
-              className={`px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-all flex items-center gap-2 whitespace-nowrap justify-center min-h-[44px] ${
+              className={`px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-all flex items-center gap-2 whitespace-nowrap justify-center min-h-[44px] flex-shrink-0 ${
                 activeTab === "voice"
                   ? darkMode
                     ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
@@ -340,11 +340,11 @@ const SettingsModal = ({
               }`}
             >
               <Mic className="w-4 h-4" />
-              Voz
+              Entrada por voz
             </button>
             <button
               onClick={() => setActiveTab("permissions")}
-              className={`px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-all flex items-center gap-2 whitespace-nowrap justify-center min-h-[44px] ${
+              className={`px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-all flex items-center gap-2 whitespace-nowrap justify-center min-h-[44px] flex-shrink-0 ${
                 activeTab === "permissions"
                   ? darkMode
                     ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
@@ -439,25 +439,26 @@ const SettingsModal = ({
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={toggleDarkMode}
-                    className={`relative w-14 h-7 sm:w-16 sm:h-8 rounded-full transition-all duration-300 flex-shrink-0 shadow-inner ${
-                      darkMode 
-                        ? "bg-gradient-to-r from-purple-600 to-purple-700 shadow-lg shadow-purple-600/50" 
-                        : "bg-gray-300"
-                    } active:scale-95`}
-                  >
+                  <label className="relative inline-block w-12 h-6 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={darkMode}
+                      onChange={toggleDarkMode}
+                      className="sr-only peer"
+                      aria-label={darkMode ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+                    />
                     <div
-                      className={`absolute top-0.5 sm:top-1 left-0.5 sm:left-1 w-6 h-6 sm:w-7 sm:h-7 bg-white rounded-full transition-all duration-300 shadow-lg ${
-                        darkMode ? "translate-x-7 sm:translate-x-8" : "translate-x-0"
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        darkMode ? "bg-purple-500" : "bg-gray-500/60"
                       }`}
-                      style={{
-                        boxShadow: darkMode 
-                          ? "0 2px 8px rgba(0,0,0,0.3), 0 0 0 1px rgba(139,92,246,0.2)" 
-                          : "0 2px 8px rgba(0,0,0,0.15)"
-                      }}
-                    ></div>
-                  </button>
+                    />
+                    <div
+                      className={`
+                        absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform
+                        ${darkMode ? "translate-x-6" : "translate-x-0"}
+                      `}
+                    />
+                  </label>
                 </div>
               </div>
 
@@ -617,26 +618,30 @@ const SettingsModal = ({
                         </p>
                       </div>
                     </div>
-                    <button
-                      onClick={handleToggleNativeNotifications}
-                      disabled={checkingNativeNotifications}
-                      className={`relative w-14 h-7 sm:w-16 sm:h-8 rounded-full transition-all duration-300 flex-shrink-0 shadow-inner ${
-                        nativeNotificationsEnabled 
-                          ? "bg-gradient-to-r from-purple-600 to-purple-700 shadow-lg shadow-purple-600/50" 
-                          : "bg-gray-300"
-                      } ${checkingNativeNotifications ? "opacity-50 cursor-not-allowed" : "active:scale-95"}`}
+                    <label
+                      className={`relative inline-block w-12 h-6 cursor-pointer ${
+                        checkingNativeNotifications ? "opacity-50 cursor-not-allowed" : ""
+                      }`}
                     >
+                      <input
+                        type="checkbox"
+                        checked={nativeNotificationsEnabled}
+                        onChange={handleToggleNativeNotifications}
+                        disabled={checkingNativeNotifications}
+                        className="sr-only peer"
+                      />
                       <div
-                        className={`absolute top-0.5 sm:top-1 left-0.5 sm:left-1 w-6 h-6 sm:w-7 sm:h-7 bg-white rounded-full transition-all duration-300 shadow-lg ${
-                          nativeNotificationsEnabled ? "translate-x-7 sm:translate-x-8" : "translate-x-0"
+                        className={`w-12 h-6 rounded-full transition-colors ${
+                          nativeNotificationsEnabled ? "bg-purple-500" : "bg-gray-500/60"
                         }`}
-                        style={{
-                          boxShadow: nativeNotificationsEnabled 
-                            ? "0 2px 8px rgba(0,0,0,0.3), 0 0 0 1px rgba(139,92,246,0.2)" 
-                            : "0 2px 8px rgba(0,0,0,0.15)"
-                        }}
-                      ></div>
-                    </button>
+                      />
+                      <div
+                        className={`
+                          absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform
+                          ${nativeNotificationsEnabled ? "translate-x-6" : "translate-x-0"}
+                        `}
+                      />
+                    </label>
                   </div>
                 </div>
               )}
@@ -663,35 +668,35 @@ const SettingsModal = ({
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => {
-                      setLocalNotificationSettings({
-                        ...localNotificationSettings,
-                        weeklyReminder: {
-                          ...localNotificationSettings.weeklyReminder,
-                          enabled: !(localNotificationSettings.weeklyReminder?.enabled ?? false),
-                        },
-                      });
-                    }}
-                    className={`relative w-14 h-7 sm:w-16 sm:h-8 rounded-full transition-all duration-300 flex-shrink-0 shadow-inner active:scale-95 ${
-                      localNotificationSettings.weeklyReminder?.enabled
-                        ? "bg-gradient-to-r from-purple-600 to-purple-700 shadow-lg shadow-purple-600/50"
-                        : "bg-gray-300"
-                    }`}
-                  >
-                    <div
-                      className={`absolute top-0.5 sm:top-1 left-0.5 sm:left-1 w-6 h-6 sm:w-7 sm:h-7 bg-white rounded-full transition-all duration-300 shadow-lg ${
-                        localNotificationSettings.weeklyReminder?.enabled
-                          ? "translate-x-7 sm:translate-x-8"
-                          : "translate-x-0"
-                      }`}
-                      style={{
-                        boxShadow: localNotificationSettings.weeklyReminder?.enabled
-                          ? "0 2px 8px rgba(0,0,0,0.3), 0 0 0 1px rgba(139,92,246,0.2)"
-                          : "0 2px 8px rgba(0,0,0,0.15)"
+                  <label className="relative inline-block w-12 h-6 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={localNotificationSettings.weeklyReminder?.enabled ?? false}
+                      onChange={() => {
+                        setLocalNotificationSettings({
+                          ...localNotificationSettings,
+                          weeklyReminder: {
+                            ...localNotificationSettings.weeklyReminder,
+                            enabled: !(localNotificationSettings.weeklyReminder?.enabled ?? false),
+                          },
+                        });
                       }}
-                    ></div>
-                  </button>
+                      className="sr-only peer"
+                    />
+                    <div
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        localNotificationSettings.weeklyReminder?.enabled
+                          ? "bg-purple-500"
+                          : "bg-gray-500/60"
+                      }`}
+                    />
+                    <div
+                      className={`
+                        absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform
+                        ${localNotificationSettings.weeklyReminder?.enabled ? "translate-x-6" : "translate-x-0"}
+                      `}
+                    />
+                  </label>
                 </div>
                 {localNotificationSettings.weeklyReminder?.enabled && (
                   <div className="mt-3 sm:mt-4 pl-0 sm:pl-8 space-y-2 sm:space-y-3">
@@ -821,35 +826,35 @@ const SettingsModal = ({
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => {
-                      setLocalNotificationSettings({
-                        ...localNotificationSettings,
-                        monthlyIncomeReminder: {
-                          ...localNotificationSettings.monthlyIncomeReminder,
-                          enabled: !(localNotificationSettings.monthlyIncomeReminder?.enabled ?? false),
-                        },
-                      });
-                    }}
-                    className={`relative w-14 h-7 sm:w-16 sm:h-8 rounded-full transition-all duration-300 flex-shrink-0 shadow-inner active:scale-95 ${
-                      localNotificationSettings.monthlyIncomeReminder?.enabled
-                        ? "bg-gradient-to-r from-purple-600 to-purple-700 shadow-lg shadow-purple-600/50"
-                        : "bg-gray-300"
-                    }`}
-                  >
-                    <div
-                      className={`absolute top-0.5 sm:top-1 left-0.5 sm:left-1 w-6 h-6 sm:w-7 sm:h-7 bg-white rounded-full transition-all duration-300 shadow-lg ${
-                        localNotificationSettings.monthlyIncomeReminder?.enabled
-                          ? "translate-x-7 sm:translate-x-8"
-                          : "translate-x-0"
-                      }`}
-                      style={{
-                        boxShadow: localNotificationSettings.monthlyIncomeReminder?.enabled
-                          ? "0 2px 8px rgba(0,0,0,0.3), 0 0 0 1px rgba(139,92,246,0.2)"
-                          : "0 2px 8px rgba(0,0,0,0.15)"
+                  <label className="relative inline-block w-12 h-6 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={localNotificationSettings.monthlyIncomeReminder?.enabled ?? false}
+                      onChange={() => {
+                        setLocalNotificationSettings({
+                          ...localNotificationSettings,
+                          monthlyIncomeReminder: {
+                            ...localNotificationSettings.monthlyIncomeReminder,
+                            enabled: !(localNotificationSettings.monthlyIncomeReminder?.enabled ?? false),
+                          },
+                        });
                       }}
-                    ></div>
-                  </button>
+                      className="sr-only peer"
+                    />
+                    <div
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        localNotificationSettings.monthlyIncomeReminder?.enabled
+                          ? "bg-purple-500"
+                          : "bg-gray-500/60"
+                      }`}
+                    />
+                    <div
+                      className={`
+                        absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform
+                        ${localNotificationSettings.monthlyIncomeReminder?.enabled ? "translate-x-6" : "translate-x-0"}
+                      `}
+                    />
+                  </label>
                 </div>
                 {localNotificationSettings.monthlyIncomeReminder?.enabled && (
                   <div className="mt-3 sm:mt-4 pl-0 sm:pl-8 space-y-2 sm:space-y-3">
