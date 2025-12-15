@@ -42,13 +42,27 @@ const VoiceSettingsPanel = ({ darkMode, settings, onSettingsChange }: VoiceSetti
         <div className={`p-2 rounded-xl ${darkMode ? "bg-purple-500/20" : "bg-purple-100"}`}>
           <Mic className={`w-5 h-5 ${darkMode ? "text-purple-400" : "text-purple-600"}`} />
         </div>
-        <div>
+        <div className="flex-1">
           <h3 className={`text-lg font-semibold ${darkMode ? "text-gray-100" : "text-gray-900"}`}>
             Entrada por Voz
           </h3>
           <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
             Configura cómo funciona el reconocimiento de voz
           </p>
+
+          {/* Ejemplos de frases para el micrófono */}
+          <div
+            className={`mt-3 rounded-xl px-3 py-2 text-xs ${
+              darkMode ? "bg-gray-800/80 text-gray-300" : "bg-purple-50 text-purple-800"
+            }`}
+          >
+            <p className="font-medium mb-1">Ejemplos que entiende bien:</p>
+            <ul className="space-y-0.5">
+              <li>✅ “20€ en cenas con amigos”</li>
+              <li>✅ “Compra del super 45€”</li>
+              <li>✅ “Gasolina 60€”</li>
+            </ul>
+          </div>
         </div>
       </div>
 
@@ -203,61 +217,31 @@ const VoiceSettingsPanel = ({ darkMode, settings, onSettingsChange }: VoiceSetti
 
       {/* Panel de Estadísticas */}
       {showStats && (
-        <div className="space-y-4 pt-4 border-t"
-          style={darkMode ? { borderColor: 'rgb(55, 65, 81)' } : { borderColor: 'rgb(229, 231, 235)' }}
+        <div
+          className="space-y-4 pt-4 border-t"
+          style={
+            darkMode
+              ? { borderColor: "rgb(55, 65, 81)" }
+              : { borderColor: "rgb(229, 231, 235)" }
+          }
         >
           <h4 className={`font-semibold ${darkMode ? "text-gray-100" : "text-gray-900"}`}>
             📊 Estadísticas de Uso
           </h4>
 
-          <div className="grid grid-cols-2 gap-3">
-            {/* Total de gastos */}
-            <div className={`p-4 rounded-xl ${darkMode ? "bg-green-600/10" : "bg-green-50"}`}>
-              <p className={`text-xs font-medium mb-1 ${darkMode ? "text-green-400" : "text-green-700"}`}>
-                Total gastos por voz
-              </p>
-              <p className={`text-2xl font-bold ${darkMode ? "text-green-400" : "text-green-600"}`}>
-                {stats.totalVoiceExpenses}
-              </p>
-            </div>
-
-            {/* Precisión */}
-            <div className={`p-4 rounded-xl ${darkMode ? "bg-blue-600/10" : "bg-blue-50"}`}>
-              <p className={`text-xs font-medium mb-1 ${darkMode ? "text-blue-400" : "text-blue-700"}`}>
-                Precisión promedio
-              </p>
-              <p className={`text-2xl font-bold ${darkMode ? "text-blue-400" : "text-blue-600"}`}>
-                {stats.avgConfidence.toFixed(0)}%
-              </p>
-            </div>
-          </div>
-
-          {/* Velocidad */}
-          <div className={`p-4 rounded-xl ${darkMode ? "bg-yellow-600/10" : "bg-yellow-50"}`}>
-            <div className="flex items-center gap-2 mb-2">
-              <Zap className={`w-4 h-4 ${darkMode ? "text-yellow-400" : "text-yellow-600"}`} />
-              <span className={`text-sm font-medium ${darkMode ? "text-yellow-400" : "text-yellow-700"}`}>
-                Velocidad
-              </span>
-            </div>
-            <p className={`text-sm ${darkMode ? "text-yellow-300" : "text-yellow-600"}`}>
-              Añades gastos {stats.totalVoiceExpenses > 10 ? '3x más rápido' : '2x más rápido'} que manualmente
-            </p>
-          </div>
-
-          {/* Última vez usado */}
+          {/* Por ahora solo mostramos la última vez usado */}
           {stats.lastUsed && (
             <div className={`p-4 rounded-xl ${darkMode ? "bg-purple-600/10" : "bg-purple-50"}`}>
               <p className={`text-xs font-medium mb-1 ${darkMode ? "text-purple-400" : "text-purple-700"}`}>
                 Última vez usado
               </p>
               <p className={`text-sm ${darkMode ? "text-purple-300" : "text-purple-600"}`}>
-                {new Date(stats.lastUsed).toLocaleString('es-ES', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
+                {new Date(stats.lastUsed).toLocaleString("es-ES", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
                 })}
               </p>
             </div>

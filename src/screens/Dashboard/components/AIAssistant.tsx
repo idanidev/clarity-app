@@ -924,7 +924,7 @@ const WelcomeScreen = memo(
     };
 
     return (
-      <div className="flex flex-col px-4 pt-6 space-y-6">
+      <div className="flex flex-col px-3 pt-4 space-y-4 md:px-4 md:pt-6 md:space-y-6">
         {/* Header con animación */}
         <div className="text-center animate-fade-in">
           <div className="flex items-center justify-center gap-3 mb-3">
@@ -2167,7 +2167,8 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
       <div
         className="flex flex-col w-full"
         style={{
-          minHeight: "400px",
+          minHeight: 320,
+          maxHeight: "80vh",
           height: "100%",
         }}
       >

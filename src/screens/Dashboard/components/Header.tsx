@@ -10,8 +10,6 @@ import {
   Target,
   WifiOff,
   FolderOpen,
-  DollarSign,
-  Repeat,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation } from "../../../contexts/LanguageContext";
@@ -100,14 +98,6 @@ const Header = memo<HeaderProps>(({
           </div>
 
           <div className="hidden md:flex items-center gap-6">
-            {/* Widget Financiero - REEMPLAZA EL PROMEDIO */}
-            <FinancialSummaryWidget
-              income={income}
-              totalExpenses={totalExpenses}
-              darkMode={darkMode}
-              onEditIncome={onSelectGoals}
-            />
-
             {/* Alertas de presupuesto */}
             {overBudgetCount > 0 && (
               <motion.div
@@ -269,14 +259,6 @@ const Header = memo<HeaderProps>(({
           </div>
 
           <div className="md:hidden flex items-center gap-3">
-            {/* Widget Financiero - Móvil */}
-            <FinancialSummaryWidget
-              income={income}
-              totalExpenses={totalExpenses}
-              darkMode={darkMode}
-              onEditIncome={onSelectGoals}
-            />
-            
             <button
               onClick={onSelectGoals}
               className={`p-2 rounded-xl ${

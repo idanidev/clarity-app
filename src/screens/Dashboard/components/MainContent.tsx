@@ -58,6 +58,7 @@ import {
   YAxis,
 } from "recharts";
 import VoiceExpenseButton from "./VoiceExpenseButton.tsx";
+import FinancialSummaryWidget from "../../../components/FinancialSummaryWidget";
 
 // ============================================
 // TYPES & INTERFACES
@@ -293,6 +294,10 @@ const MainContent = memo<MainContentProps>(
     const [clickedCategory, setClickedCategory] = useState<any>(null);
     const [searchQuery, setSearchQuery] = useState("");
     const [isPending, startTransition] = useTransition();
+    // Subcategorías expandibles por categoría+subcategoría
+    const [expandedSubcategories, setExpandedSubcategories] = useState<
+      Record<string, boolean>
+    >({});
 
     // Handler optimizado para cambio de vista (con useTransition)
     const handleViewChange = useCallback(
@@ -339,7 +344,7 @@ const MainContent = memo<MainContentProps>(
     //   []
     // );
 
-    const averageDaily = useMemo(() => {
+    const _averageDaily = useMemo(() => {
       if (filteredExpenses.length === 0) return 0;
       const today = new Date();
 
@@ -545,15 +550,6 @@ const MainContent = memo<MainContentProps>(
                   textSecondaryClass={textSecondaryClass}
                   color="blue"
                 />
-                <StatCard
-                  icon={BarChart3}
-                  label={t("common.average")}
-                  value={formatCurrency(averageDaily)}
-                  darkMode={darkMode}
-                  textClass={textClass}
-                  textSecondaryClass={textSecondaryClass}
-                  color="pink"
-                />
 
                 {goalsSummary ? (
                   <div
@@ -648,6 +644,16 @@ const MainContent = memo<MainContentProps>(
                     </div>
                   </div>
                 )}
+
+                {/* Resumen mensual - 4ª tarjeta clickable */}
+                <div className="flex items-center justify-center">
+                  <FinancialSummaryWidget
+                    income={income}
+                    totalExpenses={totalExpenses}
+                    darkMode={darkMode}
+                    onEditIncome={onOpenGoals}
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -1350,31 +1356,100 @@ const MainContent = memo<MainContentProps>(
                                   style={{ borderColor: `${categoryColor}A0` }}
                                 >
                                   {Object.entries(filteredSubcategories).map(
-                                    ([subcategory, exps]) => (
-                                      <div
-                                        key={subcategory}
-                                        className="space-y-1.5 sm:space-y-2"
-                                      >
-                                        {exps.map((expense) => (
-                                          <ExpenseCard
-                                            key={expense.id}
-                                            expense={{
-                                              ...expense,
-                                              category: category,
-                                            }}
-                                            onEdit={onEditExpense}
-                                            onDelete={(exp: Expense) =>
-                                              onRequestDelete({
-                                                type: "expense",
-                                                id: exp.id,
-                                              })
+                                    ([subcategory, exps]) => {
+                                      const subTotal = exps.reduce(
+                                        (sum, exp) => sum + exp.amount,
+                                        0
+                                      );
+                                      const subCount = exps.length;
+
+                                      const subKey =
+                                        category +
+                                        "::" +
+                                        (subcategory || "__none__");
+                                      const isSubExpanded =
+                                        expandedSubcategories[subKey] ?? true;
+
+                                      return (
+                                        <div
+                                          key={subcategory}
+                                          className="space-y-1.5 sm:space-y-2"
+                                        >
+                                          {/* Subtabla: cabecera de subcategoría */}
+                                          <div
+                                            className={`flex items-center justify-between rounded-xl px-2 py-1.5 sm:px-3 sm:py-2 cursor-pointer ${
+                                              darkMode
+                                                ? "bg-gray-900/80 border border-gray-700/60"
+                                                : "bg-white/90 border border-purple-100/80"
+                                            }`}
+                                            onClick={() =>
+                                              setExpandedSubcategories((prev) => ({
+                                                ...prev,
+                                                [subKey]: !isSubExpanded,
+                                              }))
                                             }
-                                            darkMode={darkMode}
-                                            isMobile={isMobile}
-                                          />
-                                        ))}
-                                      </div>
-                                    )
+                                          >
+                                            <div className="flex items-center gap-2 min-w-0">
+                                              {isSubExpanded ? (
+                                                <ChevronUp
+                                                  className={`w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 ${textSecondaryClass}`}
+                                                />
+                                              ) : (
+                                                <ChevronDown
+                                                  className={`w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 ${textSecondaryClass}`}
+                                                />
+                                              )}
+                                              <span
+                                                className={`text-xs sm:text-sm font-semibold truncate ${textClass} ml-1`}
+                                              >
+                                                {subcategory || "Sin subcategoría"}
+                                              </span>
+                                              <span
+                                                className={`text-[11px] sm:text-xs ${textSecondaryClass}`}
+                                              >
+                                                {subCount}{" "}
+                                                {subCount === 1
+                                                  ? "gasto"
+                                                  : "gastos"}
+                                              </span>
+                                            </div>
+                                            <span
+                                              className={`text-xs sm:text-sm font-semibold ${
+                                                darkMode
+                                                  ? "text-gray-100"
+                                                  : "text-gray-900"
+                                              }`}
+                                            >
+                                              {formatCurrency(subTotal)}
+                                            </span>
+                                          </div>
+
+                                          {/* Lista de gastos de la subcategoría */}
+                                          {isSubExpanded && (
+                                            <div className="space-y-1 sm:space-y-1.5">
+                                              {exps.map((expense) => (
+                                                <ExpenseCard
+                                                  key={expense.id}
+                                                  expense={{
+                                                    ...expense,
+                                                    category: category,
+                                                  }}
+                                                  onEdit={onEditExpense}
+                                                  onDelete={(exp: Expense) =>
+                                                    onRequestDelete({
+                                                      type: "expense",
+                                                      id: exp.id,
+                                                    })
+                                                  }
+                                                  darkMode={darkMode}
+                                                  isMobile={isMobile}
+                                                />
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    }
                                   )}
                                 </div>
                               )}
