@@ -182,6 +182,7 @@ interface MainContentProps {
   allExpenses: Expense[];
   showNotification: (message: string, type?: string) => void;
   voiceSettings: import("./VoiceExpenseButton").VoiceSettings;
+   isLoading?: boolean;
 }
 
 // ============================================
@@ -289,6 +290,7 @@ const MainContent = memo<MainContentProps>(
     allExpenses,
     showNotification,
     voiceSettings,
+    isLoading = false,
   }) => {
     const { t } = useTranslation();
     const [isMobile, setIsMobile] = useState(false);
@@ -2331,6 +2333,7 @@ const MainContent = memo<MainContentProps>(
                   budgets={budgets}
                   goals={goals}
                   categoryTotals={categoryTotalsForBudgets}
+                  isLoading={isLoading}
                 />
               </Suspense>
             </motion.div>

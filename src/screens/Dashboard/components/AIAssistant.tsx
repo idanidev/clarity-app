@@ -82,6 +82,8 @@ interface AIAssistantProps {
   budgets?: { [key: string]: number };
   goals?: any;
   categoryTotals?: any[];
+  // Indica si los datos (gastos) todavía se están cargando desde Firestore
+  isLoading?: boolean;
 }
 
 interface Analysis {
@@ -1121,7 +1123,11 @@ WelcomeScreen.displayName = "WelcomeScreen";
 // ============================================
 // PROCESADOR INTELIGENTE DE QUERIES
 // ============================================
-const createQueryProcessor = (analysis: Analysis, allExpenses: any[]) => {
+const createQueryProcessor = (
+  analysis: Analysis,
+  allExpenses: any[],
+  isLoading: boolean
+) => {
   return (query: string): { content: string; action?: string } => {
     const lowerQuery = query.toLowerCase();
 
@@ -1162,6 +1168,17 @@ const createQueryProcessor = (analysis: Analysis, allExpenses: any[]) => {
     const queryNeedsExpenses = needsDataKeywords.some((keyword) =>
       lowerQuery.includes(keyword)
     );
+
+    // Si la query necesita datos pero los gastos todavía se están cargando,
+    // devolver un mensaje de estado en lugar de decir que no hay datos.
+    if (queryNeedsExpenses && isLoading) {
+      return {
+        content:
+          "⏳ **Cargando tus gastos...**\n\n" +
+          "Estoy terminando de leer tus datos. Intenta esta misma pregunta en unos segundos.",
+        action: "insight",
+      };
+    }
 
     // Si la query necesita datos y realmente no hay movimientos, responder apropiadamente
     const hasAnyExpense = Array.isArray(allExpenses) && allExpenses.length > 0;
@@ -1645,13 +1662,15 @@ const createQueryProcessor = (analysis: Analysis, allExpenses: any[]) => {
       // Sección 3: Categorías
       content += `═══ 🏷️ TOP CATEGORÍAS ═══\n\n`;
       topCategories.forEach((cat, i) => {
-        content += `${i + 1}. **${cat.category}**\n`;
-        content += `   💰 €${cat.total.toFixed(2)} (${cat.percentage.toFixed(
-          1
-        )}%)\n`;
-        content += `   📦 ${
-          cat.count
-        } gastos • Promedio: €${cat.average.toFixed(2)}\n`;
+        const total = Number(cat.total ?? 0);
+        const percentage = Number(cat.percentage ?? 0);
+        const average = Number(cat.average ?? 0);
+
+        content += `${i + 1}. **${cat.category || "Sin categoría"}**\n`;
+        content += `   💰 €${total.toFixed(2)} (${percentage.toFixed(1)}%)\n`;
+        content += `   📦 ${cat.count ?? 0} gastos • Promedio: €${average.toFixed(
+          2
+        )}\n`;
         if (cat.isOverBudget) {
           content += `   ⚠️ SUPERADO - Reduce urgentemente\n`;
         } else if (cat.isWarning) {
@@ -1907,6 +1926,7 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
     budgets = {},
     goals = null,
     categoryTotals = [],
+    isLoading: isDataLoading = false,
   }) => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState("");
@@ -1933,8 +1953,8 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
 
     // Procesador de queries
     const processQuery = useMemo(
-      () => createQueryProcessor(analysis, allExpenses),
-      [analysis, allExpenses]
+      () => createQueryProcessor(analysis, allExpenses, isDataLoading),
+      [analysis, allExpenses, isDataLoading]
     );
 
     // Category matcher

@@ -280,8 +280,7 @@ const AddExpenseModal = memo(({
       darkMode={darkMode}
       maxHeight="90vh"
     >
-
-        <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4">
+        <form onSubmit={handleSubmit} className="px-6 pt-6 pb-10 space-y-4">
           {/* Error general */}
           {errors.submit && (
             <div className={`p-4 rounded-xl ${
@@ -301,7 +300,11 @@ const AddExpenseModal = memo(({
             error={errors.name}
             placeholder="Ej: Compra supermercado"
             required
-            className={darkMode ? "dark" : ""}
+            className={
+              darkMode
+                ? "bg-gray-900 border-gray-700 text-gray-100 placeholder-gray-500"
+                : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
+            }
           />
 
           <Input
@@ -319,7 +322,11 @@ const AddExpenseModal = memo(({
             error={errors.amount}
             placeholder="0.00"
             required
-            className={darkMode ? "dark" : ""}
+            className={
+              darkMode
+                ? "bg-gray-900 border-gray-700 text-gray-100 placeholder-gray-500"
+                : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
+            }
           />
 
           <div>
@@ -537,7 +544,11 @@ const AddExpenseModal = memo(({
             onChange={(e) => handleChange("date", e.target.value)}
             error={errors.date}
             required
-            className={darkMode ? "dark" : ""}
+            className={
+              darkMode
+                ? "bg-gray-900 border-gray-700 text-gray-100 placeholder-gray-500"
+                : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
+            }
           />
 
           <div>

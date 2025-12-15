@@ -129,6 +129,7 @@ const Dashboard = ({ user }: DashboardProps) => {
   const [categories, setCategories] = useState<Categories>({});
   const [budgets, setBudgets] = useState<Budgets>({});
   const [loading, setLoading] = useState(true);
+  const [expensesLoaded, setExpensesLoaded] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const [activeView, setActiveView] = useState<ActiveView>("table");
@@ -309,6 +310,7 @@ const Dashboard = ({ user }: DashboardProps) => {
       setRecurringExpenses([]);
       setDarkMode(false);
       setLoading(false);
+    setExpensesLoaded(false);
       return;
     }
 
@@ -460,6 +462,7 @@ const Dashboard = ({ user }: DashboardProps) => {
           }
           setExpenses(expensesData);
           setLoading(false);
+          setExpensesLoaded(true);
         });
 
         unsubscribeRecurring = subscribeToRecurringExpenses(
@@ -475,6 +478,7 @@ const Dashboard = ({ user }: DashboardProps) => {
         console.error("Error loading user data", error);
         if (isMounted) {
           setLoading(false);
+          setExpensesLoaded(true);
         }
       }
     };
@@ -2240,6 +2244,7 @@ const Dashboard = ({ user }: DashboardProps) => {
         allExpenses={expenses}
         showNotification={showNotification}
         voiceSettings={voiceSettings}
+        isLoading={!expensesLoaded}
       />
 
       <Suspense fallback={showAddExpense ? <ModalLoader /> : null}>
