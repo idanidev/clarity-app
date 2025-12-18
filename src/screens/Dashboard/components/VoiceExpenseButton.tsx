@@ -26,7 +26,7 @@ export const DEFAULT_VOICE_SETTINGS: VoiceSettings = {
   autoConfirm: true,
   vibration: true,
   showSuggestions: true,
-  silenceTimeout: 3000,
+  silenceTimeout: 5000, // Increased to 5 seconds for better UX
 };
 
 // ============================================
@@ -218,9 +218,9 @@ const VoiceExpenseButton = ({
           }
         }
 
+        // Only accumulate transcript, don't process yet
         if (final) {
-          setTranscript((prev) => prev + " " + final);
-          processTranscript(final);
+          setTranscript((prev) => (prev + " " + final).trim());
         }
         setInterimTranscript(interim);
       };
@@ -238,6 +238,15 @@ const VoiceExpenseButton = ({
       recognition.onend = () => {
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
         setIsListening(false);
+
+        // Process accumulated transcript when recording ends
+        setTranscript((prev) => {
+          const finalText = (prev + " " + interimTranscript).trim();
+          if (finalText) {
+            processTranscript(finalText);
+          }
+          return finalText;
+        });
       };
 
       recognitionRef.current = recognition;
@@ -372,8 +381,9 @@ const VoiceExpenseButton = ({
       try {
         const expenseData = parseExpense(text);
 
+        // Don't show error immediately - give user context via dialog instead
         if (!expenseData) {
-          showNotification?.("❌ No se pudo entender el gasto", "error");
+          console.log("[Voice] Could not parse expense from:", text);
           return;
         }
 
