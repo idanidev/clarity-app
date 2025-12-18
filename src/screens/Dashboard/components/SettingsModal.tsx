@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Bell, DollarSign, Globe, Moon, Sun, X, Calendar, RotateCcw, Mic, Shield, CheckCircle2, AlertCircle } from "lucide-react";
+import { Bell, DollarSign, Globe, Moon, Sun, X, Calendar, RotateCcw, Mic, Shield, CheckCircle2, AlertCircle, ChevronRight } from "lucide-react";
 import { useLanguage, useTranslation } from "../../../contexts/LanguageContext";
 // @ts-ignore - No hay tipos para este módulo JS
 import { restoreCategoriesFromExpenses } from "../../../services/firestoreService";
@@ -60,9 +60,10 @@ interface SettingsModalProps {
   userId?: string;
   voiceSettings?: VoiceSettings;
   onSaveVoiceSettings?: (settings: VoiceSettings) => void;
+  isAdmin?: boolean;
 }
 
-type ActiveTab = "general" | "notifications" | "voice" | "permissions";
+type ActiveTab = "general" | "notifications" | "voice" | "permissions" | "admin";
 
 const SettingsModal = ({
   visible,
@@ -79,6 +80,7 @@ const SettingsModal = ({
   onRequestPushPermission,
   showNotification,
   userId,
+  isAdmin = false,
   voiceSettings = DEFAULT_VOICE_SETTINGS,
   onSaveVoiceSettings,
 }: SettingsModalProps) => {
@@ -110,7 +112,7 @@ const SettingsModal = ({
       monthlyIncomeReminder: { enabled: true, dayOfMonth: 28 },
       pushNotifications: { enabled: false },
     };
-    
+
     if (notificationSettings) {
       // Asegurar que customReminders tenga hour y minute
       if (notificationSettings.customReminders) {
@@ -146,7 +148,7 @@ const SettingsModal = ({
         monthlyIncomeReminder: defaultSettings.monthlyIncomeReminder,
       };
     }
-    
+
     return defaultSettings;
   });
 
@@ -202,7 +204,7 @@ const SettingsModal = ({
     try {
       showNotification("Restaurando categorías desde tus gastos...", "info");
       const result = await restoreCategoriesFromExpenses(userId);
-      
+
       if (result.success) {
         showNotification(
           `✅ ${result.message}. Total: ${result.total} categorías`,
@@ -239,7 +241,7 @@ const SettingsModal = ({
 
   const handleToggleNativeNotifications = async () => {
     if (checkingNativeNotifications) return;
-    
+
     setCheckingNativeNotifications(true);
     try {
       if (!nativeNotificationsEnabled) {
@@ -274,89 +276,98 @@ const SettingsModal = ({
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div
-          className={`sticky top-0 z-10 px-6 py-4 flex justify-between items-center ${
-            darkMode
-              ? "bg-gray-800/95 border-b border-gray-700"
-              : "bg-white/80 border-b border-purple-100"
-          } backdrop-blur`}
+          className={`sticky top-0 z-10 px-6 py-4 flex justify-between items-center ${darkMode
+            ? "bg-gray-800/95 border-b border-gray-700"
+            : "bg-white/80 border-b border-purple-100"
+            } backdrop-blur`}
         >
           <h3 className={`text-2xl font-bold ${textClass}`}>
             {t("settings.title")}
           </h3>
           <button
             onClick={onClose}
-            className={`p-2 rounded-lg ${
-              darkMode ? "hover:bg-gray-700" : "hover:bg-purple-100"
-            } transition-all`}
+            className={`p-2 rounded-lg ${darkMode ? "hover:bg-gray-700" : "hover:bg-purple-100"
+              } transition-all`}
           >
             <X className={`w-6 h-6 ${textClass}`} />
           </button>
         </div>
 
         {/* Tabs - Diseño moderno mejorado */}
-        <div className={`px-4 sm:px-6 pt-4 pb-0 border-b ${
-          darkMode ? "border-gray-700" : "border-gray-200"
-        }`}>
+        <div className={`px-4 sm:px-6 pt-4 pb-0 border-b ${darkMode ? "border-gray-700" : "border-gray-200"
+          }`}>
           <div className="flex gap-1 sm:gap-2 overflow-x-auto scrollbar-hide -mx-4 sm:-mx-6 px-4 sm:px-6 flex-nowrap">
             <button
               onClick={() => setActiveTab("general")}
-              className={`px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-all whitespace-nowrap flex items-center justify-center min-h-[44px] flex-shrink-0 ${
-                activeTab === "general"
-                  ? darkMode
-                    ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
-                    : "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
-                  : darkMode
+              className={`px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-all whitespace-nowrap flex items-center justify-center min-h-[44px] flex-shrink-0 ${activeTab === "general"
+                ? darkMode
+                  ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
+                  : "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
+                : darkMode
                   ? "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
                   : "text-gray-600 hover:text-purple-600 hover:bg-purple-50"
-              }`}
+                }`}
             >
               {t("settings.general")}
             </button>
             <button
               onClick={() => setActiveTab("notifications")}
-              className={`px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-all flex items-center gap-2 whitespace-nowrap justify-center min-h-[44px] flex-shrink-0 ${
-                activeTab === "notifications"
-                  ? darkMode
-                    ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
-                    : "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
-                  : darkMode
+              className={`px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-all flex items-center gap-2 whitespace-nowrap justify-center min-h-[44px] flex-shrink-0 ${activeTab === "notifications"
+                ? darkMode
+                  ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
+                  : "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
+                : darkMode
                   ? "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
                   : "text-gray-600 hover:text-purple-600 hover:bg-purple-50"
-              }`}
+                }`}
             >
               <Bell className="w-4 h-4" />
               {t("settings.notifications")}
             </button>
             <button
               onClick={() => setActiveTab("voice")}
-              className={`px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-all flex items-center gap-2 whitespace-nowrap justify-center min-h-[44px] flex-shrink-0 ${
-                activeTab === "voice"
-                  ? darkMode
-                    ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
-                    : "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
-                  : darkMode
+              className={`px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-all flex items-center gap-2 whitespace-nowrap justify-center min-h-[44px] flex-shrink-0 ${activeTab === "voice"
+                ? darkMode
+                  ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
+                  : "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
+                : darkMode
                   ? "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
                   : "text-gray-600 hover:text-purple-600 hover:bg-purple-50"
-              }`}
+                }`}
             >
               <Mic className="w-4 h-4" />
               Entrada por voz
             </button>
             <button
               onClick={() => setActiveTab("permissions")}
-              className={`px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-all flex items-center gap-2 whitespace-nowrap justify-center min-h-[44px] flex-shrink-0 ${
-                activeTab === "permissions"
-                  ? darkMode
-                    ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
-                    : "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
-                  : darkMode
+              className={`px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-all flex items-center gap-2 whitespace-nowrap justify-center min-h-[44px] flex-shrink-0 ${activeTab === "permissions"
+                ? darkMode
+                  ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
+                  : "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
+                : darkMode
                   ? "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
                   : "text-gray-600 hover:text-purple-600 hover:bg-purple-50"
-              }`}
+                }`}
             >
               <Shield className="w-4 h-4" />
               Permisos
             </button>
+            {isAdmin && (
+              <button
+                onClick={() => setActiveTab("admin")}
+                className={`px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-all flex items-center gap-2 whitespace-nowrap justify-center min-h-[44px] flex-shrink-0 ${activeTab === "admin"
+                  ? darkMode
+                    ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
+                    : "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
+                  : darkMode
+                    ? "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
+                    : "text-gray-600 hover:text-purple-600 hover:bg-purple-50"
+                  }`}
+              >
+                <Shield className="w-4 h-4" />
+                Admin
+              </button>
+            )}
           </div>
         </div>
 
@@ -365,15 +376,13 @@ const SettingsModal = ({
             <>
               {/* Ingresos */}
               <div
-                className={`p-3 sm:p-4 rounded-lg sm:rounded-xl ${
-                  darkMode ? "bg-gray-700" : "bg-purple-50"
-                }`}
+                className={`p-3 sm:p-4 rounded-lg sm:rounded-xl ${darkMode ? "bg-gray-700" : "bg-purple-50"
+                  }`}
               >
                 <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
                   <DollarSign
-                    className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${
-                      darkMode ? "text-purple-400" : "text-purple-600"
-                    }`}
+                    className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${darkMode ? "text-purple-400" : "text-purple-600"
+                      }`}
                   />
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm sm:text-base font-medium ${textClass}`}>
@@ -397,11 +406,10 @@ const SettingsModal = ({
                         setLocalIncome(value === "" ? "" : parseFloat(value));
                       }
                     }}
-                    className={`flex-1 px-3 sm:px-4 py-2 text-base rounded-lg border ${
-                      darkMode
-                        ? "bg-gray-800 border-gray-600 text-gray-100"
-                        : "bg-white border-purple-200 text-purple-900"
-                    } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
+                    className={`flex-1 px-3 sm:px-4 py-2 text-base rounded-lg border ${darkMode
+                      ? "bg-gray-800 border-gray-600 text-gray-100"
+                      : "bg-white border-purple-200 text-purple-900"
+                      } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
                     placeholder="Ingresa tus ingresos mensuales"
                   />
                 </div>
@@ -409,23 +417,20 @@ const SettingsModal = ({
 
               {/* Tema */}
               <div
-                className={`p-3 sm:p-4 rounded-lg sm:rounded-xl ${
-                  darkMode ? "bg-gray-700" : "bg-purple-50"
-                }`}
+                className={`p-3 sm:p-4 rounded-lg sm:rounded-xl ${darkMode ? "bg-gray-700" : "bg-purple-50"
+                  }`}
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                     {darkMode ? (
                       <Moon
-                        className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${
-                          darkMode ? "text-purple-400" : "text-purple-600"
-                        }`}
+                        className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${darkMode ? "text-purple-400" : "text-purple-600"
+                          }`}
                       />
                     ) : (
                       <Sun
-                        className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${
-                          darkMode ? "text-purple-400" : "text-purple-600"
-                        }`}
+                        className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${darkMode ? "text-purple-400" : "text-purple-600"
+                          }`}
                       />
                     )}
                     <div className="min-w-0">
@@ -448,9 +453,8 @@ const SettingsModal = ({
                       aria-label={darkMode ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
                     />
                     <div
-                      className={`w-12 h-6 rounded-full transition-colors ${
-                        darkMode ? "bg-purple-500" : "bg-gray-500/60"
-                      }`}
+                      className={`w-12 h-6 rounded-full transition-colors ${darkMode ? "bg-purple-500" : "bg-gray-500/60"
+                        }`}
                     />
                     <div
                       className={`
@@ -464,15 +468,13 @@ const SettingsModal = ({
 
               {/* Idioma */}
               <div
-                className={`p-3 sm:p-4 rounded-lg sm:rounded-xl ${
-                  darkMode ? "bg-gray-700" : "bg-purple-50"
-                }`}
+                className={`p-3 sm:p-4 rounded-lg sm:rounded-xl ${darkMode ? "bg-gray-700" : "bg-purple-50"
+                  }`}
               >
                 <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
                   <Globe
-                    className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${
-                      darkMode ? "text-purple-400" : "text-purple-600"
-                    }`}
+                    className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${darkMode ? "text-purple-400" : "text-purple-600"
+                      }`}
                   />
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm sm:text-base font-medium ${textClass}`}>
@@ -488,15 +490,14 @@ const SettingsModal = ({
                     <button
                       key={lang.code}
                       onClick={() => changeLanguage(lang.code)}
-                      className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all ${
-                        language === lang.code
-                          ? darkMode
-                            ? "bg-purple-600 text-white"
-                            : "bg-purple-600 text-white"
-                          : darkMode
+                      className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all ${language === lang.code
+                        ? darkMode
+                          ? "bg-purple-600 text-white"
+                          : "bg-purple-600 text-white"
+                        : darkMode
                           ? "bg-gray-600 text-gray-200 hover:bg-gray-500"
                           : "bg-white text-gray-700 hover:bg-purple-100 border border-gray-200"
-                      }`}
+                        }`}
                     >
                       {lang.flag} {lang.name}
                     </button>
@@ -506,15 +507,13 @@ const SettingsModal = ({
 
               {/* Restaurar Categorías */}
               <div
-                className={`p-3 sm:p-4 rounded-lg sm:rounded-xl ${
-                  darkMode ? "bg-gray-700" : "bg-purple-50"
-                }`}
+                className={`p-3 sm:p-4 rounded-lg sm:rounded-xl ${darkMode ? "bg-gray-700" : "bg-purple-50"
+                  }`}
               >
                 <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
                   <RotateCcw
-                    className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${
-                      darkMode ? "text-purple-400" : "text-purple-600"
-                    }`}
+                    className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${darkMode ? "text-purple-400" : "text-purple-600"
+                      }`}
                   />
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm sm:text-base font-medium ${textClass}`}>
@@ -528,13 +527,12 @@ const SettingsModal = ({
                 <button
                   onClick={handleRestoreCategories}
                   disabled={isRestoring}
-                  className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                    isRestoring
-                      ? "bg-gray-400 text-gray-200 cursor-not-allowed"
-                      : darkMode
+                  className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-all ${isRestoring
+                    ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+                    : darkMode
                       ? "bg-purple-600 text-white hover:bg-purple-700"
                       : "bg-purple-600 text-white hover:bg-purple-700"
-                  }`}
+                    }`}
                 >
                   {isRestoring ? "Restaurando..." : "Restaurar categorías"}
                 </button>
@@ -542,9 +540,8 @@ const SettingsModal = ({
 
               {/* Acerca de */}
               <div
-                className={`p-3 sm:p-4 rounded-lg sm:rounded-xl ${
-                  darkMode ? "bg-gray-700" : "bg-purple-50"
-                }`}
+                className={`p-3 sm:p-4 rounded-lg sm:rounded-xl ${darkMode ? "bg-gray-700" : "bg-purple-50"
+                  }`}
               >
                 <p className={`text-sm sm:text-base font-medium ${textClass}`}>{t("settings.about")}</p>
                 <p className={`text-xs sm:text-sm ${textSecondaryClass} mt-0.5 sm:mt-1`}>
@@ -558,16 +555,14 @@ const SettingsModal = ({
             <>
               {/* Notificaciones Push (activar permisos) */}
               <div
-                className={`p-3 sm:p-4 rounded-lg sm:rounded-xl ${
-                  darkMode ? "bg-gray-700" : "bg-purple-50"
-                }`}
+                className={`p-3 sm:p-4 rounded-lg sm:rounded-xl ${darkMode ? "bg-gray-700" : "bg-purple-50"
+                  }`}
               >
                 <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
                   <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                     <Bell
-                      className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${
-                        darkMode ? "text-purple-400" : "text-purple-600"
-                      }`}
+                      className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${darkMode ? "text-purple-400" : "text-purple-600"
+                        }`}
                     />
                     <div className="min-w-0">
                       <p className={`text-sm sm:text-base font-medium ${textClass}`}>
@@ -598,16 +593,14 @@ const SettingsModal = ({
               {/* Notificaciones Nativas (solo en iOS/Android) */}
               {isNative && (
                 <div
-                  className={`p-3 sm:p-4 rounded-lg sm:rounded-xl ${
-                    darkMode ? "bg-gray-700" : "bg-purple-50"
-                  }`}
+                  className={`p-3 sm:p-4 rounded-lg sm:rounded-xl ${darkMode ? "bg-gray-700" : "bg-purple-50"
+                    }`}
                 >
                   <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
                     <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                       <Bell
-                        className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${
-                          darkMode ? "text-purple-400" : "text-purple-600"
-                        }`}
+                        className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${darkMode ? "text-purple-400" : "text-purple-600"
+                          }`}
                       />
                       <div className="min-w-0">
                         <p className={`text-sm sm:text-base font-medium ${textClass}`}>
@@ -619,9 +612,8 @@ const SettingsModal = ({
                       </div>
                     </div>
                     <label
-                      className={`relative inline-block w-12 h-6 cursor-pointer ${
-                        checkingNativeNotifications ? "opacity-50 cursor-not-allowed" : ""
-                      }`}
+                      className={`relative inline-block w-12 h-6 cursor-pointer ${checkingNativeNotifications ? "opacity-50 cursor-not-allowed" : ""
+                        }`}
                     >
                       <input
                         type="checkbox"
@@ -631,9 +623,8 @@ const SettingsModal = ({
                         className="sr-only peer"
                       />
                       <div
-                        className={`w-12 h-6 rounded-full transition-colors ${
-                          nativeNotificationsEnabled ? "bg-purple-500" : "bg-gray-500/60"
-                        }`}
+                        className={`w-12 h-6 rounded-full transition-colors ${nativeNotificationsEnabled ? "bg-purple-500" : "bg-gray-500/60"
+                          }`}
                       />
                       <div
                         className={`
@@ -648,16 +639,14 @@ const SettingsModal = ({
 
               {/* Recordatorio Semanal */}
               <div
-                className={`p-3 sm:p-4 rounded-lg sm:rounded-xl ${
-                  darkMode ? "bg-gray-700" : "bg-purple-50"
-                }`}
+                className={`p-3 sm:p-4 rounded-lg sm:rounded-xl ${darkMode ? "bg-gray-700" : "bg-purple-50"
+                  }`}
               >
                 <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
                   <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                     <Calendar
-                      className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${
-                        darkMode ? "text-purple-400" : "text-purple-600"
-                      }`}
+                      className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${darkMode ? "text-purple-400" : "text-purple-600"
+                        }`}
                     />
                     <div className="min-w-0">
                       <p className={`text-sm sm:text-base font-medium ${textClass}`}>
@@ -684,11 +673,10 @@ const SettingsModal = ({
                       className="sr-only peer"
                     />
                     <div
-                      className={`w-12 h-6 rounded-full transition-colors ${
-                        localNotificationSettings.weeklyReminder?.enabled
-                          ? "bg-purple-500"
-                          : "bg-gray-500/60"
-                      }`}
+                      className={`w-12 h-6 rounded-full transition-colors ${localNotificationSettings.weeklyReminder?.enabled
+                        ? "bg-purple-500"
+                        : "bg-gray-500/60"
+                        }`}
                     />
                     <div
                       className={`
@@ -719,11 +707,10 @@ const SettingsModal = ({
                         onClick={(e) => e.stopPropagation()}
                         onMouseDown={(e) => e.stopPropagation()}
                         onTouchStart={(e) => e.stopPropagation()}
-                        className={`w-full px-3 sm:px-4 py-2 text-base rounded-lg border ${
-                          darkMode
-                            ? "bg-gray-800 border-gray-600 text-gray-100"
-                            : "bg-white border-purple-200 text-purple-900"
-                        } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
+                        className={`w-full px-3 sm:px-4 py-2 text-base rounded-lg border ${darkMode
+                          ? "bg-gray-800 border-gray-600 text-gray-100"
+                          : "bg-white border-purple-200 text-purple-900"
+                          } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
                       >
                         <option value="0">Domingo</option>
                         <option value="1">Lunes</option>
@@ -754,11 +741,10 @@ const SettingsModal = ({
                           onClick={(e) => e.stopPropagation()}
                           onMouseDown={(e) => e.stopPropagation()}
                           onTouchStart={(e) => e.stopPropagation()}
-                          className={`w-full px-3 sm:px-4 py-2 text-base rounded-lg border ${
-                            darkMode
-                              ? "bg-gray-800 border-gray-600 text-gray-100"
-                              : "bg-white border-purple-200 text-purple-900"
-                          } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
+                          className={`w-full px-3 sm:px-4 py-2 text-base rounded-lg border ${darkMode
+                            ? "bg-gray-800 border-gray-600 text-gray-100"
+                            : "bg-white border-purple-200 text-purple-900"
+                            } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
                         >
                           {Array.from({ length: 24 }, (_, i) => (
                             <option key={i} value={i}>
@@ -786,11 +772,10 @@ const SettingsModal = ({
                           onClick={(e) => e.stopPropagation()}
                           onMouseDown={(e) => e.stopPropagation()}
                           onTouchStart={(e) => e.stopPropagation()}
-                          className={`w-full px-3 sm:px-4 py-2 text-base rounded-lg border ${
-                            darkMode
-                              ? "bg-gray-800 border-gray-600 text-gray-100"
-                              : "bg-white border-purple-200 text-purple-900"
-                          } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
+                          className={`w-full px-3 sm:px-4 py-2 text-base rounded-lg border ${darkMode
+                            ? "bg-gray-800 border-gray-600 text-gray-100"
+                            : "bg-white border-purple-200 text-purple-900"
+                            } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
                         >
                           {Array.from({ length: 60 }, (_, i) => (
                             <option key={i} value={i}>
@@ -806,16 +791,14 @@ const SettingsModal = ({
 
               {/* Recordatorio de Ingresos Mensual */}
               <div
-                className={`p-3 sm:p-4 rounded-lg sm:rounded-xl ${
-                  darkMode ? "bg-gray-700" : "bg-purple-50"
-                }`}
+                className={`p-3 sm:p-4 rounded-lg sm:rounded-xl ${darkMode ? "bg-gray-700" : "bg-purple-50"
+                  }`}
               >
                 <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
                   <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                     <DollarSign
-                      className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${
-                        darkMode ? "text-purple-400" : "text-purple-600"
-                      }`}
+                      className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${darkMode ? "text-purple-400" : "text-purple-600"
+                        }`}
                     />
                     <div className="min-w-0">
                       <p className={`text-sm sm:text-base font-medium ${textClass}`}>
@@ -842,11 +825,10 @@ const SettingsModal = ({
                       className="sr-only peer"
                     />
                     <div
-                      className={`w-12 h-6 rounded-full transition-colors ${
-                        localNotificationSettings.monthlyIncomeReminder?.enabled
-                          ? "bg-purple-500"
-                          : "bg-gray-500/60"
-                      }`}
+                      className={`w-12 h-6 rounded-full transition-colors ${localNotificationSettings.monthlyIncomeReminder?.enabled
+                        ? "bg-purple-500"
+                        : "bg-gray-500/60"
+                        }`}
                     />
                     <div
                       className={`
@@ -877,11 +859,10 @@ const SettingsModal = ({
                         onClick={(e) => e.stopPropagation()}
                         onMouseDown={(e) => e.stopPropagation()}
                         onTouchStart={(e) => e.stopPropagation()}
-                        className={`w-full px-3 sm:px-4 py-2 text-base rounded-lg border ${
-                          darkMode
-                            ? "bg-gray-800 border-gray-600 text-gray-100"
-                            : "bg-white border-purple-200 text-purple-900"
-                        } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
+                        className={`w-full px-3 sm:px-4 py-2 text-base rounded-lg border ${darkMode
+                          ? "bg-gray-800 border-gray-600 text-gray-100"
+                          : "bg-white border-purple-200 text-purple-900"
+                          } focus:ring-2 focus:ring-purple-500 focus:outline-none`}
                       >
                         {Array.from({ length: 31 }, (_, i) => {
                           const day = i + 1;
@@ -911,97 +892,123 @@ const SettingsModal = ({
             />
           )}
 
-        {activeTab === "permissions" && (
-          <div className="space-y-4">
-            <div
-              className={`p-3 sm:p-4 rounded-xl border ${
-                darkMode ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"
-              }`}
-            >
-              <div className="flex items-center gap-3 mb-3">
-                <Shield className={`w-5 h-5 ${darkMode ? "text-purple-300" : "text-purple-600"}`} />
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-semibold ${textClass}`}>Permiso de micrófono</p>
-                  <p className={`text-xs ${textSecondaryClass}`}>Necesario para añadir gastos por voz</p>
+          {activeTab === "permissions" && (
+            <div className="space-y-4">
+              <div
+                className={`p-3 sm:p-4 rounded-xl border ${darkMode ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"
+                  }`}
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <Shield className={`w-5 h-5 ${darkMode ? "text-purple-300" : "text-purple-600"}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-semibold ${textClass}`}>Permiso de micrófono</p>
+                    <p className={`text-xs ${textSecondaryClass}`}>Necesario para añadir gastos por voz</p>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    {microphone.status === "granted" ? (
+                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-yellow-500" />
+                    )}
+                    <span className={textSecondaryClass}>{statusLabel(microphone.status)}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-sm">
-                  {microphone.status === "granted" ? (
-                    <CheckCircle2 className="w-4 h-4 text-green-500" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 text-yellow-500" />
-                  )}
-                  <span className={textSecondaryClass}>{statusLabel(microphone.status)}</span>
-                </div>
-              </div>
-              <button
-                onClick={async () => {
-                  const granted = await microphone.request();
-                  if (granted) {
-                    showNotification("✅ Permiso de micrófono concedido", "success");
-                  } else {
-                    showNotification("❌ Permiso de micrófono denegado", "error");
-                  }
-                }}
-                className={`w-full px-4 py-3 rounded-lg font-semibold transition-colors ${
-                  darkMode
+                <button
+                  onClick={async () => {
+                    const granted = await microphone.request();
+                    if (granted) {
+                      showNotification("✅ Permiso de micrófono concedido", "success");
+                    } else {
+                      showNotification("❌ Permiso de micrófono denegado", "error");
+                    }
+                  }}
+                  className={`w-full px-4 py-3 rounded-lg font-semibold transition-colors ${darkMode
                     ? "bg-purple-600 hover:bg-purple-500 text-white"
                     : "bg-purple-600 hover:bg-purple-700 text-white"
-                }`}
-              >
-                Solicitar micrófono
-              </button>
-            </div>
-
-            <div
-              className={`p-3 sm:p-4 rounded-xl border ${
-                darkMode ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"
-              }`}
-            >
-              <div className="flex items-center gap-3 mb-3">
-                <Bell className={`w-5 h-5 ${darkMode ? "text-blue-300" : "text-blue-600"}`} />
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-semibold ${textClass}`}>Permiso de notificaciones</p>
-                  <p className={`text-xs ${textSecondaryClass}`}>Alertas de presupuesto y recordatorios</p>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  {notifications.status === "granted" ? (
-                    <CheckCircle2 className="w-4 h-4 text-green-500" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 text-yellow-500" />
-                  )}
-                  <span className={textSecondaryClass}>{statusLabel(notifications.status)}</span>
-                </div>
+                    }`}
+                >
+                  Solicitar micrófono
+                </button>
               </div>
-              <button
-                onClick={async () => {
-                  const granted = await notifications.request(userId);
-                  if (granted) {
-                    showNotification("✅ Permiso de notificaciones concedido", "success");
-                  } else {
-                    showNotification("❌ Permiso de notificaciones denegado", "error");
-                  }
-                }}
-                className={`w-full px-4 py-3 rounded-lg font-semibold transition-colors ${
-                  darkMode
+
+              <div
+                className={`p-3 sm:p-4 rounded-xl border ${darkMode ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"
+                  }`}
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <Bell className={`w-5 h-5 ${darkMode ? "text-blue-300" : "text-blue-600"}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-semibold ${textClass}`}>Permiso de notificaciones</p>
+                    <p className={`text-xs ${textSecondaryClass}`}>Alertas de presupuesto y recordatorios</p>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    {notifications.status === "granted" ? (
+                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-yellow-500" />
+                    )}
+                    <span className={textSecondaryClass}>{statusLabel(notifications.status)}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={async () => {
+                    const granted = await notifications.request(userId);
+                    if (granted) {
+                      showNotification("✅ Permiso de notificaciones concedido", "success");
+                    } else {
+                      showNotification("❌ Permiso de notificaciones denegado", "error");
+                    }
+                  }}
+                  className={`w-full px-4 py-3 rounded-lg font-semibold transition-colors ${darkMode
                     ? "bg-blue-600 hover:bg-blue-500 text-white"
                     : "bg-blue-600 hover:bg-blue-700 text-white"
-                }`}
-              >
-                Solicitar notificaciones
-              </button>
-              {notifications.token && (
-                <p className={`mt-2 text-xs break-all ${textSecondaryClass}`}>
-                  Token FCM: {notifications.token.slice(0, 24)}…
-                </p>
-              )}
+                    }`}
+                >
+                  Solicitar notificaciones
+                </button>
+                {notifications.token && (
+                  <p className={`mt-2 text-xs break-all ${textSecondaryClass}`}>
+                    Token FCM: {notifications.token.slice(0, 24)}…
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* Tab Admin */}
+          {activeTab === "admin" && (
+            <div className="space-y-4">
+              <div
+                className={`p-4 rounded-xl border ${darkMode ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"
+                  }`}
+              >
+                <h4 className={`text-lg font-bold mb-2 ${textClass}`}>Panel de Administración</h4>
+                <p className={`text-sm mb-4 ${textSecondaryClass}`}>
+                  Herramientas exclusivas para administradores.
+                </p>
+
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={() => {
+                      window.location.hash = "#/admin/migration";
+                      onClose();
+                    }}
+                    className={`w-full px-4 py-3 rounded-xl font-semibold transition-colors flex items-center justify-between ${darkMode
+                      ? "bg-gray-700 hover:bg-gray-600 text-white"
+                      : "bg-purple-50 hover:bg-purple-100 text-purple-700"
+                      }`}
+                  >
+                    <span>Migración de Usuarios</span>
+                    <ChevronRight className="w-5 h-5 opacity-70" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Botón guardar */}
-          <div className={`mt-6 pt-6 mb-6 border-t ${
-            darkMode ? "border-gray-700" : "border-gray-200"
-          }`}>
+          <div className={`mt-6 pt-6 mb-6 border-t ${darkMode ? "border-gray-700" : "border-gray-200"
+            }`}>
             {activeTab === "general" ? (
               <button
                 onClick={handleSaveIncome}
@@ -1022,6 +1029,13 @@ const SettingsModal = ({
                 className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all"
               >
                 {t("common.save")}
+              </button>
+            ) : activeTab === "admin" ? (
+              <button
+                onClick={onClose}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all"
+              >
+                Cerrar
               </button>
             ) : (
               <button

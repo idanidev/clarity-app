@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Lock, Mail } from "lucide-react";
-import { useState } from "react";
+import { useState, FormEvent } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { useFormValidation } from "../../hooks/useFormValidation";
 import { isValidEmail } from "../../utils/validators";
@@ -9,8 +9,8 @@ import PasswordStrengthMeter from "./components/PasswordStrengthMeter";
 
 const RegisterForm = () => {
   const { signUp, loading, error: authError, isEmailVerified } = useAuth();
-  const [formError, setFormError] = useState(null);
-  const [successMessage, setSuccessMessage] = useState(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const { values, errors, touched, handleChange, handleBlur, validateForm } =
     useFormValidation(
@@ -19,25 +19,25 @@ const RegisterForm = () => {
           !value
             ? "El email es obligatorio"
             : !isValidEmail(value)
-            ? "Introduce un email válido"
-            : null,
+              ? "Introduce un email válido"
+              : null,
         password: (value) =>
           !value
             ? "La contraseña es obligatoria"
             : value.length < 8
-            ? "La contraseña debe tener al menos 8 caracteres"
-            : null,
+              ? "La contraseña debe tener al menos 8 caracteres"
+              : null,
         confirmPassword: (value, allValues) =>
           !value
             ? "Confirma tu contraseña"
             : value !== allValues.password
-            ? "Las contraseñas no coinciden"
-            : null,
+              ? "Las contraseñas no coinciden"
+              : null,
       },
       { email: "", password: "", confirmPassword: "" } // ✅ Valores iniciales
     );
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setFormError(null);
     setSuccessMessage(null);

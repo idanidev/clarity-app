@@ -2,7 +2,7 @@
 import { initializeApp, FirebaseApp, getApps } from "firebase/app";
 import { getAuth, initializeAuth, Auth, GoogleAuthProvider, OAuthProvider, indexedDBLocalPersistence } from "firebase/auth";
 import { Capacitor } from "@capacitor/core";
-import { 
+import {
   Firestore,
   CACHE_SIZE_UNLIMITED,
   initializeFirestore,
@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore";
 import { getAnalytics, Analytics } from "firebase/analytics";
 import { getMessaging, Messaging, isSupported } from "firebase/messaging";
+import { getFunctions, Functions } from "firebase/functions";
 
 // Tu configuración de Firebase
 // En iOS nativo, las variables de entorno pueden no estar disponibles
@@ -114,16 +115,16 @@ export const db: Firestore = initializeFirestore(app, {
 // Hacerlo causaría el error "SDK cache is already specified"
 
 // Analytics solo en el cliente
-export const analytics: Analytics | null = 
+export const analytics: Analytics | null =
   typeof window !== 'undefined'
     ? (() => {
-        try {
-          return getAnalytics(app);
-        } catch (error) {
-          console.warn('Firebase Analytics no disponible:', error);
-          return null;
-        }
-      })()
+      try {
+        return getAnalytics(app);
+      } catch (error) {
+        console.warn('Firebase Analytics no disponible:', error);
+        return null;
+      }
+    })()
     : null;
 
 // Messaging solo en el cliente y si está disponible
@@ -140,6 +141,9 @@ if (typeof window !== 'undefined') {
     });
 }
 export { messaging };
+
+// Functions
+export const functions: Functions = getFunctions(app, "europe-west1");
 
 // Provider de Google
 export const googleProvider = new GoogleAuthProvider();

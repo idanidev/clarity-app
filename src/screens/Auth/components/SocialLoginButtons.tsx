@@ -1,10 +1,13 @@
-// src/screens/Auth/components/SocialLoginButtons.jsx
 import { motion } from "framer-motion";
 import { Fingerprint } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "../../../hooks/useAuth";
 
-const SocialLoginButtons = ({ onBiometricSuccess }) => {
+interface SocialLoginButtonsProps {
+  onBiometricSuccess?: (email: string) => void;
+}
+
+const SocialLoginButtons = ({ onBiometricSuccess }: SocialLoginButtonsProps) => {
   const {
     signInWithGoogle,
     signInWithBiometric,
@@ -13,7 +16,7 @@ const SocialLoginButtons = ({ onBiometricSuccess }) => {
     loading,
   } = useAuth();
 
-  const [socialLoading, setSocialLoading] = useState(null);
+  const [socialLoading, setSocialLoading] = useState<string | null>(null);
   const showBiometric = biometricAvailable && hasBiometricCredentials();
 
   const handleGoogleLogin = async () => {

@@ -99,10 +99,61 @@ const VoiceExpenseButton = ({
   }, [voiceSettings]);
 
   const { microphone } = usePermissions();
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const hasWebSpeechAPI =
     typeof window !== "undefined" &&
     ("webkitSpeechRecognition" in window || "SpeechRecognition" in window);
+
+  // ============================================
+  // STOP RECORDING HELPER
+  // ============================================
+  const stopRecording = useCallback(async () => {
+    console.log("[Voice] Stopping recording (Silence/Manual)...");
+
+    // Clear silence timer
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+
+    setIsListening(false);
+
+    if (isNative) {
+      try {
+        await SpeechRecognition.stop();
+        if (listenersAddedRef.current) {
+          await SpeechRecognition.removeAllListeners();
+          listenersAddedRef.current = false;
+        }
+      } catch (error) {
+        console.error("[Voice] Error stopping native recognition:", error);
+      }
+    } else if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (error) {
+        console.error("[Voice] Error stopping web recognition:", error);
+      }
+    }
+  }, [isNative]);
+
+  // ============================================
+  // SILENCE TIMER
+  // ============================================
+  const resetSilenceTimer = useCallback(() => {
+    const timeoutMs = voiceSettingsRef.current?.silenceTimeout || 3000;
+
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+    }
+
+    // Solo iniciar timer si estamos escuchando (o a punto de)
+    silenceTimerRef.current = setTimeout(() => {
+      console.log("[Voice] Silence timeout reached, stopping...");
+      stopRecording();
+    }, timeoutMs);
+  }, [stopRecording]);
 
   // Log de depuración eliminado para producción
 
@@ -148,7 +199,13 @@ const VoiceExpenseButton = ({
       recognition.interimResults = true;
       recognition.lang = "es-ES";
 
+      recognition.onstart = () => {
+        setIsListening(true);
+        resetSilenceTimer();
+      };
+
       recognition.onresult = (event: any) => {
+        resetSilenceTimer(); // Reset timer on speech activity
         let interim = "";
         let final = "";
 
@@ -175,10 +232,11 @@ const VoiceExpenseButton = ({
         } else if (event.error !== "no-speech" && event.error !== "aborted") {
           showNotification?.(`❌ Error: ${event.error}`, "error");
         }
-        setIsListening(false);
+        stopRecording();
       };
 
       recognition.onend = () => {
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
         setIsListening(false);
       };
 
@@ -187,7 +245,7 @@ const VoiceExpenseButton = ({
 
     checkAvailability();
 
-      return () => {
+    return () => {
       mounted = false;
 
       if (recognitionRef.current && !isNative) {
@@ -323,20 +381,7 @@ const VoiceExpenseButton = ({
 
         // ✅ DETENER GRABACIÓN INMEDIATAMENTE
         if (isListening) {
-          setIsListening(false);
-          if (isNative) {
-            try {
-              await SpeechRecognition.stop();
-              if (listenersAddedRef.current) {
-                await SpeechRecognition.removeAllListeners();
-                listenersAddedRef.current = false;
-              }
-            } catch (error) {
-              console.error("[Voice] Error stopping recognition:", error);
-            }
-          } else if (recognitionRef.current) {
-            recognitionRef.current.stop();
-          }
+          await stopRecording();
         }
 
         const currentSettings = voiceSettingsRef.current;
@@ -395,21 +440,7 @@ const VoiceExpenseButton = ({
       // CAPACITOR: Plugin nativo
       // ============================================
       if (isListening) {
-        console.log("[Voice] Stopping native recognition");
-        try {
-          await SpeechRecognition.stop();
-          setIsListening(false);
-          setTranscript("");
-          setInterimTranscript("");
-
-          // ✅ Limpiar listeners al detener
-          if (listenersAddedRef.current) {
-            await SpeechRecognition.removeAllListeners();
-            listenersAddedRef.current = false;
-          }
-        } catch (error) {
-          console.error("[Voice] Error stopping native recognition:", error);
-        }
+        await stopRecording();
       } else {
         console.log("[Voice] Starting native recognition");
 
@@ -431,6 +462,7 @@ const VoiceExpenseButton = ({
             await SpeechRecognition.addListener(
               "partialResults",
               (data: any) => {
+                resetSilenceTimer(); // Reset timer on speech activity
                 console.log("[Voice] Partial results:", data);
                 if (data.matches && data.matches.length > 0) {
                   const text = data.matches[0];
@@ -446,7 +478,13 @@ const VoiceExpenseButton = ({
                 const isListeningState = data.status === "started";
                 setIsListening(isListeningState);
 
+                if (isListeningState) {
+                  resetSilenceTimer();
+                }
+
                 if (data.status === "stopped") {
+                  if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+
                   setTranscript((prev) => {
                     const finalText = interimTranscript || prev;
                     if (finalText) {
@@ -471,10 +509,11 @@ const VoiceExpenseButton = ({
 
           console.log("[Voice] Native recognition started");
           setIsListening(true);
+          resetSilenceTimer(); // Initial timer
         } catch (error) {
           console.error("[Voice] Error starting native recognition:", error);
           showNotification?.("❌ Error al iniciar micrófono", "error");
-          setIsListening(false);
+          await stopRecording();
         }
       }
     } else {
@@ -487,15 +526,7 @@ const VoiceExpenseButton = ({
       }
 
       if (isListening) {
-        console.log("[Voice] Stopping web recognition");
-        try {
-          recognitionRef.current.stop();
-        } catch (e) {
-          console.error("[Voice] Error stopping:", e);
-        }
-        setIsListening(false);
-        setTranscript("");
-        setInterimTranscript("");
+        await stopRecording();
       } else {
         console.log("[Voice] Starting web recognition");
         try {
@@ -524,7 +555,7 @@ const VoiceExpenseButton = ({
           setTranscript("");
           setInterimTranscript("");
           recognitionRef.current.start();
-          setIsListening(true);
+          // isListening will be set in onstart
         } catch (error: any) {
           console.error("[Voice] Error starting web recognition:", error);
           if (error.name === "NotAllowedError") {
@@ -532,6 +563,7 @@ const VoiceExpenseButton = ({
           } else {
             showNotification?.("❌ Error al iniciar micrófono", "error");
           }
+          await stopRecording();
         }
       }
     }
@@ -559,19 +591,18 @@ const VoiceExpenseButton = ({
       <button
         onClick={toggleListening}
         disabled={isProcessing}
-        className={`fixed right-4 z-40 p-4 rounded-full shadow-2xl backdrop-blur-xl border transition-all active:scale-95 ${
-          isProcessing
-            ? darkMode
-              ? "bg-purple-600/25 border-purple-500/40 text-white"
-              : "bg-purple-600/25 border-purple-400/40 text-white"
-            : isListening
+        className={`fixed right-4 z-40 p-4 rounded-full shadow-2xl backdrop-blur-xl border transition-all active:scale-95 ${isProcessing
+          ? darkMode
+            ? "bg-purple-600/25 border-purple-500/40 text-white"
+            : "bg-purple-600/25 border-purple-400/40 text-white"
+          : isListening
             ? darkMode
               ? "bg-red-600/25 border-red-500/40 text-white animate-pulse"
               : "bg-red-600/25 border-red-400/40 text-white animate-pulse"
             : darkMode
-            ? "bg-gray-800/25 backdrop-blur-xl border-gray-700/40 text-gray-300"
-            : "bg-white/25 backdrop-blur-xl border-white/40 text-purple-600"
-        } ${isProcessing ? "cursor-wait" : ""}`}
+              ? "bg-gray-800/25 backdrop-blur-xl border-gray-700/40 text-gray-300"
+              : "bg-white/25 backdrop-blur-xl border-white/40 text-purple-600"
+          } ${isProcessing ? "cursor-wait" : ""}`}
         style={{
           bottom: hasFilterButton
             ? "calc(9.5rem + env(safe-area-inset-bottom))"
@@ -581,8 +612,8 @@ const VoiceExpenseButton = ({
           isProcessing
             ? "Añadiendo..."
             : isListening
-            ? "Detener"
-            : "Añadir por voz"
+              ? "Detener"
+              : "Añadir por voz"
         }
       >
         {isProcessing ? (
@@ -596,23 +627,21 @@ const VoiceExpenseButton = ({
 
       {/* Modal de transcripción */}
       {isListening && (
-        <div 
+        <div
           className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none"
           style={{ zIndex: 9999999 }}
         >
           <div
-            className={`relative max-w-md w-full rounded-2xl shadow-2xl border backdrop-blur-xl transition-all pointer-events-auto ${
-              darkMode
-                ? "bg-gray-800/95 border-gray-700/50"
-                : "bg-white/95 border-white/50"
-            }`}
+            className={`relative max-w-md w-full rounded-2xl shadow-2xl border backdrop-blur-xl transition-all pointer-events-auto ${darkMode
+              ? "bg-gray-800/95 border-gray-700/50"
+              : "bg-white/95 border-white/50"
+              }`}
           >
             <div className="absolute top-4 right-4 flex items-center gap-2">
               <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
               <span
-                className={`text-xs font-medium ${
-                  darkMode ? "text-gray-300" : "text-gray-700"
-                }`}
+                className={`text-xs font-medium ${darkMode ? "text-gray-300" : "text-gray-700"
+                  }`}
               >
                 Grabando
               </span>
@@ -620,32 +649,28 @@ const VoiceExpenseButton = ({
 
             <div className="p-6 pt-12">
               <h3
-                className={`text-lg font-bold mb-4 ${
-                  darkMode ? "text-white" : "text-gray-900"
-                }`}
+                className={`text-lg font-bold mb-4 ${darkMode ? "text-white" : "text-gray-900"
+                  }`}
               >
                 🎤 Di tu gasto
               </h3>
 
               <div
-                className={`min-h-[100px] p-4 rounded-xl mb-4 ${
-                  darkMode ? "bg-gray-900/50" : "bg-gray-100"
-                }`}
+                className={`min-h-[100px] p-4 rounded-xl mb-4 ${darkMode ? "bg-gray-900/50" : "bg-gray-100"
+                  }`}
               >
                 {(transcript + interimTranscript).trim() ? (
                   <p
-                    className={`text-lg ${
-                      darkMode ? "text-white" : "text-gray-900"
-                    }`}
+                    className={`text-lg ${darkMode ? "text-white" : "text-gray-900"
+                      }`}
                   >
                     {transcript + interimTranscript}
                   </p>
                 ) : (
                   <div>
                     <p
-                      className={`text-sm mb-2 ${
-                        darkMode ? "text-gray-400" : "text-gray-500"
-                      }`}
+                      className={`text-sm mb-2 ${darkMode ? "text-gray-400" : "text-gray-500"
+                        }`}
                     >
                       Escuchando...
                     </p>
@@ -653,9 +678,8 @@ const VoiceExpenseButton = ({
                       {voiceExamples.map((example, idx) => (
                         <p
                           key={idx}
-                          className={`text-xs ${
-                            darkMode ? "text-gray-500" : "text-gray-400"
-                          }`}
+                          className={`text-xs ${darkMode ? "text-gray-500" : "text-gray-400"
+                            }`}
                         >
                           {example}
                         </p>
@@ -667,11 +691,10 @@ const VoiceExpenseButton = ({
 
               <button
                 onClick={toggleListening}
-                className={`w-full py-3 rounded-xl font-medium transition-colors ${
-                  darkMode
-                    ? "bg-red-600 hover:bg-red-700 text-white"
-                    : "bg-red-500 hover:bg-red-600 text-white"
-                }`}
+                className={`w-full py-3 rounded-xl font-medium transition-colors ${darkMode
+                  ? "bg-red-600 hover:bg-red-700 text-white"
+                  : "bg-red-500 hover:bg-red-600 text-white"
+                  }`}
               >
                 Detener
               </button>
@@ -682,29 +705,26 @@ const VoiceExpenseButton = ({
 
       {/* ✅ DIÁLOGO DE CONFIRMACIÓN */}
       {showConfirmDialog && pendingExpense && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
           style={{ zIndex: 99999999 }}
         >
           <div
-            className={`max-w-md w-full rounded-2xl shadow-2xl border ${
-              darkMode
-                ? "bg-gray-800 border-gray-700"
-                : "bg-white border-gray-200"
-            }`}
+            className={`max-w-md w-full rounded-2xl shadow-2xl border ${darkMode
+              ? "bg-gray-800 border-gray-700"
+              : "bg-white border-gray-200"
+              }`}
           >
             <div className="p-6">
               <h3
-                className={`text-xl font-bold mb-2 ${
-                  darkMode ? "text-white" : "text-gray-900"
-                }`}
+                className={`text-xl font-bold mb-2 ${darkMode ? "text-white" : "text-gray-900"
+                  }`}
               >
                 ✅ ¿Añadir este gasto?
               </h3>
               <p
-                className={`text-xs mb-4 ${
-                  darkMode ? "text-gray-400" : "text-gray-600"
-                }`}
+                className={`text-xs mb-4 ${darkMode ? "text-gray-400" : "text-gray-600"
+                  }`}
               >
                 Ejemplos que puedes decir:{" "}
                 <span className="font-medium">
@@ -713,22 +733,19 @@ const VoiceExpenseButton = ({
               </p>
 
               <div
-                className={`p-4 rounded-xl mb-6 space-y-4 ${
-                  darkMode ? "bg-gray-900/50" : "bg-gray-100"
-                }`}
+                className={`p-4 rounded-xl mb-6 space-y-4 ${darkMode ? "bg-gray-900/50" : "bg-gray-100"
+                  }`}
               >
                 <div className="flex justify-between items-center">
                   <span
-                    className={`text-sm ${
-                      darkMode ? "text-gray-400" : "text-gray-600"
-                    }`}
+                    className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"
+                      }`}
                   >
                     Cantidad
                   </span>
                   <span
-                    className={`text-lg font-bold ${
-                      darkMode ? "text-white" : "text-gray-900"
-                    }`}
+                    className={`text-lg font-bold ${darkMode ? "text-white" : "text-gray-900"
+                      }`}
                   >
                     €{pendingExpense.amount.toFixed(2)}
                   </span>
@@ -737,9 +754,8 @@ const VoiceExpenseButton = ({
                 {/* Categoría editable */}
                 <div>
                   <label
-                    className={`block text-xs font-medium mb-1 ${
-                      darkMode ? "text-gray-300" : "text-gray-700"
-                    }`}
+                    className={`block text-xs font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"
+                      }`}
                   >
                     Categoría
                   </label>
@@ -752,11 +768,10 @@ const VoiceExpenseButton = ({
                           category: e.target.value,
                         })
                       }
-                      className={`w-full px-3 py-2 rounded-lg border text-sm ${
-                        darkMode
-                          ? "bg-gray-900 border-gray-700 text-gray-100"
-                          : "bg-white border-gray-300 text-gray-900"
-                      } focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                      className={`w-full px-3 py-2 rounded-lg border text-sm ${darkMode
+                        ? "bg-gray-900 border-gray-700 text-gray-100"
+                        : "bg-white border-gray-300 text-gray-900"
+                        } focus:outline-none focus:ring-2 focus:ring-purple-500`}
                     >
                       {categories.map((cat) => (
                         <option key={cat} value={cat}>
@@ -766,9 +781,8 @@ const VoiceExpenseButton = ({
                     </select>
                   ) : (
                     <p
-                      className={`text-sm ${
-                        darkMode ? "text-gray-300" : "text-gray-700"
-                      }`}
+                      className={`text-sm ${darkMode ? "text-gray-300" : "text-gray-700"
+                        }`}
                     >
                       {pendingExpense.category}
                     </p>
@@ -778,9 +792,8 @@ const VoiceExpenseButton = ({
                 {/* Subcategoría editable (texto libre) */}
                 <div>
                   <label
-                    className={`block text-xs font-medium mb-1 ${
-                      darkMode ? "text-gray-300" : "text-gray-700"
-                    }`}
+                    className={`block text-xs font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"
+                      }`}
                   >
                     Subcategoría (opcional)
                   </label>
@@ -794,20 +807,18 @@ const VoiceExpenseButton = ({
                       })
                     }
                     placeholder="Ej: Cenas, Netflix, Farmacia..."
-                    className={`w-full px-3 py-2 rounded-lg border text-sm ${
-                      darkMode
-                        ? "bg-gray-900 border-gray-700 text-gray-100 placeholder-gray-500"
-                        : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
-                    } focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                    className={`w-full px-3 py-2 rounded-lg border text-sm ${darkMode
+                      ? "bg-gray-900 border-gray-700 text-gray-100 placeholder-gray-500"
+                      : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
+                      } focus:outline-none focus:ring-2 focus:ring-purple-500`}
                   />
                 </div>
 
                 {/* Descripción editable */}
                 <div>
                   <label
-                    className={`block text-xs font-medium mb-1 ${
-                      darkMode ? "text-gray-300" : "text-gray-700"
-                    }`}
+                    className={`block text-xs font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"
+                      }`}
                   >
                     Descripción
                   </label>
@@ -820,11 +831,10 @@ const VoiceExpenseButton = ({
                         name: e.target.value,
                       })
                     }
-                    className={`w-full px-3 py-2 rounded-lg border text-sm ${
-                      darkMode
-                        ? "bg-gray-900 border-gray-700 text-gray-100"
-                        : "bg-white border-gray-300 text-gray-900"
-                    } focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                    className={`w-full px-3 py-2 rounded-lg border text-sm ${darkMode
+                      ? "bg-gray-900 border-gray-700 text-gray-100"
+                      : "bg-white border-gray-300 text-gray-900"
+                      } focus:outline-none focus:ring-2 focus:ring-purple-500`}
                   />
                 </div>
               </div>
@@ -833,11 +843,10 @@ const VoiceExpenseButton = ({
                 <button
                   onClick={cancelExpense}
                   disabled={isProcessing}
-                  className={`min-w-[120px] py-3 rounded-xl font-medium transition-colors ${
-                    darkMode
-                      ? "bg-gray-700 hover:bg-gray-600 text-white"
-                      : "bg-gray-200 hover:bg-gray-300 text-gray-900"
-                  }`}
+                  className={`min-w-[120px] py-3 rounded-xl font-medium transition-colors ${darkMode
+                    ? "bg-gray-700 hover:bg-gray-600 text-white"
+                    : "bg-gray-200 hover:bg-gray-300 text-gray-900"
+                    }`}
                 >
                   Cancelar
                 </button>

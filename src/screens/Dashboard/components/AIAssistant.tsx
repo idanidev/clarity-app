@@ -7,6 +7,8 @@
 // ============================================
 import { Capacitor } from "@capacitor/core";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
+import { Share } from "@capacitor/share";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import {
   AlertCircle,
   BarChart3,
@@ -23,7 +25,8 @@ import {
   Target,
   Trash2,
   TrendingUp,
-  Zap
+  Zap,
+  Infinity,
 } from "lucide-react";
 import {
   memo,
@@ -42,11 +45,11 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   action?:
-    | "expense_added"
-    | "insight"
-    | "prediction"
-    | "recommendation"
-    | "warning";
+  | "expense_added"
+  | "insight"
+  | "prediction"
+  | "recommendation"
+  | "warning";
   expenseData?: any;
   timestamp: number;
   id: string;
@@ -106,6 +109,14 @@ interface Analysis {
   largeExpenses: number;
 }
 
+interface AIQuotas {
+  remaining: number;
+  total: number;
+  unlimited: boolean;
+  resetDate: string;
+  plan?: string;
+}
+
 // ============================================
 // CONSTANTS
 // ============================================
@@ -128,7 +139,7 @@ const vibrate = async (style: ImpactStyle = ImpactStyle.Light) => {
   if (isNative) {
     try {
       await Haptics.impact({ style });
-    } catch {}
+    } catch { }
   }
 };
 
@@ -244,7 +255,7 @@ const useVoiceRecognition = (
       if (recognitionRef.current) {
         try {
           recognitionRef.current.abort();
-        } catch (e) {}
+        } catch (e) { }
       }
     };
   }, []);
@@ -527,8 +538,8 @@ const analyzeUserData = (
     weeklyTotal > prevWeekTotal * 1.1
       ? "up"
       : weeklyTotal < prevWeekTotal * 0.9
-      ? "down"
-      : "stable";
+        ? "down"
+        : "stable";
 
   // Análisis de categorías
   const categoryAnalysis = categoryTotals
@@ -602,9 +613,9 @@ const analyzeUserData = (
     categoryAnalysis,
     maxSpendDay: maxSpendDay
       ? {
-          name: DAY_NAMES[maxSpendDay.day],
-          amount: maxSpendDay.total,
-        }
+        name: DAY_NAMES[maxSpendDay.day],
+        amount: maxSpendDay.total,
+      }
       : null,
     hasOverBudget: categoryAnalysis.some((c) => c.isOverBudget),
     hasWarning: categoryAnalysis.some((c) => c.isWarning),
@@ -668,8 +679,7 @@ const generateSmartInsights = (analysis: Analysis): string[] => {
       (analysis.income - analysis.totalThisMonth) / analysis.daysLeft;
     if (dailyBudget > 0) {
       insights.push(
-        `💰 Presupuesto diario restante: €${dailyBudget.toFixed(2)} (${
-          analysis.daysLeft
+        `💰 Presupuesto diario restante: €${dailyBudget.toFixed(2)} (${analysis.daysLeft
         } días)`
       );
     }
@@ -834,18 +844,16 @@ const MessageBubble = memo(
 
     return (
       <div
-        className={`flex ${
-          isUser ? "justify-end" : "justify-start"
-        } group mb-3`}
+        className={`flex ${isUser ? "justify-end" : "justify-start"
+          } group mb-3`}
       >
         <div
-          className={`max-w-[85%] md:max-w-[80%] rounded-xl md:rounded-2xl px-3 md:px-4 py-2 md:py-3 relative transition-all ${
-            isUser
-              ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/20"
-              : darkMode
+          className={`max-w-[85%] md:max-w-[80%] rounded-xl md:rounded-2xl px-3 md:px-4 py-2 md:py-3 relative transition-all ${isUser
+            ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/20"
+            : darkMode
               ? "bg-gray-700 text-gray-100"
               : "bg-gray-100 text-gray-900"
-          }`}
+            }`}
         >
           <p className="text-xs md:text-sm whitespace-pre-wrap break-words leading-relaxed">
             {message.content}
@@ -853,9 +861,8 @@ const MessageBubble = memo(
 
           {message.action && (
             <div
-              className={`mt-2 flex items-center gap-2 text-xs font-medium ${
-                darkMode ? "text-gray-300" : "text-gray-600"
-              }`}
+              className={`mt-2 flex items-center gap-2 text-xs font-medium ${darkMode ? "text-gray-300" : "text-gray-600"
+                }`}
             >
               {getActionIcon()}
               <span>{getActionLabel()}</span>
@@ -865,16 +872,14 @@ const MessageBubble = memo(
           {!isUser && (
             <button
               onClick={onCopy}
-              className={`absolute -right-10 top-2 opacity-0 group-hover:opacity-100 transition-all duration-200 p-1.5 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center ${
-                darkMode ? "hover:bg-gray-600" : "hover:bg-gray-200"
-              }`}
+              className={`absolute -right-10 top-2 opacity-0 group-hover:opacity-100 transition-all duration-200 p-1.5 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center ${darkMode ? "hover:bg-gray-600" : "hover:bg-gray-200"
+                }`}
               title={copied ? "¡Copiado!" : "Copiar"}
               aria-label={copied ? "Mensaje copiado" : "Copiar mensaje"}
             >
               <Copy
-                className={`w-4 h-4 transition-colors ${
-                  copied ? "text-green-500" : ""
-                }`}
+                className={`w-4 h-4 transition-colors ${copied ? "text-green-500" : ""
+                  }`}
               />
             </button>
           )}
@@ -944,11 +949,10 @@ const WelcomeScreen = memo(
         {/* Insights Destacados */}
         {insights.length > 0 && (
           <div
-            className={`rounded-xl border p-4 transition-all ${
-              darkMode
-                ? "bg-gray-800/50 border-gray-700"
-                : "bg-white border-gray-200 shadow-sm"
-            }`}
+            className={`rounded-xl border p-4 transition-all ${darkMode
+              ? "bg-gray-800/50 border-gray-700"
+              : "bg-white border-gray-200 shadow-sm"
+              }`}
           >
             <div className="flex items-center gap-2 mb-3">
               <AlertCircle className="w-4 h-4 text-orange-500" />
@@ -980,22 +984,20 @@ const WelcomeScreen = memo(
           ].map((item, idx) => (
             <div
               key={idx}
-              className={`flex items-center gap-2 p-3 rounded-xl transition-all ${
-                darkMode
-                  ? "bg-gray-700/50 hover:bg-gray-700/70"
-                  : "bg-gray-50 hover:bg-gray-100"
-              }`}
+              className={`flex items-center gap-2 p-3 rounded-xl transition-all ${darkMode
+                ? "bg-gray-700/50 hover:bg-gray-700/70"
+                : "bg-gray-50 hover:bg-gray-100"
+                }`}
             >
               <item.icon
-                className={`w-4 h-4 ${
-                  item.color === "purple"
-                    ? "text-purple-500"
-                    : item.color === "blue"
+                className={`w-4 h-4 ${item.color === "purple"
+                  ? "text-purple-500"
+                  : item.color === "blue"
                     ? "text-blue-500"
                     : item.color === "yellow"
-                    ? "text-yellow-500"
-                    : "text-green-500"
-                }`}
+                      ? "text-yellow-500"
+                      : "text-green-500"
+                  }`}
               />
               <span className={`text-xs font-medium ${textClass}`}>
                 {item.text}
@@ -1010,9 +1012,8 @@ const WelcomeScreen = memo(
             <div key={idx}>
               <div className="flex items-center gap-2 mb-2">
                 <div
-                  className={`p-1.5 rounded-lg border ${
-                    colorClasses[section.color as keyof typeof colorClasses]
-                  }`}
+                  className={`p-1.5 rounded-lg border ${colorClasses[section.color as keyof typeof colorClasses]
+                    }`}
                 >
                   <section.icon className="w-3 h-3" />
                 </div>
@@ -1030,11 +1031,10 @@ const WelcomeScreen = memo(
                         onExampleClick(prompt);
                         vibrate(ImpactStyle.Light);
                       }}
-                      className={`w-full text-left px-3 py-2.5 rounded-lg text-xs transition-all min-h-[44px] active:scale-[0.98] ${
-                        darkMode
-                          ? "bg-gray-700/70 hover:bg-gray-700 active:bg-gray-600 text-gray-200"
-                          : "bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-700"
-                      }`}
+                      className={`w-full text-left px-3 py-2.5 rounded-lg text-xs transition-all min-h-[44px] active:scale-[0.98] ${darkMode
+                        ? "bg-gray-700/70 hover:bg-gray-700 active:bg-gray-600 text-gray-200"
+                        : "bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-700"
+                        }`}
                     >
                       {prompt}
                     </button>
@@ -1046,11 +1046,10 @@ const WelcomeScreen = memo(
 
         {/* Quick Actions */}
         <div
-          className={`rounded-xl border p-4 ${
-            darkMode
-              ? "bg-purple-600/10 border-purple-500/30"
-              : "bg-purple-50 border-purple-200"
-          }`}
+          className={`rounded-xl border p-4 ${darkMode
+            ? "bg-purple-600/10 border-purple-500/30"
+            : "bg-purple-50 border-purple-200"
+            }`}
         >
           <div className="flex items-center gap-2 mb-2">
             <Plus className="w-4 h-4 text-purple-500" />
@@ -1069,11 +1068,10 @@ const WelcomeScreen = memo(
                   onExampleClick(example);
                   vibrate(ImpactStyle.Light);
                 }}
-                className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all active:scale-95 ${
-                  darkMode
-                    ? "bg-gray-700 hover:bg-gray-600 text-gray-200"
-                    : "bg-white hover:bg-gray-50 text-gray-700 shadow-sm"
-                }`}
+                className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all active:scale-95 ${darkMode
+                  ? "bg-gray-700 hover:bg-gray-600 text-gray-200"
+                  : "bg-white hover:bg-gray-50 text-gray-700 shadow-sm"
+                  }`}
               >
                 {example.split(" en ")[1] || example}
               </button>
@@ -1083,11 +1081,10 @@ const WelcomeScreen = memo(
 
         {/* Análisis Completo - Destacado */}
         <div
-          className={`rounded-xl border-2 p-4 ${
-            darkMode
-              ? "bg-gradient-to-br from-purple-600/20 to-pink-600/20 border-purple-500/50"
-              : "bg-gradient-to-br from-purple-50 to-pink-50 border-purple-300"
-          }`}
+          className={`rounded-xl border-2 p-4 ${darkMode
+            ? "bg-gradient-to-br from-purple-600/20 to-pink-600/20 border-purple-500/50"
+            : "bg-gradient-to-br from-purple-50 to-pink-50 border-purple-300"
+            }`}
         >
           <div className="flex items-center gap-2 mb-2">
             <BarChart3 className="w-4 h-4 text-purple-500" />
@@ -1104,11 +1101,10 @@ const WelcomeScreen = memo(
               onExampleClick("Analiza todos mis gastos");
               vibrate(ImpactStyle.Medium);
             }}
-            className={`w-full px-4 py-3 rounded-lg text-sm font-bold transition-all active:scale-95 shadow-lg ${
-              darkMode
-                ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:opacity-90"
-                : "bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:opacity-90"
-            }`}
+            className={`w-full px-4 py-3 rounded-lg text-sm font-bold transition-all active:scale-95 shadow-lg ${darkMode
+              ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:opacity-90"
+              : "bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:opacity-90"
+              }`}
           >
             Ver Análisis Completo →
           </button>
@@ -1123,12 +1119,95 @@ WelcomeScreen.displayName = "WelcomeScreen";
 // ============================================
 // PROCESADOR INTELIGENTE DE QUERIES
 // ============================================
+
+const callAIAssistant = async (
+  query: string,
+  analysis: Analysis,
+  _allExpenses: any[] = [],
+  income: number = 0,
+  _budgets: { [key: string]: number } = {}
+): Promise<{ content: string; quotas?: AIQuotas }> => {
+  try {
+    const functions = getFunctions(undefined, "europe-west1");
+    const askDeepSeek = httpsCallable<
+      {
+        query: string;
+        contextData: {
+          totalExpenses: number;
+          income: number;
+          avgDaily: number;
+          topCategories: Array<{ category: string; total: number }>;
+          trend: "up" | "down" | "stable";
+          daysLeft?: number;
+          smallExpenses?: number;
+          projectedTotal?: number;
+          savingsGoal?: number;
+          currentSavings?: number;
+          hasOverBudget?: boolean;
+          maxSpendDay?: { name: string; amount: number } | null;
+          recentHistory?: Array<any>;
+          goals?: number;
+        };
+      },
+      {
+        success: boolean;
+        content?: string;
+        error?: string;
+        quotas?: AIQuotas;
+        fallbackUsed?: boolean;
+      }
+    >(functions, "askDeepSeek");
+
+    const result = await askDeepSeek({
+      query,
+      contextData: {
+        totalExpenses: analysis.totalThisMonth,
+        income,
+        avgDaily: analysis.avgDailySpend,
+        topCategories: analysis.categoryAnalysis.slice(0, 5).map((cat) => ({
+          category: cat.category,
+          total: cat.total,
+        })),
+        trend: analysis.trendDirection,
+        daysLeft: analysis.daysLeft,
+        smallExpenses: analysis.smallExpenses,
+        projectedTotal: analysis.projectedMonthTotal,
+        // ✅ CONTEXTO POTENTE (AÑADIDO)
+        savingsGoal: analysis.savingsGoal,
+        currentSavings: analysis.currentSavings,
+        hasOverBudget: analysis.hasOverBudget,
+        maxSpendDay: analysis.maxSpendDay,
+        // Últimos 10 gastos para contexto inmediato
+        recentHistory: _allExpenses.slice(0, 10).map(e => ({
+          name: e.name,
+          amount: e.amount,
+          category: e.category,
+          date: e.date
+        })),
+        goals: analysis.goalProgress
+      },
+    });
+
+    if (result.data.success && result.data.content) {
+      return {
+        content: result.data.content,
+        quotas: result.data.quotas,
+      };
+    } else {
+      throw new Error(result.data.error || "Error en la respuesta");
+    }
+  } catch (error: any) {
+    console.error("Error llamando a askDeepSeek:", error);
+    throw error;
+  }
+};
+
 const createQueryProcessor = (
   analysis: Analysis,
   allExpenses: any[],
   isLoading: boolean
 ) => {
-  return (query: string): { content: string; action?: string } => {
+  return (query: string): { content: string; action?: string; useAPI: boolean } => {
     const lowerQuery = query.toLowerCase();
 
     // ============================================
@@ -1177,6 +1256,7 @@ const createQueryProcessor = (
           "⏳ **Cargando tus gastos...**\n\n" +
           "Estoy terminando de leer tus datos. Intenta esta misma pregunta en unos segundos.",
         action: "insight",
+        useAPI: false,
       };
     }
 
@@ -1206,6 +1286,34 @@ const createQueryProcessor = (
           `• ¡Y mucho más!\n\n` +
           `🚀 ¡Empieza ahora!`,
         action: "insight",
+        useAPI: false,
+      };
+    }
+
+    // Detectar si debe usar la API
+    const useAPIKeywords = [
+      "analiza todos",
+      "análisis completo",
+      "reporte completo",
+      "cómo puedo",
+      "dame consejo",
+      "sugiere",
+      "recomienda",
+      "qué hago",
+      "ayúdame",
+      "explica",
+      "por qué",
+    ];
+
+    const shouldUseAPI = useAPIKeywords.some((keyword) =>
+      lowerQuery.includes(keyword)
+    );
+
+    if (shouldUseAPI && hasAnyExpense) {
+      return {
+        content: "",
+        action: "insight",
+        useAPI: true,
       };
     }
 
@@ -1221,9 +1329,9 @@ const createQueryProcessor = (
         const remaining = analysis.savingsGoal - analysis.currentSavings;
         const daysAtCurrentRate = Math.ceil(
           remaining /
-            (analysis.avgDailySpend > 0
-              ? analysis.income - analysis.avgDailySpend * 30
-              : 1)
+          (analysis.avgDailySpend > 0
+            ? analysis.income - analysis.avgDailySpend * 30
+            : 1)
         );
 
         return {
@@ -1239,12 +1347,14 @@ const createQueryProcessor = (
               daysAtCurrentRate * 0.25
             )} días antes.`,
           action: "prediction",
+          useAPI: false,
         };
       }
       return {
         content:
           "Para hacer predicciones, primero configura un objetivo de ahorro en la sección de Objetivos.",
         action: "recommendation",
+        useAPI: false,
       };
     }
 
@@ -1274,9 +1384,10 @@ const createQueryProcessor = (
             (analysis.trendDirection === "up"
               ? `⚠️ Tus gastos están **aumentando**. Considera ajustar.`
               : analysis.trendDirection === "down"
-              ? `✅ ¡Bien! Tus gastos están **bajando**.`
-              : ``),
+                ? `✅ ¡Bien! Tus gastos están **bajando**.`
+                : ``),
           action: "prediction",
+          useAPI: false,
         };
       }
     }
@@ -1299,15 +1410,16 @@ const createQueryProcessor = (
             `• **Máximo por día: €${dailyBudget.toFixed(2)}**\n\n` +
             (comparison < 0.8
               ? `⚠️ Debes reducir un **${((1 - comparison) * 100).toFixed(
-                  0
-                )}%** tu gasto diario.`
+                0
+              )}%** tu gasto diario.`
               : comparison > 1.2
-              ? `✅ Tienes margen! Puedes gastar **${(
+                ? `✅ Tienes margen! Puedes gastar **${(
                   (comparison - 1) *
                   100
                 ).toFixed(0)}%** más.`
-              : `✅ Mantén tu ritmo actual.`),
+                : `✅ Mantén tu ritmo actual.`),
           action: "recommendation",
+          useAPI: false,
         };
       }
     }
@@ -1350,13 +1462,13 @@ const createQueryProcessor = (
               .slice(0, 3)
               .map(
                 (d, i) =>
-                  `${i + 1}. ${d.name}: €${d.avg.toFixed(2)} (${
-                    d.count
+                  `${i + 1}. ${d.name}: €${d.avg.toFixed(2)} (${d.count
                   } gastos)`
               )
               .join("\n") +
             `\n\n💡 **Consejo:** Planifica mejor tus ${analysis.maxSpendDay.name}s.`,
           action: "insight",
+          useAPI: false,
         };
       }
     }
@@ -1405,6 +1517,7 @@ const createQueryProcessor = (
       return {
         content,
         action: overBudget.length > 0 ? "warning" : "insight",
+        useAPI: false,
       };
     }
 
@@ -1442,15 +1555,16 @@ const createQueryProcessor = (
           `• Promedio: €${(smallTotal / smallExpenses.length).toFixed(2)}\n\n` +
           (topSmall.length > 0
             ? `📊 **Top categorías:**\n${topSmall
-                .map(([cat, amt]: any) => `• ${cat}: €${amt.toFixed(2)}`)
-                .join("\n")}\n\n`
+              .map(([cat, amt]: any) => `• ${cat}: €${amt.toFixed(2)}`)
+              .join("\n")}\n\n`
             : "") +
           (percentage > 20
             ? `⚠️ **Alerta:** Tus gastos pequeños suman demasiado.`
             : percentage > 10
-            ? `⚡ **Nota:** Vigila estos gastos.`
-            : `✅ Tus gastos pequeños están controlados.`),
+              ? `⚡ **Nota:** Vigila estos gastos.`
+              : `✅ Tus gastos pequeños están controlados.`),
         action: "insight",
+        useAPI: false,
       };
     }
 
@@ -1513,29 +1627,28 @@ const createQueryProcessor = (
               .map(
                 (s, i) =>
                   `${i + 1}. **${s.category}**\n` +
-                  `   ${
-                    s.priority ? "🚨 URGENTE - " : ""
+                  `   ${s.priority ? "🚨 URGENTE - " : ""
                   }Reduce €${s.savings.toFixed(0)} (de €${s.current.toFixed(
                     0
                   )} a €${s.newTotal.toFixed(0)})\n`
               )
               .join("\n") +
-            `\n💡 **Tip:** ${
-              suggestions[0].priority
-                ? `Prioriza ${suggestions[0].category} ya que superaste el presupuesto.`
-                : `Empieza reduciendo ${suggestions[0].category}, es donde más puedes ahorrar.`
+            `\n💡 **Tip:** ${suggestions[0].priority
+              ? `Prioriza ${suggestions[0].category} ya que superaste el presupuesto.`
+              : `Empieza reduciendo ${suggestions[0].category}, es donde más puedes ahorrar.`
             }`,
           action: "recommendation",
+          useAPI: false,
         };
       }
 
       return {
         content:
           "📊 Tus gastos parecen bien equilibrados. No detecto áreas obvias de optimización.\n\n" +
-          `💡 **Consejo general:** Intenta reducir un 10% en tu categoría de mayor gasto (${
-            analysis.categoryAnalysis[0]?.category || "tu categoría principal"
+          `💡 **Consejo general:** Intenta reducir un 10% en tu categoría de mayor gasto (${analysis.categoryAnalysis[0]?.category || "tu categoría principal"
           }).`,
         action: "insight",
+        useAPI: false,
       };
     }
 
@@ -1549,7 +1662,6 @@ const createQueryProcessor = (
       lowerQuery.includes("resumen total")
     ) {
       const today = new Date();
-      const currentMonth = today.toISOString().slice(0, 7);
 
       // Gastos por mes (últimos 3 meses)
       const last3Months = Array.from({ length: 3 }, (_, i) => {
@@ -1621,7 +1733,7 @@ const createQueryProcessor = (
       const savingsRate =
         analysis.income > 0
           ? ((analysis.income - analysis.totalThisMonth) / analysis.income) *
-            100
+          100
           : 0;
 
       let content = `📊 **ANÁLISIS COMPLETO DE TODOS TUS GASTOS**\n\n`;
@@ -1653,9 +1765,8 @@ const createQueryProcessor = (
         );
         const emoji =
           i === monthlyTotals.length - 1 ? "→" : i === 0 ? "←" : "•";
-        content += `${emoji} **${monthName}:** €${m.total.toFixed(2)} (${
-          m.count
-        } gastos)\n`;
+        content += `${emoji} **${monthName}:** €${m.total.toFixed(2)} (${m.count
+          } gastos)\n`;
       });
       content += `\n**Tendencia:** Tus gastos están **${trend3M}** 📊\n\n`;
 
@@ -1696,11 +1807,10 @@ const createQueryProcessor = (
       }
 
       if (analysis.trendDirection !== "stable") {
-        content += `• **Tendencia semanal:** ${
-          analysis.trendDirection === "up"
-            ? "⬆️ Gastos aumentando"
-            : "⬇️ Gastos disminuyendo"
-        }\n`;
+        content += `• **Tendencia semanal:** ${analysis.trendDirection === "up"
+          ? "⬆️ Gastos aumentando"
+          : "⬇️ Gastos disminuyendo"
+          }\n`;
         content += `  Promedio semanal: €${analysis.weeklyAverage.toFixed(
           2
         )}/día\n\n`;
@@ -1766,9 +1876,8 @@ const createQueryProcessor = (
           2
         )}\n`;
         const diff = analysis.projectedMonthTotal - analysis.totalThisMonth;
-        content += `• **Te quedan por gastar:** €${diff.toFixed(2)} en ${
-          analysis.daysLeft
-        } días\n`;
+        content += `• **Te quedan por gastar:** €${diff.toFixed(2)} en ${analysis.daysLeft
+          } días\n`;
         const dailyBudget =
           analysis.income > 0
             ? (analysis.income - analysis.totalThisMonth) / analysis.daysLeft
@@ -1859,6 +1968,7 @@ const createQueryProcessor = (
       return {
         content,
         action: "insight",
+        useAPI: false,
       };
     }
 
@@ -1879,6 +1989,7 @@ const createQueryProcessor = (
           `• Tendencias por categoría\n\n` +
           `💡 Mientras tanto, mira tu "Tendencia" en el dashboard.`,
         action: "insight",
+        useAPI: false,
       };
     }
 
@@ -1894,6 +2005,7 @@ const createQueryProcessor = (
             .join("\n\n") +
           `\n\n💡 Haz preguntas más específicas para análisis detallados.`,
         action: "insight",
+        useAPI: false,
       };
     }
 
@@ -1906,8 +2018,82 @@ const createQueryProcessor = (
         "• ¿Cómo puedo ahorrar?\n" +
         "• Analiza mis gastos hormiga",
       action: undefined,
+      useAPI: false,
     };
   };
+};
+
+const QuotasBadge: React.FC<{
+  quotas: AIQuotas | null;
+  darkMode: boolean;
+}> = ({ quotas, darkMode }) => {
+  if (!quotas) return null;
+
+  const isLow = quotas.remaining <= 1 && !quotas.unlimited;
+  const isEmpty = quotas.remaining === 0 && !quotas.unlimited;
+
+  return (
+    <div
+      className={`flex items-center gap-1 md:gap-1.5 px-1.5 md:px-2.5 py-1 md:py-1.5 rounded-md md:rounded-lg border transition-all ${isEmpty
+        ? darkMode
+          ? "bg-red-600/20 border-red-500/30"
+          : "bg-red-100 border-red-300"
+        : isLow
+          ? darkMode
+            ? "bg-yellow-600/20 border-yellow-500/30"
+            : "bg-yellow-100 border-yellow-300"
+          : darkMode
+            ? "bg-green-600/20 border-green-500/30"
+            : "bg-green-100 border-green-300"
+        }`}
+      title={
+        quotas.unlimited
+          ? "Consultas ilimitadas"
+          : `${quotas.remaining}/${quotas.total} consultas restantes`
+      }
+    >
+      {quotas.unlimited ? (
+        <>
+          <Infinity className="w-3 h-3 md:w-3.5 md:h-3.5 text-purple-500 flex-shrink-0" />
+          <span
+            className={`text-[10px] md:text-xs font-semibold whitespace-nowrap ${darkMode ? "text-purple-300" : "text-purple-700"
+              }`}
+          >
+            {quotas.plan === "free" ? "Admin" : "Premium"}
+          </span>
+        </>
+      ) : (
+        <>
+          <Zap
+            className={`w-3 h-3 md:w-3.5 md:h-3.5 flex-shrink-0 ${isEmpty
+              ? "text-red-500"
+              : isLow
+                ? "text-yellow-500"
+                : "text-green-500"
+              }`}
+          />
+          <div className="flex items-baseline gap-0.5 md:gap-1">
+            <span
+              className={`text-[10px] md:text-xs font-bold ${isEmpty
+                ? "text-red-500"
+                : isLow
+                  ? "text-yellow-500"
+                  : "text-green-500"
+                }`}
+            >
+              {quotas.remaining}
+            </span>
+            <span
+              className={`text-[9px] md:text-[10px] ${darkMode ? "text-gray-400" : "text-gray-600"
+                }`}
+            >
+              /{quotas.total}
+            </span>
+          </div>
+        </>
+      )}
+    </div>
+  );
 };
 
 // ============================================
@@ -1920,7 +2106,7 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
     textSecondaryClass,
     categories,
     addExpense,
-    isActive,
+    isActive: _isActive,
     allExpenses = [],
     income = 0,
     budgets = {},
@@ -1933,6 +2119,7 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
     const [isLoading, setIsLoading] = useState(false);
     const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
     const [isPending, startTransition] = useTransition();
+    const [quotas, setQuotas] = useState<AIQuotas | null>(null);
 
     const inputRef = useRef<HTMLInputElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -2022,12 +2209,20 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
     const handleCopyMessage = useCallback(
       async (index: number, content: string) => {
         try {
-          await navigator.clipboard.writeText(content);
-          await vibrate(ImpactStyle.Light);
-          setCopiedIndex(index);
-          setTimeout(() => setCopiedIndex(null), 2000);
+          if (isNative) {
+            await Share.share({
+              title: 'Clarity AI Insight',
+              text: content,
+              dialogTitle: 'Compartir análisis',
+            });
+          } else {
+            await navigator.clipboard.writeText(content);
+            await vibrate(ImpactStyle.Light);
+            setCopiedIndex(index);
+            setTimeout(() => setCopiedIndex(null), 2000);
+          }
         } catch (error) {
-          console.error("Error copiando:", error);
+          console.error("Error compartiendo/copiando:", error);
         }
       },
       []
@@ -2099,8 +2294,8 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
                 `• Promedio diario: €${newDailyAvg.toFixed(2)}` +
                 (analysis.income > 0
                   ? `\n• Disponible: €${(analysis.income - newTotal).toFixed(
-                      2
-                    )}`
+                    2
+                  )}`
                   : ""),
               action: "expense_added",
               expenseData,
@@ -2135,15 +2330,56 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
       setIsLoading(true);
 
       try {
-        // Simular "pensando"
-        await new Promise((resolve) => setTimeout(resolve, 600));
+        const localResponse = processQuery(userMessage);
 
-        const response = processQuery(userMessage);
+        let finalContent = localResponse.content;
+        let finalAction = localResponse.action;
+
+        // Si debe usar API, llamar
+        if (localResponse.useAPI) {
+          try {
+            console.log("🤖 Llamando a la API de IA...");
+            const apiResponse = await callAIAssistant(
+              userMessage,
+              analysis,
+              allExpenses,
+              income,
+              budgets
+            );
+
+            finalContent = apiResponse.content;
+            finalAction = "insight";
+
+            if (apiResponse.quotas) {
+              setQuotas(apiResponse.quotas);
+            }
+
+            console.log("✅ Respuesta de IA recibida");
+          } catch (apiError: any) {
+            console.error("❌ Error de API:", apiError);
+
+            if (apiError.message?.includes("agotado")) {
+              finalContent = `⚠️ **Cuotas IA agotadas**\n\n${apiError.message}`;
+              finalAction = "warning";
+            } else {
+              finalContent =
+                `⚠️ **IA temporalmente no disponible**\n\n` +
+                `${generateSmartInsights(analysis)
+                  .slice(0, 3)
+                  .map((insight, i) => `${i + 1}. ${insight}`)
+                  .join("\n\n")}\n\n` +
+                `*Esta respuesta no consumió tu cuota.*`;
+              finalAction = "insight";
+            }
+          }
+        } else {
+          await new Promise((resolve) => setTimeout(resolve, 400));
+        }
 
         const aiMessage: Message = {
           role: "assistant",
-          content: response.content,
-          action: response.action as any,
+          content: finalContent,
+          action: finalAction as any,
           timestamp: Date.now(),
           id: `msg-${Date.now()}`,
         };
@@ -2173,6 +2409,10 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
       findBestCategory,
       processQuery,
       analysis,
+      allExpenses,
+      income,
+      budgets,
+      quotas,
     ]);
 
     const handleKeyPress = useCallback(
@@ -2190,14 +2430,15 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
       setTimeout(() => inputRef.current?.focus(), 100);
     }, []);
 
-    // Altura dinámica - optimizada para móvil
+    // Altura dinámica - ultra optimizada para móvil con padding extra
     const listHeight = useMemo(() => {
       if (typeof window === "undefined") return 400;
       const base = window.innerHeight;
-      // En móvil: reservar menos espacio (header compacto + input compacto)
+      // En móvil: reservar más espacio (header + input + padding extra para navegación)
       const isMobile = window.innerWidth < 768;
-      const reserved = isMobile ? 160 + keyboardHeight : 220 + keyboardHeight;
-      return Math.max(isMobile ? 280 : 320, base - reserved);
+      // Añadir padding extra: 20px arriba (navegación) + 20px abajo (input)
+      const reserved = isMobile ? 180 + keyboardHeight : 260 + keyboardHeight;
+      return Math.max(isMobile ? 300 : 320, base - reserved);
     }, [keyboardHeight]);
 
     // Ancho del contenedor para react-window - se recalcula en resize
@@ -2225,30 +2466,13 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
 
       window.addEventListener("resize", updateWidth);
       updateWidth(); // Llamar inmediatamente
-      
+
       return () => {
         window.removeEventListener("resize", updateWidth);
         resizeObserver.disconnect();
       };
     }, []);
 
-    const renderRow = useCallback(
-      ({ index, style }: { index: number; style: React.CSSProperties }) => {
-        const message = messages[index];
-        if (!message) return null;
-        return (
-          <div style={style}>
-            <MessageBubble
-              message={message}
-              darkMode={darkMode}
-              onCopy={() => handleCopyMessage(index, message.content)}
-              copied={copiedIndex === index}
-            />
-          </div>
-        );
-      },
-      [messages, darkMode, handleCopyMessage, copiedIndex]
-    );
 
     return (
       <div
@@ -2257,20 +2481,39 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
           minHeight: 320,
           maxHeight: "80vh",
           height: "100%",
+          paddingTop: "10px",
+          paddingBottom: "10px",
         }}
       >
-        {/* Header - compacto en móvil */}
-        <div className="flex items-center justify-between mb-2 md:mb-3 px-1 md:px-2">
-          <div className="flex items-center gap-1.5 md:gap-2">
-            <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-purple-500" />
-            <h3 className={`text-xs md:text-sm font-semibold ${textClass}`}>
-              Asistente IA
-            </h3>
+        {/* Header - ultra compacto en móvil */}
+        <div className="flex items-center justify-between mb-1.5 md:mb-3 px-0.5 md:px-2">
+          <div className="flex items-center gap-1 md:gap-3 flex-1 min-w-0">
+            <div
+              className={`p-1 md:p-2 rounded-lg flex-shrink-0 ${darkMode ? "bg-purple-500/20" : "bg-purple-100"
+                }`}
+            >
+              <Sparkles className="w-4 h-4 md:w-6 md:h-6 text-purple-500 animate-pulse" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className={`text-xs md:text-base font-bold truncate ${textClass}`}>
+                Asistente IA 🧠
+              </h3>
+              <p className={`text-[9px] md:text-xs truncate ${textSecondaryClass}`}>
+                Powered by DeepSeek
+              </p>
+            </div>
+
+            {/* Badge de cuotas - más compacto en móvil */}
+            {quotas && (
+              <div className="flex-shrink-0">
+                <QuotasBadge quotas={quotas} darkMode={darkMode} />
+              </div>
+            )}
+
             {messages.length > 0 && (
               <span
-                className={`text-[10px] md:text-xs ${textSecondaryClass} px-1.5 md:px-2 py-0.5 rounded-full ${
-                  darkMode ? "bg-gray-700" : "bg-gray-100"
-                }`}
+                className={`text-[9px] md:text-xs ${textSecondaryClass} px-1.5 md:px-2 py-0.5 md:py-1 rounded-full flex-shrink-0 ${darkMode ? "bg-gray-700" : "bg-gray-100"
+                  }`}
               >
                 {messages.length}
               </span>
@@ -2280,29 +2523,54 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
           {messages.length > 0 && (
             <button
               onClick={handleClearChat}
-              className={`p-1.5 md:p-2 rounded-lg transition-all min-h-[36px] min-w-[36px] md:min-h-[44px] md:min-w-[44px] flex items-center justify-center active:scale-95 ${
-                darkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
-              }`}
+              className={`p-1 md:p-2 rounded-lg transition-all min-h-[32px] min-w-[32px] md:min-h-[44px] md:min-w-[44px] flex items-center justify-center active:scale-95 flex-shrink-0 ${darkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
+                }`}
               title="Limpiar chat"
               aria-label="Limpiar conversación"
             >
-              <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4 text-red-500" />
+              <Trash2 className="w-3 h-3 md:w-4 md:h-4 text-red-500" />
             </button>
           )}
         </div>
 
-        {/* Contenedor de mensajes - optimizado para móvil */}
+        {/* Alerta de cuotas agotadas - compacta en móvil */}
+        {quotas && !quotas.unlimited && quotas.remaining === 0 && (
+          <div
+            className={`mb-2 md:mb-3 p-2.5 md:p-4 rounded-lg md:rounded-xl border ${darkMode
+              ? "bg-red-900/20 border-red-500/30"
+              : "bg-red-50 border-red-200"
+              }`}
+          >
+            <div className="flex items-center gap-1.5 md:gap-2 mb-1 md:mb-2">
+              <AlertCircle className="w-4 h-4 md:w-5 md:h-5 text-red-500 flex-shrink-0" />
+              <p className="text-xs md:text-sm font-bold text-red-500">
+                Cuotas IA agotadas
+              </p>
+            </div>
+            <p className="text-[10px] md:text-xs text-gray-600 dark:text-gray-400">
+              Has usado tus {quotas.total} consultas mensuales.
+            </p>
+            {(!quotas.plan || quotas.plan === "free") && (
+              <p className="text-[10px] md:text-xs text-purple-600 dark:text-purple-400 mt-1.5 md:mt-2 font-semibold">
+                💡 Actualiza a Pro para 50 consultas/mes
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Contenedor de mensajes - ultra optimizado para móvil con padding extra */}
         <div
           ref={containerRef}
-          className={`flex-1 rounded-lg md:rounded-xl border mb-2 md:mb-4 transition-all ${
-            darkMode
-              ? "bg-gray-800/50 border-gray-700"
-              : "bg-white border-gray-200 shadow-sm"
-          } overflow-hidden flex flex-col`}
+          className={`flex-1 rounded-lg md:rounded-xl border mb-2 md:mb-4 transition-all ${darkMode
+            ? "bg-gray-800/50 border-gray-700"
+            : "bg-white border-gray-200 shadow-sm"
+            } overflow-hidden flex flex-col`}
           style={{
             height: listHeight,
             maxHeight: listHeight,
             minHeight: "280px",
+            paddingTop: "20px",
+            paddingBottom: "20px",
           }}
         >
           {messages.length === 0 ? (
@@ -2311,6 +2579,8 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
               style={{
                 WebkitOverflowScrolling: "touch",
                 overscrollBehavior: "contain",
+                paddingTop: "10px",
+                paddingBottom: "10px",
               }}
             >
               <WelcomeScreen
@@ -2323,11 +2593,11 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
               />
             </div>
           ) : (
-            <div className="flex-1 px-2 md:px-4 py-2 md:py-3">
+            <div className="flex-1 px-2 md:px-4 py-2 md:py-4">
               <List
                 ref={listRef}
-                height={listHeight - (isLoading ? 60 : 0)}
-                itemCount={messages.length}
+                height={listHeight - 20}
+                itemCount={messages.length + (isLoading ? 1 : 0)}
                 itemSize={ITEM_HEIGHT}
                 width={listWidth - 16}
                 overscanCount={3}
@@ -2336,38 +2606,59 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
                   overscrollBehavior: "contain",
                 }}
               >
-                {renderRow}
-              </List>
-            </div>
-          )}
-
-          {/* Loading indicator - compacto en móvil */}
-          {isLoading && (
-            <div className="px-2 md:px-4 py-2 md:py-3 border-t border-opacity-10">
-              <div className="flex justify-start">
-                <div
-                  className={`rounded-lg md:rounded-xl px-3 md:px-4 py-2 md:py-3 ${
-                    darkMode ? "bg-gray-700" : "bg-gray-100"
-                  }`}
-                >
-                  <div className="flex gap-1">
-                    {[0, 150, 300].map((delay, i) => (
-                      <div
-                        key={i}
-                        className="w-1.5 h-1.5 md:w-2 md:h-2 bg-purple-500 rounded-full animate-bounce"
-                        style={{ animationDelay: `${delay}ms` }}
+                {({ index, style }) => {
+                  // Si es el último mensaje y está cargando, mostrar indicador
+                  if (isLoading && index === messages.length) {
+                    return (
+                      <div style={style}>
+                        <div className="flex justify-start group mb-3">
+                          <div
+                            className={`max-w-[85%] md:max-w-[80%] rounded-xl md:rounded-2xl px-3 md:px-4 py-2 md:py-3 relative transition-all ${darkMode
+                              ? "bg-gray-700 text-gray-100"
+                              : "bg-gray-100 text-gray-900"
+                              }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className="flex gap-1">
+                                {[0, 150, 300].map((delay, i) => (
+                                  <div
+                                    key={i}
+                                    className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"
+                                    style={{ animationDelay: `${delay}ms` }}
+                                  />
+                                ))}
+                              </div>
+                              <span className="text-xs md:text-sm text-gray-500 dark:text-gray-400 font-medium animate-pulse">
+                                Analizando {allExpenses?.length || 0} movimientos...
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  // Mensaje normal
+                  const message = messages[index];
+                  if (!message) return null;
+                  return (
+                    <div style={style}>
+                      <MessageBubble
+                        message={message}
+                        darkMode={darkMode}
+                        onCopy={() => handleCopyMessage(index, message.content)}
+                        copied={copiedIndex === index}
                       />
-                    ))}
-                  </div>
-                </div>
-              </div>
+                    </div>
+                  );
+                }}
+              </List>
             </div>
           )}
         </div>
 
-        {/* Input Area - compacto en móvil */}
-        <div className="pb-1 md:pb-2">
-          <div className="flex gap-1.5 md:gap-2">
+        {/* Input Area - ultra compacto en móvil */}
+        <div className="pb-0.5 md:pb-2">
+          <div className="flex gap-1 md:gap-2">
             <input
               ref={inputRef}
               type="text"
@@ -2376,23 +2667,21 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
               onKeyPress={handleKeyPress}
               placeholder="Pregúntame sobre tus gastos..."
               disabled={isLoading || isPending}
-              className={`flex-1 px-3 md:px-4 py-2 md:py-3 rounded-lg md:rounded-xl border focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all text-sm md:text-base min-h-[44px] ${
-                darkMode
-                  ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-                  : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
+              className={`flex-1 px-2.5 md:px-4 py-2 md:py-3 rounded-lg md:rounded-xl border focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all text-xs md:text-base min-h-[44px] ${darkMode
+                ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
             />
 
             <button
               onClick={toggleListening}
               disabled={isLoading || isPending}
-              className={`px-3 md:px-4 py-2 md:py-3 rounded-lg md:rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center active:scale-95 ${
-                isListening
-                  ? "bg-red-500 text-white shadow-lg shadow-red-500/50 animate-pulse"
-                  : darkMode
+              className={`px-2.5 md:px-4 py-2 md:py-3 rounded-lg md:rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center active:scale-95 flex-shrink-0 ${isListening
+                ? "bg-red-500 text-white shadow-lg shadow-red-500/50 animate-pulse"
+                : darkMode
                   ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
                   : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
               aria-label={
                 isListening ? "Detener grabación" : "Iniciar grabación de voz"
               }
@@ -2407,7 +2696,7 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
             <button
               onClick={sendMessage}
               disabled={!input.trim() || isLoading || isPending}
-              className="px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg md:rounded-xl hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all min-h-[44px] flex items-center justify-center active:scale-95 shadow-lg shadow-purple-500/20"
+              className="px-3 md:px-6 py-2 md:py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg md:rounded-xl hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all min-h-[44px] flex items-center justify-center active:scale-95 shadow-lg shadow-purple-500/20 flex-shrink-0"
               aria-label="Enviar mensaje"
             >
               {isLoading ? (

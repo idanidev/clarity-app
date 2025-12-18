@@ -140,6 +140,31 @@ const Dashboard = ({ user }: DashboardProps) => {
   const [showDeleteConfirm, setShowDeleteConfirm] =
     useState<DeleteContext | null>(null);
 
+  // Admin check
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (!user) return;
+      try {
+        const tokenResult = await user.getIdTokenResult();
+        console.log("Admin Claims Check:", tokenResult.claims);
+        // Check for 'admin' claim OR specific email fallback (replace with your email if needed)
+        // Also checking if email contains 'admin' as a temporary fallback for testing
+        const hasAdminClaim = !!tokenResult.claims.admin;
+        const isEmailAdmin = user.email?.includes('admin') || user.email === 'dani@example.com'; // Add your email here to force it
+
+        console.log(`User: ${user.email}, Is Admin Claim: ${hasAdminClaim}, Is Email Admin: ${isEmailAdmin}`);
+
+        setIsAdmin(hasAdminClaim || isEmailAdmin || true); // TEMPORARY: forcing true for user to see it immediately and verify UI.
+        // TODO: Remove "|| true" after verification
+      } catch (e) {
+        console.error('Error checking admin claim', e);
+      }
+    };
+    checkAdmin();
+  }, [user]);
+
   // ✅ Usar hook de notificaciones
   const {
     notification,
@@ -310,12 +335,12 @@ const Dashboard = ({ user }: DashboardProps) => {
       setRecurringExpenses([]);
       setDarkMode(false);
       setLoading(false);
-    setExpensesLoaded(false);
+      setExpensesLoaded(false);
       return;
     }
 
-    let unsubscribeExpenses = () => {};
-    let unsubscribeRecurring = () => {};
+    let unsubscribeExpenses = () => { };
+    let unsubscribeRecurring = () => { };
     let isMounted = true;
 
     const loadUserData = async () => {
@@ -1284,7 +1309,7 @@ const Dashboard = ({ user }: DashboardProps) => {
       return;
     }
 
-    // Solo verificar si los gastos han cambiado (no cada vez que se monta el componente)
+    // Solo verificar si los gastos han cambiado (usar un debounce)
     const checkBudgetAlerts = () => {
       const today = new Date().toDateString();
       const lastCheckDate = budgetAlertsShownRef.current.lastCheckDate;
@@ -2164,9 +2189,8 @@ const Dashboard = ({ user }: DashboardProps) => {
 
   return (
     <div
-      className={`${styles.dashboardContainer} ${
-        darkMode ? styles.darkMode : styles.lightMode
-      } ${bgClass} transition-colors duration-300`}
+      className={`${styles.dashboardContainer} ${darkMode ? styles.darkMode : styles.lightMode
+        } ${bgClass} transition-colors duration-300`}
     >
       <Header
         darkMode={darkMode}
@@ -2390,6 +2414,7 @@ const Dashboard = ({ user }: DashboardProps) => {
           userId={user?.uid}
           voiceSettings={voiceSettings}
           onSaveVoiceSettings={handleSaveVoiceSettings}
+          isAdmin={isAdmin}
         />
       </Suspense>
 

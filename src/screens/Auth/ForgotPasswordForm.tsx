@@ -1,15 +1,19 @@
 import { motion } from "framer-motion";
 import { Mail } from "lucide-react";
-import { useState } from "react";
+import { useState, FormEvent } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { useFormValidation } from "../../hooks/useFormValidation";
 import { isValidEmail } from "../../utils/validators";
 import InputField from "./components/InputField";
 
-const ForgotPasswordForm = ({ onBack }) => {
+interface ForgotPasswordFormProps {
+  onBack: () => void;
+}
+
+const ForgotPasswordForm = ({ onBack }: ForgotPasswordFormProps) => {
   const { resetPassword, loading, error: authError } = useAuth();
-  const [formError, setFormError] = useState(null);
-  const [successMessage, setSuccessMessage] = useState(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const { values, errors, touched, handleChange, handleBlur, validateForm } =
     useFormValidation(
@@ -18,13 +22,13 @@ const ForgotPasswordForm = ({ onBack }) => {
           !value
             ? "El email es obligatorio"
             : !isValidEmail(value)
-            ? "Introduce un email válido"
-            : null,
+              ? "Introduce un email válido"
+              : null,
       },
       { email: "" } // ✅ Valores iniciales
     );
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setFormError(null);
     setSuccessMessage(null);
@@ -55,19 +59,19 @@ const ForgotPasswordForm = ({ onBack }) => {
       onSubmit={handleSubmit}
       className="space-y-4"
     >
-      <p className="text-sm text-white/80">
+      <p className="text-sm text-gray-600 dark:text-gray-400">
         Introduce tu email y te enviaremos un enlace para restablecer tu
         contraseña.
       </p>
 
       {finalError && (
-        <div className="bg-red-500/10 border border-red-400/60 text-red-100 text-sm rounded-xl px-3 py-2">
+        <div className="bg-red-500/10 border border-red-400/60 text-red-600 dark:text-red-200 text-sm rounded-xl px-3 py-2">
           {finalError}
         </div>
       )}
 
       {successMessage && (
-        <div className="bg-emerald-500/10 border border-emerald-400/60 text-emerald-100 text-sm rounded-xl px-3 py-2">
+        <div className="bg-emerald-500/10 border border-emerald-400/60 text-emerald-800 dark:text-emerald-200 text-sm rounded-xl px-3 py-2">
           {successMessage}
         </div>
       )}

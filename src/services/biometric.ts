@@ -1,14 +1,14 @@
 import { Capacitor } from '@capacitor/core';
+import { NativeBiometric } from '@capgo/capacitor-native-biometric';
 
 export const checkBiometricAvailable = async (): Promise<boolean> => {
   if (!Capacitor.isNativePlatform()) {
     return false;
   }
-  
+
   try {
-    // TODO: Instalar @capacitor-community/biometric-auth
-    // Por ahora retorna false (no bloquea)
-    return false;
+    const result = await NativeBiometric.isAvailable();
+    return result.isAvailable;
   } catch (error) {
     console.log('Biometric check error (non-blocking):', error);
     return false;
@@ -19,11 +19,15 @@ export const authenticate = async (reason: string = 'Accede a Clarity'): Promise
   if (!Capacitor.isNativePlatform()) {
     return false;
   }
-  
+
   try {
-    // TODO: Implementar con @capacitor-community/biometric-auth
-    console.log('Biometric auth not implemented yet');
-    return false;
+    await NativeBiometric.verifyIdentity({
+      reason: reason,
+      title: 'Autenticación Requerida',
+      subtitle: 'Ingresa para ver tus finanzas',
+      description: reason,
+    });
+    return true;
   } catch (error) {
     console.log('Biometric auth error:', error);
     return false;

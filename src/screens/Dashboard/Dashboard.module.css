@@ -3,8 +3,11 @@
    ================================================ */
 
 .dashboardContainer {
-  min-height: 100vh;
-  height: auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   padding-top: 0;
   position: relative;
   transition: background-color 0.3s ease;

@@ -17,6 +17,7 @@ export const useTranslation = () => {
   const { language } = useLanguage();
   const t = useCallback(
     (key) => {
+      if (!key || typeof key !== 'string') return key || '';
       const keys = key.split(".");
       let value = translations[language];
       

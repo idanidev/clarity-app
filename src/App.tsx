@@ -3,17 +3,20 @@ import { useEffect, useState, useRef, lazy, Suspense } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { motion, AnimatePresence } from "framer-motion";
 import { SplashScreen } from "@capacitor/splash-screen";
-import { StatusBar, Style } from "@capacitor/status-bar";
+import { Keyboard, KeyboardResize } from "@capacitor/keyboard";
 import { Capacitor } from "@capacitor/core";
+import { App as AppCapacitor } from "@capacitor/app";
 import { auth } from "./firebase";
 import { LanguageProvider, useTranslation } from "./contexts/LanguageContext";
 import { saveUserLanguage } from "./services/firestoreService";
 import { fadeIn, getTransition } from "./config/framerMotion";
 import { isNative } from "./utils/platform";
+import NetworkStatus from "./components/NetworkStatus";
 
 // OPTIMIZACIÓN: Code splitting de rutas principales
 const Auth = lazy(() => import("./screens/Auth/Auth"));
 const Dashboard = lazy(() => import("./screens/Dashboard/Dashboard"));
+const AdminMigration = lazy(() => import("./screens/Admin/AdminMigration"));
 
 // Prefetch helpers para mejorar la navegación
 const preloadAuth = () => import("./screens/Auth/Auth");
@@ -37,27 +40,54 @@ const App = () => {
   const timeoutIdRef = useRef<NodeJS.Timeout | null>(null);
   const unsubscribeRef = useRef<(() => void) | null>(null);
 
+  // Custom hash routing for admin panel
+  const [currentHash, setCurrentHash] = useState(window.location.hash);
+
+  useEffect(() => {
+    const handleHashChange = () => setCurrentHash(window.location.hash);
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
   // Configurar Capacitor (SplashScreen)
   useEffect(() => {
     if (isNative) {
       const configureCapacitor = async () => {
         try {
           // StatusBar ya se configura en main.tsx con setupStatusBar()
-          // Solo configuramos SplashScreen aquí
-          
-          // Ocultar splash después de cargar
-          setTimeout(async () => {
-            try {
-              await SplashScreen.hide();
-            } catch (error) {
-              // Error silencioso
-            }
-          }, 2000);
         } catch (error) {
           // Error silencioso
         }
+
+        try {
+          if (Capacitor.getPlatform() === 'ios') {
+            await Keyboard.setResizeMode({ mode: KeyboardResize.Native });
+          }
+        } catch (error) {
+          console.error('Error setting keyboard resize mode', error);
+        }
+
+        // Deep Linking Listener
+        AppCapacitor.addListener('appUrlOpen', (data) => {
+          console.log('App opened with URL:', data.url);
+          try {
+            // url: clarity://dashboard/add-expense
+            const url = new URL(data.url);
+            const path = url.pathname || url.hostname; // Dependiendo del esquema
+
+            // Manejo de rutas simple
+            if (data.url.includes('add-expense')) {
+              // Emitir evento o navegar (usando hash por simplicidad en esta arquitectura)
+              window.location.hash = '#/dashboard?action=add-expense';
+            } else if (data.url.includes('dashboard')) {
+              window.location.hash = '#/dashboard';
+            }
+          } catch (e) {
+            console.error('Error handling deep link:', e);
+          }
+        });
       };
-      
+
       configureCapacitor();
     }
   }, []);
@@ -84,12 +114,15 @@ const App = () => {
             if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
             setUser(currentUser);
             setInitializing(false);
+            if (isNative) SplashScreen.hide().catch(() => { });
           }
         },
         (error) => {
           if (isMountedRef.current) {
+            console.error(error); // Log error to fix unused var
             if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
             setInitializing(false);
+            if (isNative) SplashScreen.hide().catch(() => { });
           }
         }
       );
@@ -212,7 +245,7 @@ const App = () => {
     <LanguageProvider user={user} onLanguageChange={handleLanguageChange}>
       <Suspense
         fallback={
-          <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-white to-blue-50">
+          <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-purple-50 via-white to-blue-50">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-purple-600 mx-auto"></div>
               <p className="mt-4 text-purple-600 font-medium">Cargando...</p>
@@ -234,13 +267,19 @@ const App = () => {
               key="dashboard"
               {...fadeIn}
               transition={getTransition('fast')}
+              className="flex flex-col h-full overflow-hidden relative"
             >
-              <Dashboard user={user} />
+              <NetworkStatus />
+              {currentHash === '#/admin/migration' ? (
+                <AdminMigration />
+              ) : (
+                <Dashboard user={user} />
+              )}
             </motion.div>
           )}
         </AnimatePresence>
       </Suspense>
-    </LanguageProvider>
+    </LanguageProvider >
   );
 };
 

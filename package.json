@@ -30,11 +30,13 @@
     "@capacitor/ios": "^8.0.0",
     "@capacitor/keyboard": "^8.0.0",
     "@capacitor/local-notifications": "^8.0.0",
+    "@capacitor/network": "^8.0.0",
+    "@capacitor/share": "^8.0.0",
     "@capacitor/splash-screen": "^8.0.0",
     "@capacitor/status-bar": "^8.0.0",
+    "@capgo/capacitor-native-biometric": "^8.0.2",
     "@capgo/capacitor-speech-recognition": "^7.2.3",
     "@types/lodash.debounce": "^4.0.9",
-    "react-window": "^1.8.10",
     "@types/react-window": "^1.8.8",
     "debounce": "^3.0.0",
     "firebase": "^12.6.0",
@@ -44,7 +46,9 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-swipeable": "^7.0.2",
-    "recharts": "^3.5.0"
+    "react-window": "^1.8.10",
+    "recharts": "^3.5.0",
+    "vite-plugin-pwa": "^1.2.0"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.0",
