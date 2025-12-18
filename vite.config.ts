@@ -79,7 +79,7 @@ export default defineConfig(({ mode }) => {
           manualChunks: {
             'vendor-react': ['react', 'react-dom', 'framer-motion'],
             'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
-            'vendor-utils': ['date-fns', 'lucide-react'],
+            'vendor-utils': ['lucide-react'],
             'vendor-charts': ['recharts'],
           },
         },
