@@ -3,6 +3,7 @@ import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import { SpeechRecognition } from "@capgo/capacitor-speech-recognition";
 import { Loader2, Mic, MicOff } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import AudioWaveVisualizer from "../../../components/AudioWaveVisualizer";
 import { usePermissions } from "../../../hooks/usePermissions";
 
 // ============================================
@@ -87,6 +88,11 @@ const VoiceExpenseButton = ({
   const [pendingExpense, setPendingExpense] = useState<any>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
+  // 🎯 Mejoras Premium
+  const [detectedCategory, setDetectedCategory] = useState("");
+  const [confidenceLevel, setConfidenceLevel] = useState(0);
+  const [currentExampleIndex, setCurrentExampleIndex] = useState(0);
+
   const recognitionRef = useRef<any>(null);
   const listenersAddedRef = useRef(false);
   const isNative = Capacitor.isNativePlatform();
@@ -165,7 +171,7 @@ const VoiceExpenseButton = ({
 
     const checkAvailability = async () => {
       if (isNative) {
-        // CAPACITOR: Solo verificar disponibilidad (NO solicitar permisos aquí)
+        // CAPACITOR:Solo verificar disponibilidad (NO solicitar permisos aquí)
         try {
           const availableResult = await SpeechRecognition.available();
           const available = availableResult?.available ?? false;
@@ -181,7 +187,7 @@ const VoiceExpenseButton = ({
           }
         }
       } else {
-        // WEB/PWA: Web Speech API
+        // WEB/PWA:Web Speech API
         if (hasWebSpeechAPI && mounted) {
           setVoiceAvailable(true);
           initWebSpeech();
@@ -208,13 +214,31 @@ const VoiceExpenseButton = ({
         resetSilenceTimer(); // Reset timer on speech activity
         let interim = "";
         let final = "";
+        let maxConfidence = 0;
 
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const result = event.results[i];
+          const confidence = result[0].confidence || 0;
+          maxConfidence = Math.max(maxConfidence, confidence);
+
           if (result.isFinal) {
             final += result[0].transcript;
           } else {
             interim += result[0].transcript;
+          }
+        }
+
+        // 🎯 Actualizar confianza
+        if (maxConfidence > 0) {
+          setConfidenceLevel(maxConfidence);
+        }
+
+        // 🎯 Detectar categoría en tiempo real
+        const currentText = final || interim;
+        if (currentText) {
+          const parsed = parseExpense(currentText);
+          if (parsed) {
+            setDetectedCategory(parsed.category || "Sin categoría");
           }
         }
 
@@ -230,7 +254,7 @@ const VoiceExpenseButton = ({
         if (event.error === "not-allowed") {
           showNotification?.("❌ Permiso de micrófono denegado", "error");
         } else if (event.error !== "no-speech" && event.error !== "aborted") {
-          showNotification?.(`❌ Error: ${event.error}`, "error");
+          showNotification?.(`❌ Error:${event.error} `, "error");
         }
         stopRecording();
       };
@@ -276,9 +300,67 @@ const VoiceExpenseButton = ({
     };
   }, []);
 
+  // 🔄 useEffect para rotar ejemplos mientras escucha
+  useEffect(() => {
+    if (!isListening) {
+      setCurrentExampleIndex(0);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setCurrentExampleIndex((prev) => (prev + 1) % 6); // 6 ejemplos
+    }, 2500); // Cambiar cada 2.5 segundos
+
+    return () => clearInterval(interval);
+  }, [isListening]);
+
   // ============================================
   // PROCESAR TRANSCRIPCIÓN
   // ============================================
+
+  // ============================================
+  // LIMPIAR TEXTO HABLADO
+  // ============================================
+  const cleanSpokenText = (text: string): string => {
+    let cleaned = text.trim();
+
+    // Remover palabras de comando al principio
+    const commandWords = [
+      /^añádeme\s+/i,
+      /^añade\s+/i,
+      /^añadir\s+/i,
+      /^gasta\s+/i,
+      /^gastado\s+/i,
+      /^he\s+gastado\s+/i,
+      /^compra\s+/i,
+      /^comprado\s+/i,
+    ];
+
+    commandWords.forEach(pattern => {
+      cleaned = cleaned.replace(pattern, '');
+    });
+
+    // Intentar extraer descripción después de "en" o "de"
+    const descMatch = cleaned.match(/(?:en|de)\s+(.+)$/i);
+    if (descMatch) {
+      const description = descMatch[1]
+        .replace(/\d+(?:[.,]\d+)?\s*(?:euros?|€)?/gi, '') // Remover cantidad
+        .trim();
+      if (description) {
+        return description.charAt(0).toUpperCase() + description.slice(1);
+      }
+    }
+
+    // Remover cantidad de cualquier parte del texto
+    cleaned = cleaned.replace(/\d+(?:[.,]\d+)?\s*(?:euros?|€)?/gi, '').trim();
+
+    if (cleaned) {
+      return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+    }
+
+    // Fallback:usar el texto original
+    return text.trim();
+  };
 
   // ============================================
   // PARSER DE GASTOS
@@ -291,7 +373,8 @@ const VoiceExpenseButton = ({
 
     const amount = parseFloat(amountMatch[1].replace(",", "."));
 
-    let category = "Otros";
+    // No default a "Otros"-dejar vacío si no se detecta
+    let category = "";
 
     const categoryKeywords = {
       Alimentación: [
@@ -300,19 +383,75 @@ const VoiceExpenseButton = ({
         "mercado",
         "alimentación",
         "compra",
+        "cenas",
+        "cena",
+        "desayuno",
+        "almuerzo",
+        "merienda",
+        "restaurante",
+        "bar",
+        "cafetería",
+        "café",
+        "pizza",
+        "comida rápida",
+        "burguer",
       ],
       Transporte: [
         "gasolina",
         "combustible",
         "parking",
+        "aparcamiento",
         "taxi",
         "uber",
+        "cabify",
         "transporte",
+        "metro",
+        "autobús",
+        "bus",
+        "tren",
+        "peaje",
       ],
-      Ocio: ["cine", "teatro", "concierto", "entretenimiento", "ocio"],
-      Salud: ["farmacia", "médico", "hospital", "salud"],
-      Hogar: ["casa", "hogar", "muebles", "decoración"],
-      Ropa: ["ropa", "zapatos", "vestir"],
+      Ocio: [
+        "cine",
+        "teatro",
+        "concierto",
+        "entretenimiento",
+        "ocio",
+        "fiesta",
+        "copas",
+        "discoteca",
+      ],
+      Salud: [
+        "farmacia",
+        "médico",
+        "doctor",
+        "hospital",
+        "salud",
+        "dentista",
+      ],
+      Hogar: [
+        "casa",
+        "hogar",
+        "muebles",
+        "decoración",
+        "alquiler",
+        "luz",
+        "agua",
+        "gas",
+        "internet",
+      ],
+      Ropa: [
+        "ropa",
+        "zapatos",
+        "vestir",
+        "calzado",
+      ],
+      Tabaco: [
+        "tabaco",
+        "cigarros",
+        "cigarrillos",
+        "estanco",
+      ],
     };
 
     for (const [cat, keywords] of Object.entries(categoryKeywords)) {
@@ -326,9 +465,9 @@ const VoiceExpenseButton = ({
 
     return {
       amount,
-      category,
+      category, // Vacío si no se detectó
       subcategory: null,
-      name: `Añadido por voz: ${text}`,
+      name: cleanSpokenText(text), // Texto limpio en lugar de literal
       date,
       paymentMethod: "Tarjeta",
     };
@@ -344,7 +483,7 @@ const VoiceExpenseButton = ({
     try {
       await onAddExpense(pendingExpense);
       showNotification?.(
-        `✅ Añadido: €${pendingExpense.amount.toFixed(2)} en ${pendingExpense.category}`,
+        `✅ Añadido:€${pendingExpense.amount.toFixed(2)} en ${pendingExpense.category} `,
         "success"
       );
       setShowConfirmDialog(false);
@@ -370,7 +509,7 @@ const VoiceExpenseButton = ({
   };
 
   // ============================================
-  // PROCESAR TRANSCRIPCIÓN - NUEVA VERSIÓN CON DIÁLOGO
+  // PROCESAR TRANSCRIPCIÓN-NUEVA VERSIÓN CON DIÁLOGO
   // ============================================
   const processTranscript = useCallback(
     async (text: string) => {
@@ -381,7 +520,7 @@ const VoiceExpenseButton = ({
       try {
         const expenseData = parseExpense(text);
 
-        // Don't show error immediately - give user context via dialog instead
+        // Don't show error immediately-give user context via dialog instead
         if (!expenseData) {
           console.log("[Voice] Could not parse expense from:", text);
           return;
@@ -394,31 +533,10 @@ const VoiceExpenseButton = ({
           await stopRecording();
         }
 
-        const currentSettings = voiceSettingsRef.current;
-
-        // ✅ Si está activada la confirmación automática, guardar sin mostrar diálogo
-        if (currentSettings?.autoConfirm) {
-          setIsProcessing(true);
-          try {
-            await onAddExpense(expenseData);
-            showNotification?.(
-              `✅ Añadido: €${expenseData.amount.toFixed(2)} en ${expenseData.category}`,
-              "success"
-            );
-            setPendingExpense(null);
-            setTranscript("");
-            setInterimTranscript("");
-          } catch (error) {
-            console.error("[Voice] Error adding expense (auto-confirm):", error);
-            showNotification?.("❌ Error al añadir gasto", "error");
-          } finally {
-            setIsProcessing(false);
-          }
-        } else {
-          // ✅ MOSTRAR DIÁLOGO DE CONFIRMACIÓN
-          setPendingExpense(expenseData);
-          setShowConfirmDialog(true);
-        }
+        // ✅ SIEMPRE MOSTRAR DIÁLOGO DE CONFIRMACIÓN para gastos por voz
+        // Esto permite al usuario seleccionar la categoría correcta si no se detectó
+        setPendingExpense(expenseData);
+        setShowConfirmDialog(true);
 
       } catch (error) {
         console.error("[Voice] Error parsing expense:", error);
@@ -447,7 +565,7 @@ const VoiceExpenseButton = ({
 
     if (isNative) {
       // ============================================
-      // CAPACITOR: Plugin nativo
+      // CAPACITOR:Plugin nativo
       // ============================================
       if (isListening) {
         await stopRecording();
@@ -512,7 +630,7 @@ const VoiceExpenseButton = ({
           await SpeechRecognition.start({
             language: "es-ES",
             maxResults: 1,
-            prompt: 'Di tu gasto (ej: "25 euros en supermercado")',
+            prompt: 'Di tu gasto (ej:"25 euros en supermercado")',
             partialResults: true,
             popup: false,
           });
@@ -528,7 +646,7 @@ const VoiceExpenseButton = ({
       }
     } else {
       // ============================================
-      // WEB/PWA: Web Speech API
+      // WEB/PWA:Web Speech API
       // ============================================
       if (!recognitionRef.current) {
         showNotification?.("❌ Voz no disponible en este navegador", "error");
@@ -589,12 +707,6 @@ const VoiceExpenseButton = ({
   }
 
 
-  const voiceExamples = [
-    '💡 "25 en supermercado"',
-    '💡 "nueve coma sesenta en tabaco"',
-    '💡 "50 euros en gasolina"',
-  ];
-
   return (
     <>
       {/* Botón flotante */}
@@ -612,7 +724,7 @@ const VoiceExpenseButton = ({
             : darkMode
               ? "bg-gray-800/25 backdrop-blur-xl border-gray-700/40 text-gray-300"
               : "bg-white/25 backdrop-blur-xl border-white/40 text-purple-600"
-          } ${isProcessing ? "cursor-wait" : ""}`}
+          } ${isProcessing ? "cursor-wait" : ""} `}
         style={{
           bottom: hasFilterButton
             ? "calc(9.5rem + env(safe-area-inset-bottom))"
@@ -645,13 +757,13 @@ const VoiceExpenseButton = ({
             className={`relative max-w-md w-full rounded-2xl shadow-2xl border backdrop-blur-xl transition-all pointer-events-auto ${darkMode
               ? "bg-gray-800/95 border-gray-700/50"
               : "bg-white/95 border-white/50"
-              }`}
+              } `}
           >
             <div className="absolute top-4 right-4 flex items-center gap-2">
               <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
               <span
                 className={`text-xs font-medium ${darkMode ? "text-gray-300" : "text-gray-700"
-                  }`}
+                  } `}
               >
                 Grabando
               </span>
@@ -665,31 +777,90 @@ const VoiceExpenseButton = ({
                 🎤 Di tu gasto
               </h3>
 
+              {/* 🌊 Onda de Audio */}
+              <div className="mb-4">
+                <AudioWaveVisualizer isActive={isListening} darkMode={darkMode} />
+              </div>
+
               <div
                 className={`min-h-[100px] p-4 rounded-xl mb-4 ${darkMode ? "bg-gray-900/50" : "bg-gray-100"
-                  }`}
+                  } `}
               >
                 {(transcript + interimTranscript).trim() ? (
-                  <p
-                    className={`text-lg ${darkMode ? "text-white" : "text-gray-900"
-                      }`}
-                  >
-                    {transcript + interimTranscript}
-                  </p>
+                  <div>
+                    <p
+                      className={`text-lg mb-3 ${darkMode ? "text-white" : "text-gray-900"
+                        } `}
+                    >
+                      {transcript + interimTranscript}
+                    </p>
+
+                    {/* 🎯 Categoría detectada en tiempo real */}
+                    {detectedCategory && (
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-600"} `}>
+                          Categoría:
+                        </span>
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${detectedCategory && detectedCategory !== "Sin categoría"
+                          ? "bg-purple-500 text-white"
+                          : "bg-gray-500 text-white"
+                          } `}>
+                          {detectedCategory}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* ✅ Barra de confianza */}
+                    {confidenceLevel > 0 && (
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-600"} `}>
+                            Confianza:
+                          </span>
+                          <span className={`text-xs font-medium ${confidenceLevel > 0.8 ? "text-green-500" :
+                            confidenceLevel > 0.5 ? "text-yellow-500" :
+                              "text-red-500"
+                            } `}>
+                            {Math.round(confidenceLevel * 100)}%
+                          </span>
+                        </div>
+                        <div className={`w-full h-1.5 rounded-full overflow-hidden ${darkMode ? "bg-gray-700" : "bg-gray-300"
+                          } `}>
+                          <div
+                            className={`h-full transition-all duration-300 ${confidenceLevel > 0.8 ? "bg-green-500" :
+                              confidenceLevel > 0.5 ? "bg-yellow-500" :
+                                "bg-red-500"
+                              } `}
+                            style={{ width: `${confidenceLevel * 100}% ` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div>
                     <p
-                      className={`text-sm mb-2 ${darkMode ? "text-gray-400" : "text-gray-500"
-                        }`}
+                      className={`text-sm mb-3 ${darkMode ? "text-gray-400" : "text-gray-500"
+                        } `}
                     >
                       Escuchando...
                     </p>
+                    {/* 🔄 Ejemplos rotativos */}
                     <div className="space-y-1">
-                      {voiceExamples.map((example, idx) => (
+                      {[
+                        '💡 "25 en supermercado"',
+                        '💡 "Cena con amigos 37€"',
+                        '💡 "50 de gasolina"',
+                        '💡 "9.60 en tabaco"',
+                        '💡 "He gastado 12 en café"',
+                        '💡 "18€ en copas"',
+                      ].map((example, idx) => (
                         <p
                           key={idx}
-                          className={`text-xs ${darkMode ? "text-gray-500" : "text-gray-400"
-                            }`}
+                          className={`text-xs transition-opacity duration-300 ${idx === currentExampleIndex
+                            ? darkMode ? "text-purple-400 font-medium" : "text-purple-600 font-medium"
+                            : "opacity-30"
+                            } ${darkMode ? "text-gray-500" : "text-gray-400"} `}
                         >
                           {example}
                         </p>
@@ -704,7 +875,7 @@ const VoiceExpenseButton = ({
                 className={`w-full py-3 rounded-xl font-medium transition-colors ${darkMode
                   ? "bg-red-600 hover:bg-red-700 text-white"
                   : "bg-red-500 hover:bg-red-600 text-white"
-                  }`}
+                  } `}
               >
                 Detener
               </button>
@@ -723,18 +894,18 @@ const VoiceExpenseButton = ({
             className={`max-w-md w-full rounded-2xl shadow-2xl border ${darkMode
               ? "bg-gray-800 border-gray-700"
               : "bg-white border-gray-200"
-              }`}
+              } `}
           >
             <div className="p-6">
               <h3
                 className={`text-xl font-bold mb-2 ${darkMode ? "text-white" : "text-gray-900"
-                  }`}
+                  } `}
               >
                 ✅ ¿Añadir este gasto?
               </h3>
               <p
                 className={`text-xs mb-4 ${darkMode ? "text-gray-400" : "text-gray-600"
-                  }`}
+                  } `}
               >
                 Ejemplos que puedes decir:{" "}
                 <span className="font-medium">
@@ -744,18 +915,18 @@ const VoiceExpenseButton = ({
 
               <div
                 className={`p-4 rounded-xl mb-6 space-y-4 ${darkMode ? "bg-gray-900/50" : "bg-gray-100"
-                  }`}
+                  } `}
               >
                 <div className="flex justify-between items-center">
                   <span
                     className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"
-                      }`}
+                      } `}
                   >
                     Cantidad
                   </span>
                   <span
                     className={`text-lg font-bold ${darkMode ? "text-white" : "text-gray-900"
-                      }`}
+                      } `}
                   >
                     €{pendingExpense.amount.toFixed(2)}
                   </span>
@@ -765,7 +936,7 @@ const VoiceExpenseButton = ({
                 <div>
                   <label
                     className={`block text-xs font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"
-                      }`}
+                      } `}
                   >
                     Categoría
                   </label>
@@ -792,7 +963,7 @@ const VoiceExpenseButton = ({
                   ) : (
                     <p
                       className={`text-sm ${darkMode ? "text-gray-300" : "text-gray-700"
-                        }`}
+                        } `}
                     >
                       {pendingExpense.category}
                     </p>
@@ -803,7 +974,7 @@ const VoiceExpenseButton = ({
                 <div>
                   <label
                     className={`block text-xs font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"
-                      }`}
+                      } `}
                   >
                     Subcategoría (opcional)
                   </label>
@@ -816,7 +987,7 @@ const VoiceExpenseButton = ({
                         subcategory: e.target.value,
                       })
                     }
-                    placeholder="Ej: Cenas, Netflix, Farmacia..."
+                    placeholder="Ej:Cenas, Netflix, Farmacia..."
                     className={`w-full px-3 py-2 rounded-lg border text-sm ${darkMode
                       ? "bg-gray-900 border-gray-700 text-gray-100 placeholder-gray-500"
                       : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
@@ -828,7 +999,7 @@ const VoiceExpenseButton = ({
                 <div>
                   <label
                     className={`block text-xs font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"
-                      }`}
+                      } `}
                   >
                     Descripción
                   </label>
@@ -856,7 +1027,7 @@ const VoiceExpenseButton = ({
                   className={`min-w-[120px] py-3 rounded-xl font-medium transition-colors ${darkMode
                     ? "bg-gray-700 hover:bg-gray-600 text-white"
                     : "bg-gray-200 hover:bg-gray-300 text-gray-900"
-                    }`}
+                    } `}
                 >
                   Cancelar
                 </button>
