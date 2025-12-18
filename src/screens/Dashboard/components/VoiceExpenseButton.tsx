@@ -718,22 +718,30 @@ const VoiceExpenseButton = ({
 
   return (
     <>
-      {/* Botón flotante */}
+      {/* Botón flotante - Premium iOS Style */}
       <button
         onClick={toggleListening}
         disabled={isProcessing}
-        className={`fixed right-4 z-40 p-4 rounded-full shadow-2xl backdrop-blur-xl border transition-all active:scale-95 ${isProcessing
-          ? darkMode
-            ? "bg-purple-600/25 border-purple-500/40 text-white"
-            : "bg-purple-600/25 border-purple-400/40 text-white"
-          : isListening
+        className={`group fixed right-4 z-40 p-5 rounded-full
+          transform transition-all duration-500 ease-out
+          ${isProcessing
+            ? "cursor-wait scale-95"
+            : isListening
+              ? "scale-110 animate-pulse"
+              : "hover:scale-110 active:scale-95"
+          }
+          ${isProcessing
             ? darkMode
-              ? "bg-red-600/25 border-red-500/40 text-white animate-pulse"
-              : "bg-red-600/25 border-red-400/40 text-white animate-pulse"
-            : darkMode
-              ? "bg-gray-800/25 backdrop-blur-xl border-gray-700/40 text-gray-300"
-              : "bg-white/25 backdrop-blur-xl border-white/40 text-purple-600"
-          } ${isProcessing ? "cursor-wait" : ""} `}
+              ? "bg-gradient-to-br from-purple-600/50 to-blue-600/50"
+              : "bg-gradient-to-br from-purple-500/50 to-blue-500/50"
+            : isListening
+              ? "bg-gradient-to-br from-red-600 via-pink-600 to-red-600 shadow-2xl shadow-red-500/50"
+              : darkMode
+                ? "bg-gradient-to-br from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-2xl shadow-purple-500/40 hover:shadow-purple-500/60"
+                : "bg-gradient-to-br from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 shadow-2xl shadow-purple-500/50 hover:shadow-purple-500/70"
+          }
+          border-2 ${darkMode ? "border-white/20" : "border-white/30"}
+          backdrop-blur-xl`}
         style={{
           bottom: hasFilterButton
             ? "calc(9.5rem + env(safe-area-inset-bottom))"
@@ -747,44 +755,71 @@ const VoiceExpenseButton = ({
               : "Añadir por voz"
         }
       >
-        {isProcessing ? (
-          <Loader2 className="w-5 h-5 animate-spin" />
-        ) : isListening ? (
-          <MicOff className="w-5 h-5" />
-        ) : (
-          <Mic className="w-5 h-5" />
-        )}
+        {/* Gradient glow ring - animado */}
+        <div className={`absolute -inset-2 rounded-full blur-xl opacity-60 transition-opacity duration-500
+          ${isListening
+            ? "bg-gradient-to-r from-red-500 to-pink-500"
+            : "bg-gradient-to-r from-purple-500 to-blue-500 group-hover:opacity-80"
+          }
+          ${isProcessing ? "animate-pulse" : "animate-pulse-slow"}`}
+        />
+
+        {/* Icon */}
+        <div className="relative z-10">
+          {isProcessing ? (
+            <Loader2 className="w-6 h-6 text-white animate-spin" />
+          ) : isListening ? (
+            <MicOff className="w-6 h-6 text-white" />
+          ) : (
+            <Mic className="w-6 h-6 text-white" />
+          )}
+        </div>
       </button>
 
-      {/* Modal de transcripción */}
+      {/* Modal de transcripción - iOS Glassmorphism */}
       {(isListening || isProcessing) && (
         <div
-          className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none"
-          style={{ zIndex: 9999999 }}
+          className="fixed inset-0 flex items-center justify-center p-4 z-50"
         >
+          {/* Backdrop con blur */}
           <div
-            className={`relative max-w-md w-full rounded-2xl shadow-2xl border backdrop-blur-xl transition-all pointer-events-auto ${darkMode
-              ? "bg-gray-800/95 border-gray-700/50"
-              : "bg-white/95 border-white/50"
-              }`}
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300"
+            onClick={() => !isProcessing && stopRecording()}
+          />
+
+          {/* Modal Container - Premium Glass Effect */}
+          <div
+            className={`relative max-w-md w-full rounded-3xl 
+              transform transition-all duration-500 ease-out
+              ${darkMode
+                ? "bg-gray-900/80 border-gray-700/30 shadow-purple-500/20"
+                : "bg-white/80 border-white/30 shadow-purple-500/30"
+              }
+              backdrop-blur-2xl
+              border
+              shadow-2xl
+              ring-1 ring-purple-500/10
+              animate-in zoom-in-95 fade-in duration-300`}
           >
-            <div className="absolute top-4 right-4 flex items-center gap-2">
+            {/* Gradient overlay sutil */}
+            <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-purple-500/5 via-transparent to-blue-500/5 pointer-events-none" />
+
+            {/* Header con estado */}
+            <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
               {isProcessing ? (
                 <>
-                  <Loader2 className="w-3 h-3 text-purple-500 animate-spin" />
+                  <Loader2 className="w-4 h-4 text-purple-500 animate-spin" />
                   <span
-                    className={`text-xs font-medium ${darkMode ? "text-gray-300" : "text-gray-700"
-                      }`}
+                    className={`text-xs font-medium ${darkMode ? "text-purple-400" : "text-purple-600"}`}
                   >
                     Procesando...
                   </span>
                 </>
               ) : (
                 <>
-                  <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                  <div className="w-3 h-3 bg-gradient-to-br from-red-500 to-pink-500 rounded-full animate-pulse shadow-lg shadow-red-500/50"></div>
                   <span
-                    className={`text-xs font-medium ${darkMode ? "text-gray-300" : "text-gray-700"
-                      }`}
+                    className={`text-xs font-semibold ${darkMode ? "text-red-400" : "text-red-600"}`}
                   >
                     Grabando
                   </span>
@@ -792,21 +827,29 @@ const VoiceExpenseButton = ({
               )}
             </div>
 
-            <div className="p-6 pt-12">
+            {/* Content */}
+            <div className="relative p-8 pt-14">
+              {/* Título con emoji */}
               <h3
-                className={`text-lg font-bold mb-4 ${darkMode ? "text-white" : "text-gray-900"
-                  }`}
+                className={`text-2xl font-bold mb-6 text-center
+                  bg-gradient-to-r ${darkMode
+                    ? "from-purple-400 via-blue-400 to-purple-400"
+                    : "from-purple-600 via-blue-600 to-purple-600"
+                  }
+                  bg-clip-text text-transparent
+                  animate-pulse-slow`}
               >
                 {isProcessing ? "⚙️ Procesando..." : "🎤 Di tu gasto"}
               </h3>
 
-              {/* 🌊 Onda de Audio */}
+              {/* Onda de Audio - Solo cuando graba */}
               {!isProcessing && (
-                <div className="mb-4">
+                <div className="mb-6 p-4 rounded-2xl bg-gradient-to-br from-purple-500/10 to-blue-500/10 backdrop-blur-xl border border-purple-500/20">
                   <AudioWaveVisualizer isActive={isListening} darkMode={darkMode} />
                 </div>
               )}
 
+              {/* Transcript area */}
               <div
                 className={`min-h-[100px] p-4 rounded-xl mb-4 ${darkMode ? "bg-gray-900/50" : "bg-gray-100"
                   } `}
@@ -909,38 +952,59 @@ const VoiceExpenseButton = ({
         </div>
       )}
 
-      {/* ✅ DIÁLOGO DE CONFIRMACIÓN */}
+      {/* Diálogo de confirmación - Premium Glass */}
       {showConfirmDialog && pendingExpense && (
         <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
-          style={{ zIndex: 99999999 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
         >
+          {/* Backdrop */}
           <div
-            className={`max-w-md w-full rounded-2xl shadow-2xl border ${darkMode
-              ? "bg-gray-800 border-gray-700"
-              : "bg-white border-gray-200"
-              } `}
+            className="absolute inset-0 bg-black/50 backdrop-blur-md transition-opacity duration-300"
+            onClick={cancelExpense}
+          />
+
+          {/* Dialog Container - iOS Glassmorphism */}
+          <div
+            className={`relative max-w-md w-full rounded-3xl p-8
+              transform transition-all duration-500 ease-out
+              ${darkMode
+                ? "bg-gray-900/90 border-gray-700/30 shadow-purple-500/20"
+                : "bg-white/90 border-white/40 shadow-purple-500/30"
+              }
+              backdrop-blur-2xl
+              border
+              shadow-2xl
+              ring-1 ring-purple-500/10
+              animate-in zoom-in-95 fade-in duration-300`}
           >
-            <div className="p-6">
+            {/* Gradient overlay  */}
+            <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-purple-500/5 via-transparent to-blue-500/5 pointer-events-none" />
+
+            {/* Content */}
+            <div className="relative">
               <h3
-                className={`text-xl font-bold mb-2 ${darkMode ? "text-white" : "text-gray-900"
-                  } `}
+                className={`text-2xl font-bold mb-2 text-center
+                  bg-gradient-to-r ${darkMode
+                    ? "from-purple-400 to-blue-400"
+                    : "from-purple-600 to-blue-600"
+                  }
+                  bg-clip-text text-transparent`}
               >
-                ✅ ¿Añadir este gasto?
+                Confirmar Gasto
               </h3>
               <p
-                className={`text-xs mb-4 ${darkMode ? "text-gray-400" : "text-gray-600"
-                  } `}
+                className={`text-sm mb-6 text-center ${darkMode ? "text-gray-400" : "text-gray-600"
+                  }`}
               >
-                Ejemplos que puedes decir:{" "}
-                <span className="font-medium">
-                  “20€ en cenas con amigos”, “Compra del super 45€”, “Gasolina 60€”
-                </span>
+                Revisa los datos antes de continuar
               </p>
 
+              {/* Expense details */}
               <div
-                className={`p-4 rounded-xl mb-6 space-y-4 ${darkMode ? "bg-gray-900/50" : "bg-gray-100"
-                  } `}
+                className={`p-5 rounded-2xl mb-6 space-y-4
+                  ${darkMode ? "bg-gray-900/50" : "bg-white/50"}
+                  backdrop-blur-xl
+                  border ${darkMode ? "border-gray-700/30" : "border-white/40"}`}
               >
                 <div className="flex justify-between items-center">
                   <span
@@ -1045,26 +1109,46 @@ const VoiceExpenseButton = ({
                 </div>
               </div>
 
-              <div className="flex items-center justify-center gap-3">
+              {/* Buttons */}
+              <div className="flex gap-3">
+                {/* Cancel - Glass button */}
                 <button
                   onClick={cancelExpense}
-                  disabled={isProcessing}
-                  className={`min-w-[120px] py-3 rounded-xl font-medium transition-colors ${darkMode
-                    ? "bg-gray-700 hover:bg-gray-600 text-white"
-                    : "bg-gray-200 hover:bg-gray-300 text-gray-900"
-                    } `}
+                  className={`flex-1 py-4 rounded-2xl font-semibold
+                    transition-all duration-300
+                    transform hover:scale-[1.02] active:scale-[0.98]
+                    ${darkMode
+                      ? "bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white"
+                      : "bg-gray-900/10 hover:bg-gray-900/20 text-gray-700 hover:text-gray-900"
+                    }
+                    backdrop-blur-xl
+                    border ${darkMode ? "border-gray-700/30" : "border-gray-300/30"}`}
                 >
                   Cancelar
                 </button>
+
+                {/* Confirm - Gradient button */}
                 <button
                   onClick={confirmExpense}
                   disabled={isProcessing}
-                  className="min-w-[120px] py-3 rounded-xl font-medium bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:shadow-lg transition-all disabled:opacity-50"
+                  className={`flex-1 py-4 rounded-2xl font-semibold
+                    transform transition-all duration-300
+                    hover:scale-[1.02] active:scale-[0.98]
+                    ${isProcessing
+                      ? "bg-gradient-to-r from-purple-600/50 to-blue-600/50 cursor-wait"
+                      : "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                    }
+                    text-white
+                    shadow-lg ${isProcessing ? "shadow-purple-500/20" : "shadow-green-500/30 hover:shadow-green-500/40"}
+                    border-2 border-white/20`}
                 >
                   {isProcessing ? (
-                    <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>Añadiendo...</span>
+                    </div>
                   ) : (
-                    "Añadir"
+                    "✅ Confirmar"
                   )}
                 </button>
               </div>
