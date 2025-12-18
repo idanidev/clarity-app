@@ -517,33 +517,42 @@ const VoiceExpenseButton = ({
 
       console.log("[Voice] Processing transcript:", text);
 
+      // Indicar que estamos procesando
+      setIsProcessing(true);
+
       try {
         const expenseData = parseExpense(text);
 
         // Don't show error immediately-give user context via dialog instead
         if (!expenseData) {
           console.log("[Voice] Could not parse expense from:", text);
+          setIsProcessing(false);
+          showNotification?.("❌ No se pudo entender el gasto", "error");
+          setIsListening(false);
           return;
         }
 
         console.log("[Voice] Parsed expense:", expenseData);
 
-        // ✅ DETENER GRABACIÓN INMEDIATAMENTE
-        if (isListening) {
-          await stopRecording();
-        }
+        // ✅ DETENER GRABACIÓN pero mantener modal abierto
+        setIsListening(false);
+
+        // Pequeña pausa para que el usuario vea el feedback
+        await new Promise(resolve => setTimeout(resolve, 300));
 
         // ✅ SIEMPRE MOSTRAR DIÁLOGO DE CONFIRMACIÓN para gastos por voz
-        // Esto permite al usuario seleccionar la categoría correcta si no se detectó
         setPendingExpense(expenseData);
         setShowConfirmDialog(true);
 
       } catch (error) {
         console.error("[Voice] Error parsing expense:", error);
         showNotification?.("❌ Error al procesar gasto", "error");
+        setIsListening(false);
+      } finally {
+        setIsProcessing(false);
       }
     },
-    [isProcessing, isListening, showNotification, isNative, onAddExpense]
+    [isProcessing, isListening, showNotification]
   );
 
   // ============================================
@@ -748,7 +757,7 @@ const VoiceExpenseButton = ({
       </button>
 
       {/* Modal de transcripción */}
-      {isListening && (
+      {(isListening || isProcessing) && (
         <div
           className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none"
           style={{ zIndex: 9999999 }}
@@ -757,16 +766,30 @@ const VoiceExpenseButton = ({
             className={`relative max-w-md w-full rounded-2xl shadow-2xl border backdrop-blur-xl transition-all pointer-events-auto ${darkMode
               ? "bg-gray-800/95 border-gray-700/50"
               : "bg-white/95 border-white/50"
-              } `}
+              }`}
           >
             <div className="absolute top-4 right-4 flex items-center gap-2">
-              <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-              <span
-                className={`text-xs font-medium ${darkMode ? "text-gray-300" : "text-gray-700"
-                  } `}
-              >
-                Grabando
-              </span>
+              {isProcessing ? (
+                <>
+                  <Loader2 className="w-3 h-3 text-purple-500 animate-spin" />
+                  <span
+                    className={`text-xs font-medium ${darkMode ? "text-gray-300" : "text-gray-700"
+                      }`}
+                  >
+                    Procesando...
+                  </span>
+                </>
+              ) : (
+                <>
+                  <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                  <span
+                    className={`text-xs font-medium ${darkMode ? "text-gray-300" : "text-gray-700"
+                      }`}
+                  >
+                    Grabando
+                  </span>
+                </>
+              )}
             </div>
 
             <div className="p-6 pt-12">
@@ -774,13 +797,15 @@ const VoiceExpenseButton = ({
                 className={`text-lg font-bold mb-4 ${darkMode ? "text-white" : "text-gray-900"
                   }`}
               >
-                🎤 Di tu gasto
+                {isProcessing ? "⚙️ Procesando..." : "🎤 Di tu gasto"}
               </h3>
 
               {/* 🌊 Onda de Audio */}
-              <div className="mb-4">
-                <AudioWaveVisualizer isActive={isListening} darkMode={darkMode} />
-              </div>
+              {!isProcessing && (
+                <div className="mb-4">
+                  <AudioWaveVisualizer isActive={isListening} darkMode={darkMode} />
+                </div>
+              )}
 
               <div
                 className={`min-h-[100px] p-4 rounded-xl mb-4 ${darkMode ? "bg-gray-900/50" : "bg-gray-100"
