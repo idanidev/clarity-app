@@ -2114,611 +2114,643 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
     categoryTotals = [],
     isLoading: isDataLoading = false,
   }) => {
-    const [messages, setMessages] = useState<Message[]>([]);
-    const [input, setInput] = useState("");
-    const [isLoading, setIsLoading] = useState(false);
-    const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-    const [isPending, startTransition] = useTransition();
-    const [quotas, setQuotas] = useState<AIQuotas | null>(null);
+  }) => {
+  // Cargar historial inicial de localStorage
+  const [messages, setMessages] = useState<Message[]>(() => {
+    try {
+      const saved = localStorage.getItem("clarity_ai_history");
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
 
-    const inputRef = useRef<HTMLInputElement>(null);
-    const messagesEndRef = useRef<HTMLDivElement>(null);
-    const listRef = useRef<FixedSizeList>(null);
-    const keyboardHeight = useKeyboardHeight();
+  // Guardar historial cuando cambie
+  useEffect(() => {
+    try {
+      localStorage.setItem("clarity_ai_history", JSON.stringify(messages));
+    } catch (e) {
+      console.error("Error saving history:", e);
+    }
+  }, [messages]);
 
-    // Análisis con caché (solo recalcula si cambian los datos)
-    const analysis = useMemo(
-      () =>
-        analyzeUserData(allExpenses, income, budgets, goals, categoryTotals),
-      [allExpenses, income, budgets, goals, categoryTotals]
-    );
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [isPending, startTransition] = useTransition();
 
-    // Insights y prompts (también con caché)
-    const insights = useMemo(() => generateSmartInsights(analysis), [analysis]);
+  // Cargar cuotas de localStorage
+  const [quotas, setQuotas] = useState<AIQuotas | null>(() => {
+    try {
+      const saved = localStorage.getItem("clarity_ai_quotas");
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
 
-    const smartPrompts = useMemo(() => getSmartPrompts(analysis), [analysis]);
+  // Guardar cuotas cuando cambien
+  useEffect(() => {
+    if (quotas) {
+      localStorage.setItem("clarity_ai_quotas", JSON.stringify(quotas));
+    }
+  }, [quotas]);
 
-    // Procesador de queries
-    const processQuery = useMemo(
-      () => createQueryProcessor(analysis, allExpenses, isDataLoading),
-      [analysis, allExpenses, isDataLoading]
-    );
+  const inputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<FixedSizeList>(null);
+  const keyboardHeight = useKeyboardHeight();
 
-    // Category matcher
-    const findBestCategory = useMemo(
-      () => createCategoryMatcher(categories),
-      [categories]
-    );
+  // Análisis con caché (solo recalcula si cambian los datos)
+  const analysis = useMemo(
+    () =>
+      analyzeUserData(allExpenses, income, budgets, goals, categoryTotals),
+    [allExpenses, income, budgets, goals, categoryTotals]
+  );
 
-    // Handlers optimizados
-    const handleInputChange = useCallback(
-      (e: React.ChangeEvent<HTMLInputElement>) => {
-        setInput(e.target.value);
-      },
-      []
-    );
+  // Insights y prompts (también con caché)
+  const insights = useMemo(() => generateSmartInsights(analysis), [analysis]);
 
-    const handleVoiceTranscript = useCallback((text: string) => {
-      setInput(text);
-    }, []);
+  const smartPrompts = useMemo(() => getSmartPrompts(analysis), [analysis]);
 
-    const handleVoiceEnd = useCallback(() => {
-      setTimeout(() => {
-        const currentInput = inputRef.current?.value || "";
-        const detected = detectExpenseFromText(currentInput);
-        if (detected && currentInput.trim()) {
-          sendMessage();
-        }
-      }, 300);
-    }, []);
+  // Procesador de queries
+  const processQuery = useMemo(
+    () => createQueryProcessor(analysis, allExpenses, isDataLoading),
+    [analysis, allExpenses, isDataLoading]
+  );
 
-    const { isListening, toggle: toggleListening } = useVoiceRecognition(
-      handleVoiceTranscript,
-      handleVoiceEnd
-    );
+  // Category matcher
+  const findBestCategory = useMemo(
+    () => createCategoryMatcher(categories),
+    [categories]
+  );
 
-    // Scroll optimizado - usa la lista virtualizada
-    const scrollToBottom = useCallback(() => {
-      requestAnimationFrame(() => {
-        if (listRef.current && messages.length > 0) {
-          listRef.current.scrollToItem(messages.length - 1, "end");
-        } else {
-          messagesEndRef.current?.scrollIntoView({
-            behavior: "smooth",
-            block: "end",
-          });
-        }
-      });
-    }, [messages.length]);
+  // Handlers optimizados
+  const handleInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setInput(e.target.value);
+    },
+    []
+  );
 
-    useEffect(() => {
-      if (messages.length > 0) {
-        scrollToBottom();
+  const handleVoiceTranscript = useCallback((text: string) => {
+    setInput(text);
+  }, []);
+
+  const handleVoiceEnd = useCallback(() => {
+    setTimeout(() => {
+      const currentInput = inputRef.current?.value || "";
+      const detected = detectExpenseFromText(currentInput);
+      if (detected && currentInput.trim()) {
+        sendMessage();
       }
-    }, [messages.length, scrollToBottom]);
+    }, 300);
+  }, []);
 
-    // Autofocus removido - Los prompts inteligentes hacen que no sea necesario
-    // useEffect(() => {
-    //   if (!isActive) return;
-    //   const timer = setTimeout(() => {
-    //     inputRef.current?.focus();
-    //   }, 300);
-    //   return () => clearTimeout(timer);
-    // }, [isActive]);
+  const { isListening, toggle: toggleListening } = useVoiceRecognition(
+    handleVoiceTranscript,
+    handleVoiceEnd
+  );
 
-    const handleCopyMessage = useCallback(
-      async (index: number, content: string) => {
-        try {
-          if (isNative) {
-            await Share.share({
-              title: 'Clarity AI Insight',
-              text: content,
-              dialogTitle: 'Compartir análisis',
-            });
-          } else {
-            await navigator.clipboard.writeText(content);
-            await vibrate(ImpactStyle.Light);
-            setCopiedIndex(index);
-            setTimeout(() => setCopiedIndex(null), 2000);
-          }
-        } catch (error) {
-          console.error("Error compartiendo/copiando:", error);
-        }
-      },
-      []
-    );
-
-    const handleClearChat = useCallback(async () => {
-      if (window.confirm("¿Borrar toda la conversación?")) {
-        await vibrate(ImpactStyle.Medium);
-        startTransition(() => {
-          setMessages([]);
+  // Scroll optimizado - usa la lista virtualizada
+  const scrollToBottom = useCallback(() => {
+    requestAnimationFrame(() => {
+      if (listRef.current && messages.length > 0) {
+        listRef.current.scrollToItem(messages.length - 1, "end");
+      } else {
+        messagesEndRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "end",
         });
       }
-    }, []);
+    });
+  }, [messages.length]);
 
-    // Send message (optimizado)
-    const sendMessage = useCallback(async () => {
-      if (!input.trim() || isLoading) return;
+  useEffect(() => {
+    if (messages.length > 0) {
+      scrollToBottom();
+    }
+  }, [messages.length, scrollToBottom]);
 
-      await vibrate(ImpactStyle.Light);
+  // Autofocus removido - Los prompts inteligentes hacen que no sea necesario
+  // useEffect(() => {
+  //   if (!isActive) return;
+  //   const timer = setTimeout(() => {
+  //     inputRef.current?.focus();
+  //   }, 300);
+  //   return () => clearTimeout(timer);
+  // }, [isActive]);
 
-      const userMessage = input.trim();
-      const timestamp = Date.now();
-      const messageId = `msg-${timestamp}`;
+  const handleCopyMessage = useCallback(
+    async (index: number, content: string) => {
+      try {
+        if (isNative) {
+          await Share.share({
+            title: 'Clarity AI Insight',
+            text: content,
+            dialogTitle: 'Compartir análisis',
+          });
+        } else {
+          await navigator.clipboard.writeText(content);
+          await vibrate(ImpactStyle.Light);
+          setCopiedIndex(index);
+          setTimeout(() => setCopiedIndex(null), 2000);
+        }
+      } catch (error) {
+        console.error("Error compartiendo/copiando:", error);
+      }
+    },
+    []
+  );
 
-      // Detectar gasto directo
-      const directExpense = detectExpenseFromText(userMessage);
+  const handleClearChat = useCallback(async () => {
+    if (window.confirm("¿Borrar toda la conversación?")) {
+      await vibrate(ImpactStyle.Medium);
+      startTransition(() => {
+        setMessages([]);
+      });
+    }
+  }, []);
 
-      if (directExpense && addExpense) {
-        const matchedCategory = findBestCategory(
-          undefined,
-          directExpense.description
-        );
+  // Send message (optimizado)
+  const sendMessage = useCallback(async () => {
+    if (!input.trim() || isLoading) return;
 
-        if (matchedCategory && categories[matchedCategory]) {
-          const expenseData: ExpenseData = {
-            name: directExpense.description,
-            amount: directExpense.amount,
-            category: matchedCategory,
-            subcategory: "",
-            date: directExpense.date,
-            paymentMethod: "Tarjeta",
-            isRecurring: false,
-            recurringId: null,
+    await vibrate(ImpactStyle.Light);
+
+    const userMessage = input.trim();
+    const timestamp = Date.now();
+    const messageId = `msg-${timestamp}`;
+
+    // Detectar gasto directo
+    const directExpense = detectExpenseFromText(userMessage);
+
+    if (directExpense && addExpense) {
+      const matchedCategory = findBestCategory(
+        undefined,
+        directExpense.description
+      );
+
+      if (matchedCategory && categories[matchedCategory]) {
+        const expenseData: ExpenseData = {
+          name: directExpense.description,
+          amount: directExpense.amount,
+          category: matchedCategory,
+          subcategory: "",
+          date: directExpense.date,
+          paymentMethod: "Tarjeta",
+          isRecurring: false,
+          recurringId: null,
+        };
+
+        try {
+          await addExpense(expenseData);
+          setInput("");
+
+          const userMsg: Message = {
+            role: "user",
+            content: userMessage,
+            timestamp,
+            id: messageId,
           };
 
-          try {
-            await addExpense(expenseData);
-            setInput("");
+          const newTotal = analysis.totalThisMonth + directExpense.amount;
+          const newDailyAvg = newTotal / new Date().getDate();
 
-            const userMsg: Message = {
-              role: "user",
-              content: userMessage,
-              timestamp,
-              id: messageId,
-            };
+          const aiMsg: Message = {
+            role: "assistant",
+            content:
+              `✅ **Gasto añadido exitosamente**\n\n` +
+              `• Monto: €${directExpense.amount.toFixed(2)}\n` +
+              `• Categoría: ${matchedCategory}\n` +
+              `• Fecha: ${directExpense.date}\n\n` +
+              `📊 **Actualizado:**\n` +
+              `• Total del mes: €${newTotal.toFixed(2)}\n` +
+              `• Promedio diario: €${newDailyAvg.toFixed(2)}` +
+              (analysis.income > 0
+                ? `\n• Disponible: €${(analysis.income - newTotal).toFixed(
+                  2
+                )}`
+                : ""),
+            action: "expense_added",
+            expenseData,
+            timestamp: Date.now(),
+            id: `msg-${Date.now()}`,
+          };
 
-            const newTotal = analysis.totalThisMonth + directExpense.amount;
-            const newDailyAvg = newTotal / new Date().getDate();
+          startTransition(() => {
+            setMessages((prev) => [...prev, userMsg, aiMsg]);
+          });
 
-            const aiMsg: Message = {
-              role: "assistant",
-              content:
-                `✅ **Gasto añadido exitosamente**\n\n` +
-                `• Monto: €${directExpense.amount.toFixed(2)}\n` +
-                `• Categoría: ${matchedCategory}\n` +
-                `• Fecha: ${directExpense.date}\n\n` +
-                `📊 **Actualizado:**\n` +
-                `• Total del mes: €${newTotal.toFixed(2)}\n` +
-                `• Promedio diario: €${newDailyAvg.toFixed(2)}` +
-                (analysis.income > 0
-                  ? `\n• Disponible: €${(analysis.income - newTotal).toFixed(
-                    2
-                  )}`
-                  : ""),
-              action: "expense_added",
-              expenseData,
-              timestamp: Date.now(),
-              id: `msg-${Date.now()}`,
-            };
-
-            startTransition(() => {
-              setMessages((prev) => [...prev, userMsg, aiMsg]);
-            });
-
-            return;
-          } catch (error) {
-            console.error("Error añadiendo gasto:", error);
-          }
+          return;
+        } catch (error) {
+          console.error("Error añadiendo gasto:", error);
         }
       }
+    }
 
-      // Pregunta / Query
-      setInput("");
-      const userMsg: Message = {
-        role: "user",
-        content: userMessage,
-        timestamp,
-        id: messageId,
+    // Pregunta / Query
+    setInput("");
+    const userMsg: Message = {
+      role: "user",
+      content: userMessage,
+      timestamp,
+      id: messageId,
+    };
+
+    startTransition(() => {
+      setMessages((prev) => [...prev, userMsg]);
+    });
+
+    setIsLoading(true);
+
+    try {
+      const localResponse = processQuery(userMessage);
+
+      let finalContent = localResponse.content;
+      let finalAction = localResponse.action;
+
+      // Si debe usar API, llamar
+      if (localResponse.useAPI) {
+        try {
+          console.log("🤖 Llamando a la API de IA...");
+          const apiResponse = await callAIAssistant(
+            userMessage,
+            analysis,
+            allExpenses,
+            income,
+            budgets
+          );
+
+          finalContent = apiResponse.content;
+          finalAction = "insight";
+
+          if (apiResponse.quotas) {
+            setQuotas(apiResponse.quotas);
+          }
+
+          console.log("✅ Respuesta de IA recibida");
+        } catch (apiError: any) {
+          console.error("❌ Error de API:", apiError);
+
+          if (apiError.message?.includes("agotado")) {
+            finalContent = `⚠️ **Cuotas IA agotadas**\n\n${apiError.message}`;
+            finalAction = "warning";
+          } else {
+            finalContent =
+              `⚠️ **IA temporalmente no disponible**\n\n` +
+              `${generateSmartInsights(analysis)
+                .slice(0, 3)
+                .map((insight, i) => `${i + 1}. ${insight}`)
+                .join("\n\n")}\n\n` +
+              `*Esta respuesta no consumió tu cuota.*`;
+            finalAction = "insight";
+          }
+        }
+      } else {
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      }
+
+      const aiMessage: Message = {
+        role: "assistant",
+        content: finalContent,
+        action: finalAction as any,
+        timestamp: Date.now(),
+        id: `msg-${Date.now()}`,
       };
 
       startTransition(() => {
-        setMessages((prev) => [...prev, userMsg]);
+        setMessages((prev) => [...prev, aiMessage]);
       });
-
-      setIsLoading(true);
-
-      try {
-        const localResponse = processQuery(userMessage);
-
-        let finalContent = localResponse.content;
-        let finalAction = localResponse.action;
-
-        // Si debe usar API, llamar
-        if (localResponse.useAPI) {
-          try {
-            console.log("🤖 Llamando a la API de IA...");
-            const apiResponse = await callAIAssistant(
-              userMessage,
-              analysis,
-              allExpenses,
-              income,
-              budgets
-            );
-
-            finalContent = apiResponse.content;
-            finalAction = "insight";
-
-            if (apiResponse.quotas) {
-              setQuotas(apiResponse.quotas);
-            }
-
-            console.log("✅ Respuesta de IA recibida");
-          } catch (apiError: any) {
-            console.error("❌ Error de API:", apiError);
-
-            if (apiError.message?.includes("agotado")) {
-              finalContent = `⚠️ **Cuotas IA agotadas**\n\n${apiError.message}`;
-              finalAction = "warning";
-            } else {
-              finalContent =
-                `⚠️ **IA temporalmente no disponible**\n\n` +
-                `${generateSmartInsights(analysis)
-                  .slice(0, 3)
-                  .map((insight, i) => `${i + 1}. ${insight}`)
-                  .join("\n\n")}\n\n` +
-                `*Esta respuesta no consumió tu cuota.*`;
-              finalAction = "insight";
-            }
-          }
-        } else {
-          await new Promise((resolve) => setTimeout(resolve, 400));
-        }
-
-        const aiMessage: Message = {
-          role: "assistant",
-          content: finalContent,
-          action: finalAction as any,
-          timestamp: Date.now(),
-          id: `msg-${Date.now()}`,
-        };
-
-        startTransition(() => {
-          setMessages((prev) => [...prev, aiMessage]);
-        });
-      } catch (error) {
-        console.error("Error procesando query:", error);
-        const errorMessage: Message = {
-          role: "assistant",
-          content: "❌ Error al procesar tu pregunta. Intenta de nuevo.",
-          timestamp: Date.now(),
-          id: `msg-${Date.now()}`,
-        };
-        startTransition(() => {
-          setMessages((prev) => [...prev, errorMessage]);
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    }, [
-      input,
-      isLoading,
-      addExpense,
-      categories,
-      findBestCategory,
-      processQuery,
-      analysis,
-      allExpenses,
-      income,
-      budgets,
-      quotas,
-    ]);
-
-    const handleKeyPress = useCallback(
-      (e: React.KeyboardEvent) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-          e.preventDefault();
-          sendMessage();
-        }
-      },
-      [sendMessage]
-    );
-
-    const handleExampleClick = useCallback((question: string) => {
-      setInput(question);
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }, []);
-
-    // Altura dinámica - ultra optimizada para móvil con padding extra
-    const listHeight = useMemo(() => {
-      if (typeof window === "undefined") return 400;
-      const base = window.innerHeight;
-      // En móvil: reservar más espacio (header + input + padding extra para navegación)
-      const isMobile = window.innerWidth < 768;
-      // Añadir padding extra: 20px arriba (navegación) + 20px abajo (input)
-      const reserved = isMobile ? 180 + keyboardHeight : 260 + keyboardHeight;
-      return Math.max(isMobile ? 300 : 320, base - reserved);
-    }, [keyboardHeight]);
-
-    // Ancho del contenedor para react-window - se recalcula en resize
-    const containerRef = useRef<HTMLDivElement>(null);
-    const [listWidth, setListWidth] = useState(() => {
-      if (typeof window === "undefined") return 600;
-      // En móvil: ancho completo menos padding (px-2 = 8px cada lado = 16px total)
-      return window.innerWidth < 768 ? window.innerWidth - 16 : 600;
-    });
-
-    // Actualizar ancho cuando cambia el tamaño de la ventana o el contenedor
-    useEffect(() => {
-      const updateWidth = () => {
-        if (typeof window === "undefined" || !containerRef.current) return;
-        const containerWidth = containerRef.current.clientWidth;
-        // Usar el ancho del contenedor real
-        setListWidth(containerWidth || (window.innerWidth < 768 ? window.innerWidth - 16 : 600));
+    } catch (error) {
+      console.error("Error procesando query:", error);
+      const errorMessage: Message = {
+        role: "assistant",
+        content: "❌ Error al procesar tu pregunta. Intenta de nuevo.",
+        timestamp: Date.now(),
+        id: `msg-${Date.now()}`,
       };
+      startTransition(() => {
+        setMessages((prev) => [...prev, errorMessage]);
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [
+    input,
+    isLoading,
+    addExpense,
+    categories,
+    findBestCategory,
+    processQuery,
+    analysis,
+    allExpenses,
+    income,
+    budgets,
+    quotas,
+  ]);
 
-      // Usar ResizeObserver para detectar cambios en el contenedor
-      const resizeObserver = new ResizeObserver(updateWidth);
-      if (containerRef.current) {
-        resizeObserver.observe(containerRef.current);
+  const handleKeyPress = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
       }
+    },
+    [sendMessage]
+  );
 
-      window.addEventListener("resize", updateWidth);
-      updateWidth(); // Llamar inmediatamente
+  const handleExampleClick = useCallback((question: string) => {
+    setInput(question);
+    setTimeout(() => inputRef.current?.focus(), 100);
+  }, []);
 
-      return () => {
-        window.removeEventListener("resize", updateWidth);
-        resizeObserver.disconnect();
-      };
-    }, []);
+  // Altura dinámica - ultra optimizada para móvil con padding extra
+  const listHeight = useMemo(() => {
+    if (typeof window === "undefined") return 400;
+    const base = window.innerHeight;
+    // En móvil: reservar más espacio (header + input + padding extra para navegación)
+    const isMobile = window.innerWidth < 768;
+    // Añadir padding extra: 20px arriba (navegación) + 20px abajo (input)
+    const reserved = isMobile ? 180 + keyboardHeight : 260 + keyboardHeight;
+    return Math.max(isMobile ? 300 : 320, base - reserved);
+  }, [keyboardHeight]);
+
+  // Ancho del contenedor para react-window - se recalcula en resize
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [listWidth, setListWidth] = useState(() => {
+    if (typeof window === "undefined") return 600;
+    // En móvil: ancho completo menos padding (px-2 = 8px cada lado = 16px total)
+    return window.innerWidth < 768 ? window.innerWidth - 16 : 600;
+  });
+
+  // Actualizar ancho cuando cambia el tamaño de la ventana o el contenedor
+  useEffect(() => {
+    const updateWidth = () => {
+      if (typeof window === "undefined" || !containerRef.current) return;
+      const containerWidth = containerRef.current.clientWidth;
+      // Usar el ancho del contenedor real
+      setListWidth(containerWidth || (window.innerWidth < 768 ? window.innerWidth - 16 : 600));
+    };
+
+    // Usar ResizeObserver para detectar cambios en el contenedor
+    const resizeObserver = new ResizeObserver(updateWidth);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+
+    window.addEventListener("resize", updateWidth);
+    updateWidth(); // Llamar inmediatamente
+
+    return () => {
+      window.removeEventListener("resize", updateWidth);
+      resizeObserver.disconnect();
+    };
+  }, []);
 
 
-    return (
-      <div
-        className="flex flex-col w-full"
-        style={{
-          minHeight: 320,
-          maxHeight: "80vh",
-          height: "100%",
-          paddingTop: "10px",
-          paddingBottom: "10px",
-        }}
-      >
-        {/* Header - ultra compacto en móvil */}
-        <div className="flex items-center justify-between mb-1.5 md:mb-3 px-0.5 md:px-2">
-          <div className="flex items-center gap-1 md:gap-3 flex-1 min-w-0">
-            <div
-              className={`p-1 md:p-2 rounded-lg flex-shrink-0 ${darkMode ? "bg-purple-500/20" : "bg-purple-100"
-                }`}
-            >
-              <Sparkles className="w-4 h-4 md:w-6 md:h-6 text-purple-500 animate-pulse" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h3 className={`text-xs md:text-base font-bold truncate ${textClass}`}>
-                Asistente IA 🧠
-              </h3>
-              <p className={`text-[9px] md:text-xs truncate ${textSecondaryClass}`}>
-                Powered by DeepSeek
-              </p>
-            </div>
-
-            {/* Badge de cuotas - más compacto en móvil */}
-            {quotas && (
-              <div className="flex-shrink-0">
-                <QuotasBadge quotas={quotas} darkMode={darkMode} />
-              </div>
-            )}
-
-            {messages.length > 0 && (
-              <span
-                className={`text-[9px] md:text-xs ${textSecondaryClass} px-1.5 md:px-2 py-0.5 md:py-1 rounded-full flex-shrink-0 ${darkMode ? "bg-gray-700" : "bg-gray-100"
-                  }`}
-              >
-                {messages.length}
-              </span>
-            )}
+  return (
+    <div
+      className="flex flex-col w-full"
+      style={{
+        minHeight: 320,
+        maxHeight: "80vh",
+        height: "100%",
+      }}
+    >
+      {/* Header - ultra compacto en móvil */}
+      <div className="flex items-center justify-between mb-1.5 md:mb-3 px-0.5 md:px-2">
+        <div className="flex items-center gap-1 md:gap-3 flex-1 min-w-0">
+          <div
+            className={`p-1 md:p-2 rounded-lg flex-shrink-0 ${darkMode ? "bg-purple-500/20" : "bg-purple-100"
+              }`}
+          >
+            <Sparkles className="w-4 h-4 md:w-6 md:h-6 text-purple-500 animate-pulse" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className={`text-xs md:text-base font-bold truncate ${textClass}`}>
+              Asistente IA 🧠
+            </h3>
+            <p className={`text-[9px] md:text-xs truncate ${textSecondaryClass}`}>
+              Powered by DeepSeek
+            </p>
           </div>
 
+          {/* Badge de cuotas - más compacto en móvil */}
+          {quotas && (
+            <div className="flex-shrink-0">
+              <QuotasBadge quotas={quotas} darkMode={darkMode} />
+            </div>
+          )}
+
           {messages.length > 0 && (
-            <button
-              onClick={handleClearChat}
-              className={`p-1 md:p-2 rounded-lg transition-all min-h-[32px] min-w-[32px] md:min-h-[44px] md:min-w-[44px] flex items-center justify-center active:scale-95 flex-shrink-0 ${darkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
+            <span
+              className={`text-[9px] md:text-xs ${textSecondaryClass} px-1.5 md:px-2 py-0.5 md:py-1 rounded-full flex-shrink-0 ${darkMode ? "bg-gray-700" : "bg-gray-100"
                 }`}
-              title="Limpiar chat"
-              aria-label="Limpiar conversación"
             >
-              <Trash2 className="w-3 h-3 md:w-4 md:h-4 text-red-500" />
-            </button>
+              {messages.length}
+            </span>
           )}
         </div>
 
-        {/* Alerta de cuotas agotadas - compacta en móvil */}
-        {quotas && !quotas.unlimited && quotas.remaining === 0 && (
-          <div
-            className={`mb-2 md:mb-3 p-2.5 md:p-4 rounded-lg md:rounded-xl border ${darkMode
-              ? "bg-red-900/20 border-red-500/30"
-              : "bg-red-50 border-red-200"
+        {messages.length > 0 && (
+          <button
+            onClick={handleClearChat}
+            className={`p-1 md:p-2 rounded-lg transition-all min-h-[32px] min-w-[32px] md:min-h-[44px] md:min-w-[44px] flex items-center justify-center active:scale-95 flex-shrink-0 ${darkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
               }`}
+            title="Limpiar chat"
+            aria-label="Limpiar conversación"
           >
-            <div className="flex items-center gap-1.5 md:gap-2 mb-1 md:mb-2">
-              <AlertCircle className="w-4 h-4 md:w-5 md:h-5 text-red-500 flex-shrink-0" />
-              <p className="text-xs md:text-sm font-bold text-red-500">
-                Cuotas IA agotadas
-              </p>
-            </div>
-            <p className="text-[10px] md:text-xs text-gray-600 dark:text-gray-400">
-              Has usado tus {quotas.total} consultas mensuales.
-            </p>
-            {(!quotas.plan || quotas.plan === "free") && (
-              <p className="text-[10px] md:text-xs text-purple-600 dark:text-purple-400 mt-1.5 md:mt-2 font-semibold">
-                💡 Actualiza a Pro para 50 consultas/mes
-              </p>
-            )}
-          </div>
+            <Trash2 className="w-3 h-3 md:w-4 md:h-4 text-red-500" />
+          </button>
         )}
+      </div>
 
-        {/* Contenedor de mensajes - ultra optimizado para móvil con padding extra */}
+      {/* Alerta de cuotas agotadas - compacta en móvil */}
+      {quotas && !quotas.unlimited && quotas.remaining === 0 && (
         <div
-          ref={containerRef}
-          className={`flex-1 rounded-lg md:rounded-xl border mb-2 md:mb-4 transition-all ${darkMode
-            ? "bg-gray-800/50 border-gray-700"
-            : "bg-white border-gray-200 shadow-sm"
-            } overflow-hidden flex flex-col`}
-          style={{
-            height: listHeight,
-            maxHeight: listHeight,
-            minHeight: "280px",
-            paddingTop: "20px",
-            paddingBottom: "20px",
-          }}
+          className={`mb-2 md:mb-3 p-2.5 md:p-4 rounded-lg md:rounded-xl border ${darkMode
+            ? "bg-red-900/20 border-red-500/30"
+            : "bg-red-50 border-red-200"
+            }`}
         >
-          {messages.length === 0 ? (
-            <div
-              className="flex-1 overflow-y-auto px-2 md:px-4 py-2 md:py-4"
+          <div className="flex items-center gap-1.5 md:gap-2 mb-1 md:mb-2">
+            <AlertCircle className="w-4 h-4 md:w-5 md:h-5 text-red-500 flex-shrink-0" />
+            <p className="text-xs md:text-sm font-bold text-red-500">
+              Cuotas IA agotadas
+            </p>
+          </div>
+          <p className="text-[10px] md:text-xs text-gray-600 dark:text-gray-400">
+            Has usado tus {quotas.total} consultas mensuales.
+          </p>
+          {(!quotas.plan || quotas.plan === "free") && (
+            <p className="text-[10px] md:text-xs text-purple-600 dark:text-purple-400 mt-1.5 md:mt-2 font-semibold">
+              💡 Actualiza a Pro para 50 consultas/mes
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Contenedor de mensajes - ultra optimizado para móvil con padding extra */}
+      <div
+        ref={containerRef}
+        className={`flex-1 rounded-lg md:rounded-xl border mb-2 md:mb-4 transition-all ${darkMode
+          ? "bg-gray-800/50 border-gray-700"
+          : "bg-white border-gray-200 shadow-sm"
+          } overflow-hidden flex flex-col`}
+        style={{
+          height: listHeight,
+          maxHeight: listHeight,
+          minHeight: "280px",
+          height: listHeight,
+          maxHeight: listHeight,
+          minHeight: "280px",
+        }}
+      >
+        {messages.length === 0 ? (
+          <div
+            className="flex-1 overflow-y-auto px-2 md:px-4 py-2 md:py-4"
+            style={{
+              WebkitOverflowScrolling: "touch",
+              overscrollBehavior: "contain",
+            }}
+          >
+            <WelcomeScreen
+              textClass={textClass}
+              textSecondaryClass={textSecondaryClass}
+              darkMode={darkMode}
+              onExampleClick={handleExampleClick}
+              smartPrompts={smartPrompts}
+              insights={insights}
+            />
+          </div>
+        ) : (
+          <div className="flex-1 px-2 md:px-4 py-2 md:py-4">
+            <List
+              ref={listRef}
+              height={listHeight - 20}
+              itemCount={messages.length + (isLoading ? 1 : 0)}
+              itemSize={ITEM_HEIGHT}
+              width={listWidth - 16}
+              overscanCount={3}
               style={{
                 WebkitOverflowScrolling: "touch",
                 overscrollBehavior: "contain",
-                paddingTop: "10px",
-                paddingBottom: "10px",
               }}
             >
-              <WelcomeScreen
-                textClass={textClass}
-                textSecondaryClass={textSecondaryClass}
-                darkMode={darkMode}
-                onExampleClick={handleExampleClick}
-                smartPrompts={smartPrompts}
-                insights={insights}
-              />
-            </div>
-          ) : (
-            <div className="flex-1 px-2 md:px-4 py-2 md:py-4">
-              <List
-                ref={listRef}
-                height={listHeight - 20}
-                itemCount={messages.length + (isLoading ? 1 : 0)}
-                itemSize={ITEM_HEIGHT}
-                width={listWidth - 16}
-                overscanCount={3}
-                style={{
-                  WebkitOverflowScrolling: "touch",
-                  overscrollBehavior: "contain",
-                }}
-              >
-                {({ index, style }) => {
-                  // Si es el último mensaje y está cargando, mostrar indicador
-                  if (isLoading && index === messages.length) {
-                    return (
-                      <div style={style}>
-                        <div className="flex justify-start group mb-3">
-                          <div
-                            className={`max-w-[85%] md:max-w-[80%] rounded-xl md:rounded-2xl px-3 md:px-4 py-2 md:py-3 relative transition-all ${darkMode
-                              ? "bg-gray-700 text-gray-100"
-                              : "bg-gray-100 text-gray-900"
-                              }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <div className="flex gap-1">
-                                {[0, 150, 300].map((delay, i) => (
-                                  <div
-                                    key={i}
-                                    className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"
-                                    style={{ animationDelay: `${delay}ms` }}
-                                  />
-                                ))}
-                              </div>
-                              <span className="text-xs md:text-sm text-gray-500 dark:text-gray-400 font-medium animate-pulse">
-                                Analizando {allExpenses?.length || 0} movimientos...
-                              </span>
+              {({ index, style }) => {
+                // Si es el último mensaje y está cargando, mostrar indicador
+                if (isLoading && index === messages.length) {
+                  return (
+                    <div style={style}>
+                      <div className="flex justify-start group mb-3">
+                        <div
+                          className={`max-w-[85%] md:max-w-[80%] rounded-xl md:rounded-2xl px-3 md:px-4 py-2 md:py-3 relative transition-all ${darkMode
+                            ? "bg-gray-700 text-gray-100"
+                            : "bg-gray-100 text-gray-900"
+                            }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="flex gap-1">
+                              {[0, 150, 300].map((delay, i) => (
+                                <div
+                                  key={i}
+                                  className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"
+                                  style={{ animationDelay: `${delay}ms` }}
+                                />
+                              ))}
                             </div>
+                            <span className="text-xs md:text-sm text-gray-500 dark:text-gray-400 font-medium animate-pulse">
+                              Analizando {allExpenses?.length || 0} movimientos...
+                            </span>
                           </div>
                         </div>
                       </div>
-                    );
-                  }
-                  // Mensaje normal
-                  const message = messages[index];
-                  if (!message) return null;
-                  return (
-                    <div style={style}>
-                      <MessageBubble
-                        message={message}
-                        darkMode={darkMode}
-                        onCopy={() => handleCopyMessage(index, message.content)}
-                        copied={copiedIndex === index}
-                      />
                     </div>
                   );
-                }}
-              </List>
-            </div>
-          )}
-        </div>
-
-        {/* Input Area - ultra compacto en móvil */}
-        <div className="pb-0.5 md:pb-2">
-          <div className="flex gap-1 md:gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={handleInputChange}
-              onKeyPress={handleKeyPress}
-              placeholder="Pregúntame sobre tus gastos..."
-              disabled={isLoading || isPending}
-              className={`flex-1 px-2.5 md:px-4 py-2 md:py-3 rounded-lg md:rounded-xl border focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all text-xs md:text-base min-h-[44px] ${darkMode
-                ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-                : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-            />
-
-            <button
-              onClick={toggleListening}
-              disabled={isLoading || isPending}
-              className={`px-2.5 md:px-4 py-2 md:py-3 rounded-lg md:rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center active:scale-95 flex-shrink-0 ${isListening
-                ? "bg-red-500 text-white shadow-lg shadow-red-500/50 animate-pulse"
-                : darkMode
-                  ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              aria-label={
-                isListening ? "Detener grabación" : "Iniciar grabación de voz"
-              }
-            >
-              {isListening ? (
-                <MicOff className="w-4 h-4 md:w-5 md:h-5" />
-              ) : (
-                <Mic className="w-4 h-4 md:w-5 md:h-5" />
-              )}
-            </button>
-
-            <button
-              onClick={sendMessage}
-              disabled={!input.trim() || isLoading || isPending}
-              className="px-3 md:px-6 py-2 md:py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg md:rounded-xl hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all min-h-[44px] flex items-center justify-center active:scale-95 shadow-lg shadow-purple-500/20 flex-shrink-0"
-              aria-label="Enviar mensaje"
-            >
-              {isLoading ? (
-                <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" />
-              ) : (
-                <Send className="w-4 h-4 md:w-5 md:h-5" />
-              )}
-            </button>
+                }
+                // Mensaje normal
+                const message = messages[index];
+                if (!message) return null;
+                return (
+                  <div style={style}>
+                    <MessageBubble
+                      message={message}
+                      darkMode={darkMode}
+                      onCopy={() => handleCopyMessage(index, message.content)}
+                      copied={copiedIndex === index}
+                    />
+                  </div>
+                );
+              }}
+            </List>
           </div>
+        )}
+      </div>
+
+      {/* Input Area - ultra compacto en móvil */}
+      <div className="pb-0.5 md:pb-2">
+        <div className="flex gap-1 md:gap-2">
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={handleInputChange}
+            onKeyPress={handleKeyPress}
+            placeholder="Pregúntame sobre tus gastos..."
+            disabled={isLoading || isPending}
+            className={`flex-1 px-2.5 md:px-4 py-2 md:py-3 rounded-lg md:rounded-xl border focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all text-xs md:text-base min-h-[44px] ${darkMode
+              ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+              : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+          />
+
+          <button
+            onClick={toggleListening}
+            disabled={isLoading || isPending}
+            className={`px-2.5 md:px-4 py-2 md:py-3 rounded-lg md:rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center active:scale-95 flex-shrink-0 ${isListening
+              ? "bg-red-500 text-white shadow-lg shadow-red-500/50 animate-pulse"
+              : darkMode
+                ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            aria-label={
+              isListening ? "Detener grabación" : "Iniciar grabación de voz"
+            }
+          >
+            {isListening ? (
+              <MicOff className="w-4 h-4 md:w-5 md:h-5" />
+            ) : (
+              <Mic className="w-4 h-4 md:w-5 md:h-5" />
+            )}
+          </button>
+
+          <button
+            onClick={sendMessage}
+            disabled={!input.trim() || isLoading || isPending}
+            className="px-3 md:px-6 py-2 md:py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg md:rounded-xl hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all min-h-[44px] flex items-center justify-center active:scale-95 shadow-lg shadow-purple-500/20 flex-shrink-0"
+            aria-label="Enviar mensaje"
+          >
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4 md:w-5 md:h-5" />
+            )}
+          </button>
         </div>
       </div>
-    );
-  },
-  (prev, next) => {
-    return (
-      prev.darkMode === next.darkMode &&
-      prev.isActive === next.isActive &&
-      prev.categories === next.categories &&
-      prev.allExpenses === next.allExpenses &&
-      prev.income === next.income
-    );
-  }
+    </div>
+  );
+},
+(prev, next) => {
+  return (
+    prev.darkMode === next.darkMode &&
+    prev.isActive === next.isActive &&
+    prev.categories === next.categories &&
+    prev.allExpenses === next.allExpenses &&
+    prev.income === next.income
+  );
+}
 );
 
 AIAssistant.displayName = "AIAssistant";
