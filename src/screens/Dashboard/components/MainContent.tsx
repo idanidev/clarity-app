@@ -712,13 +712,13 @@ const MainContent = memo<MainContentProps>(
             >
               <button
                 onClick={onToggleFilters}
-                className={`p-4 rounded-full shadow-2xl backdrop-blur-xl border transition-all active:scale-95 ${showFilters
+                className={`p-4 rounded-full shadow-2xl border transition-all active:scale-95 ${showFilters
                   ? darkMode
-                    ? "bg-purple-600/25 border-purple-500/40 text-white"
-                    : "bg-purple-600/25 border-purple-400/40 text-white"
+                    ? "bg-purple-600 border-purple-500/40 text-white"
+                    : "bg-purple-600 border-purple-400/40 text-white"
                   : darkMode
-                    ? "bg-gray-800/25 backdrop-blur-xl border-gray-700/40 text-gray-300"
-                    : "bg-white/25 backdrop-blur-xl border-white/40 text-purple-600"
+                    ? "bg-gray-800 border-gray-700/40 text-gray-300"
+                    : "bg-white border-gray-200/40 text-purple-600"
                   }`}
               >
                 <Filter className="w-5 h-5" />
@@ -726,17 +726,7 @@ const MainContent = memo<MainContentProps>(
             </div>
           )}
 
-          {/* Botón de añadir gasto por voz - Solo en móvil, NO en la vista del asistente IA */}
-          {activeView !== "assistant" && (
-            <VoiceExpenseButton
-              darkMode={darkMode}
-              categories={Object.keys(categories)}
-              onAddExpense={onAddExpenseFromAI}
-              showNotification={showNotification}
-              hasFilterButton={activeView === "table" || activeView === "chart"}
-              voiceSettings={voiceSettings}
-            />
-          )}
+          {/* ✅ Botón de voz ahora está en el navbar - No se necesita flotante */}
           {/* Panel de filtros avanzados para móvil - Bottom sheet style */}
           {showFilters &&
             (activeView === "table" || activeView === "chart") && (
@@ -2217,17 +2207,37 @@ const MainContent = memo<MainContentProps>(
                 )}
               </button>
 
-              <button
-                onClick={() => {
-                  lightImpact();
-                  onAddExpenseClick();
-                }}
-                className="navbar-button flex items-center justify-center p-2 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg transition-all active:scale-95 -mt-2 z-10"
-                style={{ WebkitTapHighlightColor: "transparent" }}
-              >
-                <Plus className="w-6 h-6" />
-              </button>
+              {/* ✅ Botones de acción centrales - Bien centrados */}
+              <div className="flex items-center gap-2 justify-center">
+                {/* Botón manual (+) */}
+                <button
+                  onClick={() => {
+                    lightImpact();
+                    onAddExpenseClick();
+                  }}
+                  className="navbar-button flex items-center justify-center p-3 rounded-xl bg-gradient-to-br from-purple-600 via-purple-500 to-blue-600 text-white shadow-lg hover:shadow-xl transition-all active:scale-95 hover:scale-105"
+                  style={{
+                    WebkitTapHighlightColor: "transparent",
+                    boxShadow: "0 4px 16px rgba(139, 92, 246, 0.4)"
+                  }}
+                  aria-label="Añadir gasto manual"
+                >
+                  <Plus className="w-6 h-6" strokeWidth={2.5} />
+                </button>
 
+                {/* Botón de voz (mic) */}
+                <VoiceExpenseButton
+                  darkMode={darkMode}
+                  categories={Object.keys(categories)}
+                  onAddExpense={onAddExpenseFromAI}
+                  showNotification={showNotification}
+                  hasFilterButton={false}
+                  voiceSettings={voiceSettings}
+                  isNavbarButton={true}
+                />
+              </div>
+
+              {/* Asistente IA */}
               <button
                 onClick={() => handleViewChange("assistant")}
                 disabled={isPending}

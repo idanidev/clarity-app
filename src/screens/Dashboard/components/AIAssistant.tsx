@@ -2593,14 +2593,14 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
         {/* Contenedor de mensajes - ultra optimizado para móvil con padding extra */}
         <div
           ref={containerRef}
-          className={`flex-1 rounded-lg md:rounded-xl border mb-2 md:mb-4 transition-all ${darkMode
+          className={`flex-1 rounded-lg md:rounded-xl border mb-2 md:mb-3 transition-all ${darkMode
             ? "bg-gray-800/50 border-gray-700"
             : "bg-white border-gray-200 shadow-sm"
             } overflow-hidden flex flex-col`}
           style={{
             height: listHeight,
             maxHeight: listHeight,
-            minHeight: "280px",
+            minHeight: "320px", // ✅ Aumentado de 280px a 320px
           }}
         >
           {messages.length === 0 ? (

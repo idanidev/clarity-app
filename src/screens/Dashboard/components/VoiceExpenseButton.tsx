@@ -70,6 +70,7 @@ interface VoiceExpenseButtonProps {
   hasFilterButton?: boolean;
   categories?: string[];
   voiceSettings?: VoiceSettings;
+  isNavbarButton?: boolean; // ✅ Modo navbar
 }
 
 const VoiceExpenseButton = ({
@@ -79,6 +80,7 @@ const VoiceExpenseButton = ({
   hasFilterButton = false,
   categories = [],
   voiceSettings = DEFAULT_VOICE_SETTINGS,
+  isNavbarButton = false, // ✅ Default: modo flotante
 }: VoiceExpenseButtonProps) => {
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -742,6 +744,69 @@ const VoiceExpenseButton = ({
   }
 
 
+
+  // ✅ Renderizado condicional: navbar vs flotante
+  if (isNavbarButton) {
+    // Modo NAVBAR: compacto, solo icono (igual que botón manual)
+    return (
+      <>
+        {/* Efecto Siri: borde morado que rodea la pantalla */}
+        {isListening && (
+          <>
+            <div
+              className="fixed inset-0 pointer-events-none z-50"
+              style={{
+                border: "4px solid transparent",
+                borderImage: "linear-gradient(135deg, #667eea, #764ba2, #f093fb, #667eea) 1",
+                animation: "siri-pulse 2s ease-in-out infinite",
+              }}
+            />
+            <style>{`
+              @keyframes siri-pulse {
+                0%, 100% {
+                  border-image: linear-gradient(135deg, #667eea, #764ba2, #f093fb, #667eea) 1;
+                  opacity: 0.7;
+                }
+                50% {
+                  border-image: linear-gradient(135deg, #f093fb, #667eea, #764ba2, #f093fb) 1;
+                  opacity: 1;
+                }
+              }
+            `}</style>
+          </>
+        )}
+
+        <button
+          onClick={toggleListening}
+          disabled={isProcessing}
+          className={`navbar-button flex items-center justify-center p-3 rounded-xl transition-all ${isListening
+            ? "bg-gradient-to-br from-pink-600 via-purple-600 to-pink-600 text-white shadow-2xl scale-110 animate-pulse"
+            : darkMode
+              ? "bg-gradient-to-br from-purple-600/30 via-pink-600/30 to-purple-600/30 text-purple-300 hover:from-purple-600/40 hover:via-pink-600/40 hover:to-purple-600/40 shadow-xl hover:shadow-2xl hover:scale-105"
+              : "bg-gradient-to-br from-purple-500 via-pink-500 to-purple-500 text-white shadow-xl hover:shadow-2xl hover:scale-105"
+            }`}
+          style={{
+            WebkitTapHighlightColor: "transparent",
+            boxShadow: isListening
+              ? "0 8px 32px rgba(236, 72, 153, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.2)"
+              : darkMode
+                ? "0 8px 24px rgba(139, 92, 246, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1)"
+                : "0 8px 24px rgba(236, 72, 153, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1)"
+          }}
+          title={isListening ? "Detener grabación" : "Añadir por voz"}
+          aria-label={isListening ? "Detener grabación" : "Añadir por voz"}
+        >
+          {isListening ? (
+            <MicOff className="w-6 h-6 animate-pulse" strokeWidth={2.5} />
+          ) : (
+            <Mic className="w-6 h-6" strokeWidth={2.5} />
+          )}
+        </button>
+      </>
+    );
+  }
+
+  // Modo FLOTANTE: FAB original
   return (
     <>
       {/* Botón flotante - Premium iOS Style */}

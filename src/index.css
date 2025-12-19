@@ -121,11 +121,14 @@ body {
   padding: 0;
   width: 100%;
   height: 100%; /* Force height */
+  min-height: 100vh;
+  min-height: -webkit-fill-available; /* iOS fix */
   position: fixed; /* CRITICAL: This kills the bounce */
   overflow: hidden; /* Lock internal scroll */
   background-color: #0f172a !important;
   color: #f3f4f6;
-  padding-top: env(safe-area-inset-top, 0);
+  /* ✅ Extend background to safe areas - NO black gaps */
+  padding-top: 0; /* Remove padding, let children handle it */
   overscroll-behavior: none;
 }
 
