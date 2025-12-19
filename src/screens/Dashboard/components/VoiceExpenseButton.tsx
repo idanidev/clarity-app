@@ -27,7 +27,7 @@ export const DEFAULT_VOICE_SETTINGS: VoiceSettings = {
   autoConfirm: true,
   vibration: true,
   showSuggestions: true,
-  silenceTimeout: 5000, // Increased to 5 seconds for better UX
+  silenceTimeout: 10000, // 10 segundos - duplicado para más tiempo
 };
 
 // ============================================
@@ -250,27 +250,50 @@ const VoiceExpenseButton = ({
       };
 
       recognition.onerror = (event: any) => {
-        console.error("[Voice] Web Speech error:", event.error);
+        console.log("[Voice] Web Speech error:", event.error);
+
+        // Ignorar errores de no-speech y aborted - no cerramos el modal
+        if (event.error === "no-speech" || event.error === "aborted") {
+          console.log("[Voice] Ignorando error:", event.error);
+          return; // NO cerramos, el usuario debe detener manualmente
+        }
+
+        // Solo cerrar para errores reales
         if (event.error === "not-allowed") {
           showNotification?.("❌ Permiso de micrófono denegado", "error");
-        } else if (event.error !== "no-speech" && event.error !== "aborted") {
-          showNotification?.(`❌ Error:${event.error} `, "error");
+          stopRecording();
+        } else {
+          showNotification?.(`❌ Error: ${event.error}`, "error");
+          stopRecording();
         }
-        stopRecording();
       };
 
       recognition.onend = () => {
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-        setIsListening(false);
 
-        // Process accumulated transcript when recording ends
-        setTranscript((prev) => {
-          const finalText = (prev + " " + interimTranscript).trim();
-          if (finalText) {
-            processTranscript(finalText);
+        console.log("[Voice] Recognition ended");
+
+        // Solo procesar si hay texto acumulado
+        const currentTranscript = transcript.trim();
+        const currentInterim = interimTranscript.trim();
+        const finalText = (currentTranscript + " " + currentInterim).trim();
+
+        if (finalText) {
+          console.log("[Voice] Processing final text:", finalText);
+          setIsListening(false); // Parar para procesar
+          processTranscript(finalText);
+        } else {
+          console.log("[Voice] No text yet, restarting recognition to keep modal open");
+          // No hay texto aún, reiniciar el reconocimiento para mantener modal abierto
+          // El usuario debe pulsar "Detener" manualmente
+          try {
+            if (isListening && recognitionRef.current) {
+              recognitionRef.current.start();
+            }
+          } catch (e) {
+            console.log("[Voice] Recognition already running or error:", e);
           }
-          return finalText;
-        });
+        }
       };
 
       recognitionRef.current = recognition;
@@ -938,15 +961,22 @@ const VoiceExpenseButton = ({
                 )}
               </div>
 
-              <button
-                onClick={toggleListening}
-                className={`w-full py-3 rounded-xl font-medium transition-colors ${darkMode
-                  ? "bg-red-600 hover:bg-red-700 text-white"
-                  : "bg-red-500 hover:bg-red-600 text-white"
-                  } `}
-              >
-                Detener
-              </button>
+              {/* Botón de detener - Grande y visible */}
+              {!isProcessing && (
+                <button
+                  onClick={stopRecording}
+                  className={`w-full py-4 rounded-2xl font-semibold
+                    transition-all duration-300
+                    transform hover:scale-[1.02] active:scale-[0.98]
+                    ${darkMode
+                      ? "bg-red-600/20 hover:bg-red-600/30 text-red-400 border-2 border-red-500/40"
+                      : "bg-red-500/20 hover:bg-red-500/30 text-red-600 border-2 border-red-500/40"
+                    }
+                    backdrop-blur-xl`}
+                >
+                  🛑 Detener grabación
+                </button>
+              )}
             </div>
           </div>
         </div>
