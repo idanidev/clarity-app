@@ -22,7 +22,7 @@ import {
   Target,
   // UtensilsCrossed,
   X,
-} from "lucide-react";
+} from "@/components/icons";
 import BottomSheet from "../../../components/BottomSheet";
 import {
   memo,
@@ -50,6 +50,7 @@ import VoiceExpenseButton from "./VoiceExpenseButton.tsx";
 import FinancialSummaryWidget from "../../../components/FinancialSummaryWidget";
 import TransactionList from "./TransactionList";
 import { useHaptics } from "../../../hooks/useHaptics";
+import { useHapticFeedback } from "../../../hooks/useHapticFeedback";
 
 // ============================================
 // TYPES & INTERFACES
@@ -275,6 +276,7 @@ const MainContent = memo<MainContentProps>(
     const { t } = useTranslation();
     const [isMobile, setIsMobile] = useState(false);
     const { lightImpact } = useHaptics();
+    const haptic = useHapticFeedback();
 
     // Estado para visibilidad de la navbar (UX tipo X/Twitter)
     const [isNavBarVisible, setIsNavBarVisible] = useState(true);
@@ -326,7 +328,15 @@ const MainContent = memo<MainContentProps>(
       if (pullChange >= refreshThreshold && onRefresh) {
         setIsRefreshing(true);
         setPullChange(refreshThreshold); // Mantener en posición de carga
+
+        // Feedback háptico al soltar para refresh
+        haptic.light();
+
         await onRefresh();
+
+        // Feedback háptico de éxito
+        haptic.success();
+
         setIsRefreshing(false);
       }
 

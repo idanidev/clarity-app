@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Search, Wallet } from "lucide-react";
+import { ChevronDown, ChevronUp, Search, Wallet } from "@/components/icons";
 import { Expense } from "../../../types";
 import ExpenseCard from "./ExpenseCard";
 import { formatCurrency } from "../../../utils/currency"; // Check path

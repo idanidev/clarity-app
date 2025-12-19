@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Lock, Mail } from "lucide-react";
+import { Lock, Mail } from "@/components/icons";
 import { useState, FormEvent } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { useFormValidation } from "../../hooks/useFormValidation";

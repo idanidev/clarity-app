@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Fingerprint } from "lucide-react";
+import { Fingerprint } from "@/components/icons";
 import { useState } from "react";
 import { useAuth } from "../../../hooks/useAuth";
 

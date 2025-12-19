@@ -10,7 +10,7 @@ import {
   Target,
   WifiOff,
   FolderOpen,
-} from "lucide-react";
+} from "@/components/icons";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation } from "../../../contexts/LanguageContext";
 import FinancialSummaryWidget from "../../../components/FinancialSummaryWidget";

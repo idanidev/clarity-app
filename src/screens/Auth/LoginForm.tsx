@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ArrowRight, Lock, Mail, Fingerprint } from "lucide-react";
+import { ArrowRight, Lock, Mail, Fingerprint } from "@/components/icons";
 import { useState, useEffect, FormEvent } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { useFormValidation } from "../../hooks/useFormValidation";

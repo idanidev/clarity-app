@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Bell, DollarSign, Globe, Moon, Sun, X, Calendar, RotateCcw, Mic, Shield, CheckCircle2, AlertCircle, ChevronRight } from "lucide-react";
+import { Bell, DollarSign, Globe, Moon, Sun, X, Calendar, RotateCcw, Mic, Shield, CheckCircle2, AlertCircle, ChevronRight } from "@/components/icons";
 import { useLanguage, useTranslation } from "../../../contexts/LanguageContext";
 // @ts-ignore - No hay tipos para este módulo JS
 import { restoreCategoriesFromExpenses } from "../../../services/firestoreService";

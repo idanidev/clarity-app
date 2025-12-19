@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Fingerprint, Smartphone, X } from "lucide-react";
+import { Check, Fingerprint, Smartphone, X } from "@/components/icons";
 import { useState } from "react";
 import { useAuth } from "../../../hooks/useAuth";
 

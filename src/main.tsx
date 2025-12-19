@@ -18,13 +18,13 @@ if (Capacitor.isNativePlatform()) {
 if (typeof window !== "undefined") {
   let viewport = document.querySelector('meta[name="viewport"]');
   const originalContent = viewport?.getAttribute("content") || "width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes";
-  
+
   const resetViewport = () => {
     if (viewport) {
       viewport.setAttribute("content", originalContent);
     }
   };
-  
+
   // Detectar cuando un input/textarea pierde el foco
   document.addEventListener("focusout", (e) => {
     const target = e.target as HTMLElement;
@@ -37,7 +37,7 @@ if (typeof window !== "undefined") {
       }, 100);
     }
   }, true);
-  
+
   // También resetear cuando se hace scroll (el usuario puede hacer zoom manual)
   let scrollTimeout: NodeJS.Timeout;
   window.addEventListener("scroll", () => {
@@ -119,16 +119,20 @@ if ("serviceWorker" in navigator && typeof window !== "undefined") {
   };
 
   window.addEventListener("load", registerServiceWorker);
-  
+
   // También intentar registrar inmediatamente si el DOM ya está listo
   if (document.readyState === "complete" || document.readyState === "interactive") {
     registerServiceWorker();
   }
 }
 
+import ErrorBoundary from "./components/ErrorBoundary";
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary level="global">
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>
 );
 

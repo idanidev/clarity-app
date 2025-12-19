@@ -11,7 +11,7 @@ import {
     XAxis,
     YAxis,
 } from "recharts";
-import { AlertTriangle, ChevronDown, ChevronUp, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp, X } from "@/components/icons";
 import { formatCurrency } from "../../../utils/currency";
 // @ts-ignore
 import { getCategoryColor } from "../../../services/firestoreService";

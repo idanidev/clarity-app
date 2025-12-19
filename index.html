@@ -1,39 +1,45 @@
 <!DOCTYPE html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/icon-192.png" />
-    <!-- Viewport con safe areas -->
-    <meta 
-      name="viewport" 
-      content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" 
-    />
-    <meta name="description"
-      content="Clarity - Gestor de gastos personales con estilo" />
 
-    <!-- PWA Meta Tags -->
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Clarity" />
-    <link rel="apple-touch-icon" href="/icon-192.png" />
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="/icon-192.png" />
+  <!-- Viewport con safe areas -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+  <meta name="description" content="Clarity - Gestor de gastos personales con estilo" />
 
-    <!-- ✅ CRÍTICO: Theme color NEGRO -->
-    <meta name="theme-color" content="#0f172a" />
+  <!-- PWA Meta Tags -->
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Clarity" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
 
-    <title>Clarity - Gestor de Gastos</title>
+  <!-- ✅ CRÍTICO: Theme color NEGRO -->
+  <meta name="theme-color" content="#0f172a" />
 
-    <!-- ✅ CSS inline para forzar fondo negro INMEDIATAMENTE -->
-    <style>
-      html, body {
-        background-color: #0f172a !important;
-        margin: 0;
-        padding: 0;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+  <!-- Performance Hints -->
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin>
+  <link rel="dns-prefetch" href="https://firebasestorage.googleapis.com">
+  <link rel="modulepreload" href="/src/main.tsx">
+
+  <title>Clarity - Gestor de Gastos</title>
+
+  <!-- ✅ CSS inline para forzar fondo negro INMEDIATAMENTE -->
+  <style>
+    html,
+    body {
+      background-color: #0f172a !important;
+      margin: 0;
+      padding: 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
 </html>

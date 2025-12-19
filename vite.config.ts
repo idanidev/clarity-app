@@ -3,6 +3,8 @@ import { dirname, resolve } from 'path'
 import { fileURLToPath } from 'url'
 import { defineConfig, loadEnv } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import viteCompression from 'vite-plugin-compression'
+import { visualizer } from 'rollup-plugin-visualizer'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -46,7 +48,7 @@ export default defineConfig(({ mode }) => {
                 cacheName: 'google-fonts-cache',
                 expiration: {
                   maxEntries: 10,
-                  maxAgeSeconds: 60 * 60 * 24 * 365 // <== 365 days
+                  maxAgeSeconds: 60 * 60 * 24 * 365
                 },
                 cacheableResponse: {
                   statuses: [0, 200]
@@ -60,7 +62,7 @@ export default defineConfig(({ mode }) => {
                 cacheName: 'gstatic-fonts-cache',
                 expiration: {
                   maxEntries: 10,
-                  maxAgeSeconds: 60 * 60 * 24 * 365 // <== 365 days
+                  maxAgeSeconds: 60 * 60 * 24 * 365
                 },
                 cacheableResponse: {
                   statuses: [0, 200]
@@ -69,21 +71,58 @@ export default defineConfig(({ mode }) => {
             }
           ]
         }
-      })
+      }),
+
+      // Compresión Brotli (mejor que gzip)
+      viteCompression({
+        algorithm: 'brotliCompress',
+        ext: '.br',
+        threshold: 1024,
+        deleteOriginFile: false,
+      }),
+
+      // Compresión Gzip (fallback)
+      viteCompression({
+        algorithm: 'gzip',
+        ext: '.gz',
+        threshold: 1024,
+        deleteOriginFile: false,
+      }),
+
+      // Bundle analyzer (solo con ANALYZE=true)
+      ...(process.env.ANALYZE ? [visualizer({
+        open: true,
+        filename: 'dist/stats.html',
+        gzipSize: true,
+        brotliSize: true,
+      })] : []),
     ],
     build: {
       outDir: 'dist',
+      sourcemap: false, // Sin source maps en producción
       rollupOptions: {
         external: ['@capacitor-community/native-biometric'],
         output: {
           manualChunks: {
             'vendor-react': ['react', 'react-dom', 'framer-motion'],
-            'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
-            'vendor-utils': ['lucide-react'],
+            'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/functions'],
             'vendor-charts': ['recharts'],
+            'vendor-capacitor': ['@capacitor/core', '@capacitor/haptics', '@capacitor/camera', '@capacitor/share'],
           },
         },
       },
+
+      // Minificación agresiva con terser
+      minify: 'terser',
+      terserOptions: {
+        compress: {
+          drop_console: true,
+          drop_debugger: true,
+          pure_funcs: ['console.log', 'console.info', 'console.debug'],
+        },
+      },
+
+      chunkSizeWarningLimit: 500,
     },
     resolve: {
       alias: {
@@ -94,7 +133,6 @@ export default defineConfig(({ mode }) => {
     optimizeDeps: {
       include: ['react', 'react-dom'],
       exclude: ['@capacitor/core', '@capacitor/haptics'],
-      // Vite lo resuelve automáticamente - no hace falta más
     },
     server: {
       proxy: {
@@ -104,7 +142,6 @@ export default defineConfig(({ mode }) => {
           rewrite: (path) => path.replace(/^\/api\/ai/, '/v1/chat/completions'),
           configure: (proxy, _options) => {
             proxy.on('proxyReq', (proxyReq, req, _res) => {
-              // Añadir headers necesarios
               const apiKey = env.VITE_DEEPSEEK_API_KEY || process.env.VITE_DEEPSEEK_API_KEY;
               if (apiKey) {
                 proxyReq.setHeader('Authorization', `Bearer ${apiKey}`);

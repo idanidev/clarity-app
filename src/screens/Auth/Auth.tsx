@@ -6,7 +6,7 @@ import RegisterForm from "./RegisterForm";
 import ForgotPasswordForm from "./ForgotPasswordForm";
 import AnimatedLogo from "./components/AnimatedLogo";
 import SocialLoginButtons from "./components/SocialLoginButtons";
-import { Sparkles } from "lucide-react";
+import { Sparkles } from "@/components/icons";
 
 const Auth = () => {
   const [mode, setMode] = useState("login"); // 'login' | 'register' | 'forgot'
@@ -89,22 +89,20 @@ const Auth = () => {
               <button
                 type="button"
                 onClick={() => setMode("login")}
-                className={`flex-1 py-2.5 rounded-xl font-medium text-sm transition-all ${
-                  mode === "login"
+                className={`flex-1 py-2.5 rounded-xl font-medium text-sm transition-all ${mode === "login"
                     ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md"
                     : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                }`}
+                  }`}
               >
                 Iniciar sesión
               </button>
               <button
                 type="button"
                 onClick={() => setMode("register")}
-                className={`flex-1 py-2.5 rounded-xl font-medium text-sm transition-all ${
-                  mode === "register"
+                className={`flex-1 py-2.5 rounded-xl font-medium text-sm transition-all ${mode === "register"
                     ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md"
                     : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                }`}
+                  }`}
               >
                 Crear cuenta
               </button>

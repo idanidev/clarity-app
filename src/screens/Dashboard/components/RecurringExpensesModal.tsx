@@ -8,7 +8,7 @@ import {
   Plus,
   Trash2,
   X,
-} from "lucide-react";
+} from "@/components/icons";
 import { createPortal } from "react-dom";
 import { getCategorySubcategories } from "../../../services/firestoreService";
 import { useTranslation } from "../../../contexts/LanguageContext";

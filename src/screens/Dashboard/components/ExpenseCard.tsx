@@ -15,7 +15,7 @@ import {
   CreditCard,
   Wallet,
   LucideIcon,
-} from "lucide-react";
+} from "@/components/icons";
 import { formatCurrency } from "../../../utils/currency";
 import { formatDate } from "../../../utils/date";
 import type { Expense } from "../../../types";

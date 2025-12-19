@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:analyze": "ANALYZE=true vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "test": "vitest",
@@ -70,9 +71,11 @@
     "firebase-admin": "^13.6.0",
     "jsdom": "^27.1.0",
     "postcss": "^8.4.32",
+    "rollup-plugin-visualizer": "^6.0.5",
     "tailwindcss": "^3.3.6",
     "typescript": "^5.9.3",
     "vite": "^5.0.8",
+    "vite-plugin-compression": "^0.5.1",
     "vitest": "^4.0.8"
   }
 }

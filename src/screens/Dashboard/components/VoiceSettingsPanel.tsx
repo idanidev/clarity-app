@@ -1,4 +1,4 @@
-import { TrendingUp, Mic } from "lucide-react";
+import { TrendingUp, Mic } from "@/components/icons";
 import { useState, useEffect } from "react";
 import { VoiceSettings, VoiceStats, loadVoiceStats } from "./VoiceExpenseButton";
 

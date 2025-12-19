@@ -1,4 +1,4 @@
-import { X, Plus } from "lucide-react";
+import { X, Plus } from "@/components/icons";
 // @ts-ignore - No hay tipos para este módulo JS
 import { getCategorySubcategories } from "../../../services/firestoreService";
 import { useState, useEffect, useCallback, useMemo, memo, FormEvent } from "react";
@@ -284,8 +284,8 @@ const AddExpenseModal = memo(({
         {/* Error general */}
         {errors.submit && (
           <div className={`p-4 rounded-xl ${darkMode
-              ? "bg-red-900/20 text-red-400 border border-red-800"
-              : "bg-red-50 text-red-600 border border-red-200"
+            ? "bg-red-900/20 text-red-400 border border-red-800"
+            : "bg-red-50 text-red-600 border border-red-200"
             }`}>
             {errors.submit}
           </div>
@@ -349,8 +349,8 @@ const AddExpenseModal = memo(({
                 setShowNewSubcategory(false);
               }}
               className={`text-xs px-2 py-1 rounded-lg flex items-center gap-1 ${darkMode
-                  ? "bg-purple-600/20 text-purple-300 hover:bg-purple-600/30"
-                  : "bg-purple-100 text-purple-700 hover:bg-purple-200"
+                ? "bg-purple-600/20 text-purple-300 hover:bg-purple-600/30"
+                : "bg-purple-100 text-purple-700 hover:bg-purple-200"
                 } transition-all`}
             >
               <Plus className="w-3 h-3" />
@@ -471,8 +471,8 @@ const AddExpenseModal = memo(({
                   setShowNewCategory(false);
                 }}
                 className={`text-xs px-2 py-1 rounded-lg flex items-center gap-1 ${darkMode
-                    ? "bg-purple-600/20 text-purple-300 hover:bg-purple-600/30"
-                    : "bg-purple-100 text-purple-700 hover:bg-purple-200"
+                  ? "bg-purple-600/20 text-purple-300 hover:bg-purple-600/30"
+                  : "bg-purple-100 text-purple-700 hover:bg-purple-200"
                   } transition-all`}
               >
                 <Plus className="w-3 h-3" />

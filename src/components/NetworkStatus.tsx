@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
-import { WifiOff } from 'lucide-react';
+import { WifiOff } from '@/components/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const NetworkStatus: React.FC = () => {

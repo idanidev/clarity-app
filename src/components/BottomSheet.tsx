@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { X } from "@/components/icons";
 import { memo, ReactNode, useCallback, useEffect, useRef } from "react";
 
 interface BottomSheetProps {
@@ -40,13 +40,13 @@ const BottomSheet = memo(
       if (!sheetRef.current || !isDragging.current) return;
 
       const diff = currentY.current - startY.current;
-      
+
       // Solo permitir arrastrar hacia abajo
       if (diff > 0) {
         // ✅ GPU-accelerated transform con translate3d para mejor rendimiento
         sheetRef.current.style.transform = `translate3d(0, ${diff}px, 0)`;
       }
-      
+
       rafId.current = null;
     }, []);
 
@@ -59,7 +59,7 @@ const BottomSheet = memo(
       isDragging.current = true;
       velocity.current = 0;
       lastTime.current = Date.now();
-      
+
       // Remover transición durante el drag para fluidez
       if (sheetRef.current) {
         sheetRef.current.style.transition = "none";
@@ -72,13 +72,13 @@ const BottomSheet = memo(
       const touch = e.touches[0];
       const now = Date.now();
       const timeDelta = now - lastTime.current;
-      
+
       // Calcular velocidad para mejor UX
       if (timeDelta > 0) {
         const yDelta = touch.clientY - lastY.current;
         velocity.current = yDelta / timeDelta;
       }
-      
+
       currentY.current = touch.clientY;
       lastY.current = touch.clientY;
       lastTime.current = now;
@@ -113,7 +113,7 @@ const BottomSheet = memo(
         // Animación de cierre suave
         sheetRef.current.style.transition = "transform 0.3s cubic-bezier(0.36, 0, 0.1, 1)";
         sheetRef.current.style.transform = `translate3d(0, 100%, 0)`;
-        
+
         setTimeout(() => {
           onClose();
         }, 300);
@@ -153,7 +153,7 @@ const BottomSheet = memo(
           cancelAnimationFrame(rafId.current);
           rafId.current = null;
         }
-        
+
         sheet.removeEventListener("touchstart", handleTouchStart);
         sheet.removeEventListener("touchmove", handleTouchMove);
         sheet.removeEventListener("touchend", handleTouchEnd);
@@ -178,9 +178,8 @@ const BottomSheet = memo(
       >
         <div
           ref={sheetRef}
-          className={`w-full rounded-t-3xl shadow-2xl ${
-            darkMode ? "bg-gray-800" : "bg-white"
-          }`}
+          className={`w-full rounded-t-3xl shadow-2xl ${darkMode ? "bg-gray-800" : "bg-white"
+            }`}
           style={{
             maxHeight,
             transform: "translate3d(0, 0, 0)", // ✅ Hardware acceleration con translate3d
@@ -196,33 +195,29 @@ const BottomSheet = memo(
           {/* Handle visual para swipe */}
           <div className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-manipulation">
             <div
-              className={`w-12 h-1.5 rounded-full transition-all ${
-                darkMode ? "bg-gray-600" : "bg-gray-300"
-              }`}
+              className={`w-12 h-1.5 rounded-full transition-all ${darkMode ? "bg-gray-600" : "bg-gray-300"
+                }`}
             />
           </div>
 
           {/* Header fijo */}
           <div
-            className={`px-6 py-4 flex justify-between items-center border-b ${
-              darkMode ? "border-gray-700" : "border-gray-200"
-            }`}
+            className={`px-6 py-4 flex justify-between items-center border-b ${darkMode ? "border-gray-700" : "border-gray-200"
+              }`}
           >
             <h3
-              className={`text-2xl font-bold ${
-                darkMode ? "text-white" : "text-gray-900"
-              }`}
+              className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-900"
+                }`}
             >
               {title}
             </h3>
             <button
               onClick={onClose}
               type="button"
-              className={`p-2 rounded-lg transition-colors touch-manipulation ${
-                darkMode
+              className={`p-2 rounded-lg transition-colors touch-manipulation ${darkMode
                   ? "hover:bg-gray-700 text-gray-400 hover:text-white"
                   : "hover:bg-gray-100 text-gray-600 hover:text-gray-900"
-              }`}
+                }`}
             >
               <X className="w-6 h-6" />
             </button>

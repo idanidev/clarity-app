@@ -1,10 +1,10 @@
 import { Capacitor } from "@capacitor/core";
-import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import { SpeechRecognition } from "@capgo/capacitor-speech-recognition";
-import { Loader2, Mic, MicOff } from "lucide-react";
+import { Loader2, Mic, MicOff } from "@/components/icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import AudioWaveVisualizer from "../../../components/AudioWaveVisualizer";
 import { usePermissions } from "../../../hooks/usePermissions";
+import { useHapticFeedback } from "../../../hooks/useHapticFeedback";
 
 // ============================================
 // TYPES & INTERFACES
@@ -105,6 +105,7 @@ const VoiceExpenseButton = ({
   }, [voiceSettings]);
 
   const { microphone } = usePermissions();
+  const haptic = useHapticFeedback();
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const hasWebSpeechAPI =
@@ -587,9 +588,11 @@ const VoiceExpenseButton = ({
     // Haptic feedback
     if (isNative) {
       try {
-        await Haptics.impact({
-          style: isListening ? ImpactStyle.Medium : ImpactStyle.Light,
-        });
+        if (isListening) {
+          haptic.medium();
+        } else {
+          haptic.light();
+        }
       } catch (error) {
         // Silencioso
       }
