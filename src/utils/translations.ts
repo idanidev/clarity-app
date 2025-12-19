@@ -1,5 +1,17 @@
 // Traducciones de la aplicación
 
+// ============================================
+// TYPES
+// ============================================
+
+export type LanguageCode = 'es' | 'en';
+
+export interface LanguageOption {
+  code: LanguageCode;
+  name: string;
+  flag: string;
+}
+
 export const translations = {
   es: {
     // General
@@ -633,10 +645,10 @@ export const translations = {
 };
 
 // Idioma por defecto
-export const defaultLanguage = "es";
+export const defaultLanguage: LanguageCode = "es";
 
 // Idiomas disponibles
-export const availableLanguages = [
+export const availableLanguages: LanguageOption[] = [
   { code: "es", name: "Español", flag: "🇪🇸" },
   { code: "en", name: "English", flag: "🇬🇧" },
 ];

@@ -515,7 +515,7 @@ const Dashboard = ({ user }: DashboardProps) => {
       unsubscribeExpenses?.();
       unsubscribeRecurring?.();
     };
-  }, [user, initializeLanguage]);
+  }, [user]); // ✅ Removed initializeLanguage to prevent infinite re-renders
 
   const toggleDarkMode = async () => {
     const newTheme = !darkMode;

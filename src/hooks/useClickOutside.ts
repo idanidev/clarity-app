@@ -1,4 +1,4 @@
-import { useEffect, RefObject } from 'react';
+import { useEffect, RefObject, useRef } from 'react';
 
 /**
  * Hook para detectar clicks fuera de un elemento
@@ -8,12 +8,19 @@ export const useClickOutside = (
   handler: () => void,
   enabled: boolean = true
 ) => {
+  // ✅ Use ref to avoid re-running effect when handler changes
+  const handlerRef = useRef(handler);
+
+  useEffect(() => {
+    handlerRef.current = handler;
+  }, [handler]);
+
   useEffect(() => {
     if (!enabled) return;
 
     const handleClickOutside = (event: MouseEvent) => {
       if (ref.current && !ref.current.contains(event.target as Node)) {
-        handler();
+        handlerRef.current();
       }
     };
 
@@ -26,6 +33,6 @@ export const useClickOutside = (
       clearTimeout(timeoutId);
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [ref, handler, enabled]);
+  }, [ref, enabled]); // ✅ Removed handler from dependencies
 };
 

@@ -43,7 +43,7 @@ interface ExpensesChartProps {
     selectedMonth: string;
 }
 
-const ExpensesChart = ({
+const ExpensesChart: React.FC<ExpensesChartProps> = React.memo(({
     categoryTotals,
     categories,
     totalExpenses,
@@ -56,7 +56,7 @@ const ExpensesChart = ({
     filteredExpenses,
     filterPeriodType,
     selectedMonth,
-}: ExpensesChartProps) => {
+}) => {
     const [activeIndex, setActiveIndex] = useState<number | null>(null);
     const [clickedCategory, setClickedCategory] = useState<any>(null);
 
@@ -551,6 +551,19 @@ const ExpensesChart = ({
             </div>
         </div>
     );
-};
+}, (prevProps, nextProps) => {
+    // Custom comparison function - only re-render if these props change
+    return (
+        prevProps.categoryTotals === nextProps.categoryTotals &&
+        prevProps.totalExpenses === nextProps.totalExpenses &&
+        prevProps.darkMode === nextProps.darkMode &&
+        prevProps.expandedCategories === nextProps.expandedCategories &&
+        prevProps.filteredExpenses === nextProps.filteredExpenses &&
+        prevProps.filterPeriodType === nextProps.filterPeriodType &&
+        prevProps.selectedMonth === nextProps.selectedMonth
+    );
+});
+
+ExpensesChart.displayName = 'ExpensesChart';
 
 export default ExpensesChart;

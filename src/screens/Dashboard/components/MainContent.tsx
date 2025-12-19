@@ -726,7 +726,17 @@ const MainContent = memo<MainContentProps>(
             </div>
           )}
 
-          {/* ✅ Botón de voz ahora está en el navbar - No se necesita flotante */}
+          {/* Botón de añadir gasto por voz - Solo en móvil, NO en la vista del asistente IA */}
+          {activeView !== "assistant" && (
+            <VoiceExpenseButton
+              darkMode={darkMode}
+              categories={Object.keys(categories)}
+              onAddExpense={onAddExpenseFromAI}
+              showNotification={showNotification}
+              hasFilterButton={activeView === "table" || activeView === "chart"}
+              voiceSettings={voiceSettings}
+            />
+          )}
           {/* Panel de filtros avanzados para móvil - Bottom sheet style */}
           {showFilters &&
             (activeView === "table" || activeView === "chart") && (
@@ -2207,35 +2217,17 @@ const MainContent = memo<MainContentProps>(
                 )}
               </button>
 
-              {/* ✅ Botones de acción centrales - Bien centrados */}
-              <div className="flex items-center gap-2 justify-center">
-                {/* Botón manual (+) */}
-                <button
-                  onClick={() => {
-                    lightImpact();
-                    onAddExpenseClick();
-                  }}
-                  className="navbar-button flex items-center justify-center p-3 rounded-xl bg-gradient-to-br from-purple-600 via-purple-500 to-blue-600 text-white shadow-lg hover:shadow-xl transition-all active:scale-95 hover:scale-105"
-                  style={{
-                    WebkitTapHighlightColor: "transparent",
-                    boxShadow: "0 4px 16px rgba(139, 92, 246, 0.4)"
-                  }}
-                  aria-label="Añadir gasto manual"
-                >
-                  <Plus className="w-6 h-6" strokeWidth={2.5} />
-                </button>
-
-                {/* Botón de voz (mic) */}
-                <VoiceExpenseButton
-                  darkMode={darkMode}
-                  categories={Object.keys(categories)}
-                  onAddExpense={onAddExpenseFromAI}
-                  showNotification={showNotification}
-                  hasFilterButton={false}
-                  voiceSettings={voiceSettings}
-                  isNavbarButton={true}
-                />
-              </div>
+              {/* Botón central de añadir */}
+              <button
+                onClick={() => {
+                  lightImpact();
+                  onAddExpenseClick();
+                }}
+                className="navbar-button flex items-center justify-center p-2 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg transition-all active:scale-95 -mt-2 z-10"
+                style={{ WebkitTapHighlightColor: "transparent" }}
+              >
+                <Plus className="w-6 h-6" />
+              </button>
 
               {/* Asistente IA */}
               <button
