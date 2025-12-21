@@ -1148,19 +1148,31 @@ const VoiceExpenseButton = ({
                   backdrop-blur-xl
                   border ${darkMode ? "border-gray-700/30" : "border-white/40"}`}
               >
-                <div className="flex justify-between items-center">
-                  <span
-                    className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"
-                      } `}
+                {/* Cantidad editable */}
+                <div>
+                  <label
+                    className={`block text-xs font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"
+                      }`}
                   >
-                    Cantidad
-                  </span>
-                  <span
-                    className={`text-lg font-bold ${darkMode ? "text-white" : "text-gray-900"
-                      } `}
-                  >
-                    €{pendingExpense.amount.toFixed(2)}
-                  </span>
+                    Cantidad (€)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={pendingExpense.amount}
+                    onFocus={handlePauseCountdown}
+                    onChange={(e) =>
+                      setPendingExpense({
+                        ...pendingExpense,
+                        amount: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    className={`w-full px-3 py-2 rounded-lg border text-sm font-bold ${darkMode
+                      ? "bg-gray-900 border-gray-700 text-gray-100"
+                      : "bg-white border-gray-300 text-gray-900"
+                      } focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                  />
                 </div>
 
                 {/* Categoría editable */}
