@@ -93,13 +93,8 @@ const VoiceExpenseButton = ({
   const [confidenceLevel, setConfidenceLevel] = useState(0);
   const [currentExampleIndex, setCurrentExampleIndex] = useState(0);
 
-  // ⏱️ Auto-save countdown
-  const [countdown, setCountdown] = useState(6);
-  const [isCountdownPaused, setIsCountdownPaused] = useState(false);
-
   const recognitionRef = useRef<any>(null);
   const listenersAddedRef = useRef(false);
-  const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isNative = Capacitor.isNativePlatform();
   // Plataforma no utilizada actualmente, pero se deja Capacitor para detección nativa
 
@@ -110,16 +105,16 @@ const VoiceExpenseButton = ({
   }, [voiceSettings]);
 
   // ============================================
-  // CONFIRMAR Y CANCELAR GASTO (antes del useEffect que los usa)
+  // CONFIRMAR Y CANCELAR GASTO
   // ============================================
-  const confirmExpense = useCallback(async () => {
+  const confirmExpense = async () => {
     if (!pendingExpense) return;
 
     setIsProcessing(true);
     try {
       await onAddExpense(pendingExpense);
       showNotification?.(
-        `✅ Añadido: €${pendingExpense.amount.toFixed(2)} en ${pendingExpense.category} `,
+        `✅ Añadido: €${pendingExpense.amount.toFixed(2)} en ${pendingExpense.category}`,
         "success"
       );
       setShowConfirmDialog(false);
@@ -132,54 +127,14 @@ const VoiceExpenseButton = ({
     } finally {
       setIsProcessing(false);
     }
-  }, [pendingExpense, onAddExpense, showNotification]);
+  };
 
-  const cancelExpense = useCallback(() => {
+  const cancelExpense = () => {
     setShowConfirmDialog(false);
     setPendingExpense(null);
     setTranscript("");
     setInterimTranscript("");
-  }, []);
-
-  // ============================================
-  // COUNTDOWN AUTO-SAVE
-  // ============================================
-  useEffect(() => {
-    // Solo ejecutar si el diálogo está visible y el countdown no está pausado
-    if (!showConfirmDialog || isCountdownPaused || !pendingExpense) {
-      return;
-    }
-
-    // Si el countdown llegó a 0, auto-confirmar
-    if (countdown === 0) {
-      console.log("[Voice] Countdown reached 0, auto-confirming...");
-      confirmExpense();
-      return;
-    }
-
-    // Iniciar timer de 1 segundo
-    countdownTimerRef.current = setTimeout(() => {
-      setCountdown(prev => prev - 1);
-    }, 1000);
-
-    // Cleanup
-    return () => {
-      if (countdownTimerRef.current) {
-        clearTimeout(countdownTimerRef.current);
-        countdownTimerRef.current = null;
-      }
-    };
-  }, [showConfirmDialog, countdown, isCountdownPaused, pendingExpense]);
-
-  // Pausar countdown cuando el usuario interactúa con categoría/subcategoría
-  const handlePauseCountdown = useCallback(() => {
-    console.log("[Voice] User interaction detected, pausing countdown");
-    setIsCountdownPaused(true);
-    if (countdownTimerRef.current) {
-      clearTimeout(countdownTimerRef.current);
-      countdownTimerRef.current = null;
-    }
-  }, []);
+  };
 
   const { microphone } = usePermissions();
   const haptic = useHapticFeedback();
@@ -608,12 +563,10 @@ const VoiceExpenseButton = ({
         // Pequeña pausa para que el usuario vea el feedback
         await new Promise(resolve => setTimeout(resolve, 300));
 
-        // ✅ SIEMPRE mostrar diálogo con countdown de 6 segundos
-        console.log("[Voice] Showing confirmation dialog with countdown");
+        // ✅ Mostrar diálogo de confirmación
+        console.log("[Voice] Showing confirmation dialog");
         setPendingExpense(expenseData);
         setShowConfirmDialog(true);
-        setCountdown(6); // Resetear countdown
-        setIsCountdownPaused(false); // Iniciar countdown
 
       } catch (error) {
         console.error("[Voice] Error parsing expense:", error);
@@ -1160,7 +1113,6 @@ const VoiceExpenseButton = ({
                     step="0.01"
                     min="0"
                     value={pendingExpense.amount}
-                    onFocus={handlePauseCountdown}
                     onChange={(e) =>
                       setPendingExpense({
                         ...pendingExpense,
@@ -1185,7 +1137,6 @@ const VoiceExpenseButton = ({
                   {categories.length > 0 ? (
                     <select
                       value={pendingExpense.category || categories[0]}
-                      onFocus={handlePauseCountdown}
                       onChange={(e) =>
                         setPendingExpense({
                           ...pendingExpense,
