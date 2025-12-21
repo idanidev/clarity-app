@@ -67,7 +67,6 @@ interface VoiceExpenseButtonProps {
     message: string,
     type: "success" | "error" | "info"
   ) => void;
-  hasFilterButton?: boolean;
   categories?: string[];
   voiceSettings?: VoiceSettings;
   isNavbarButton?: boolean; // ✅ Modo navbar
@@ -77,7 +76,6 @@ const VoiceExpenseButton = ({
   onAddExpense,
   darkMode,
   showNotification,
-  hasFilterButton = false,
   categories = [],
   voiceSettings = DEFAULT_VOICE_SETTINGS,
   isNavbarButton = false, // ✅ Default: modo flotante
@@ -95,8 +93,13 @@ const VoiceExpenseButton = ({
   const [confidenceLevel, setConfidenceLevel] = useState(0);
   const [currentExampleIndex, setCurrentExampleIndex] = useState(0);
 
+  // ⏱️ Auto-save countdown
+  const [countdown, setCountdown] = useState(6);
+  const [isCountdownPaused, setIsCountdownPaused] = useState(false);
+
   const recognitionRef = useRef<any>(null);
   const listenersAddedRef = useRef(false);
+  const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isNative = Capacitor.isNativePlatform();
   // Plataforma no utilizada actualmente, pero se deja Capacitor para detección nativa
 
@@ -105,6 +108,46 @@ const VoiceExpenseButton = ({
   useEffect(() => {
     voiceSettingsRef.current = voiceSettings;
   }, [voiceSettings]);
+
+  // ============================================
+  // COUNTDOWN AUTO-SAVE
+  // ============================================
+  useEffect(() => {
+    // Solo ejecutar si el diálogo está visible y el countdown no está pausado
+    if (!showConfirmDialog || isCountdownPaused || !pendingExpense) {
+      return;
+    }
+
+    // Si el countdown llegó a 0, auto-confirmar
+    if (countdown === 0) {
+      console.log("[Voice] Countdown reached 0, auto-confirming...");
+      confirmExpense();
+      return;
+    }
+
+    // Iniciar timer de 1 segundo
+    countdownTimerRef.current = setTimeout(() => {
+      setCountdown(prev => prev - 1);
+    }, 1000);
+
+    // Cleanup
+    return () => {
+      if (countdownTimerRef.current) {
+        clearTimeout(countdownTimerRef.current);
+        countdownTimerRef.current = null;
+      }
+    };
+  }, [showConfirmDialog, countdown, isCountdownPaused, pendingExpense]);
+
+  // Pausar countdown cuando el usuario interactúa con categoría/subcategoría
+  const handlePauseCountdown = useCallback(() => {
+    console.log("[Voice] User interaction detected, pausing countdown");
+    setIsCountdownPaused(true);
+    if (countdownTimerRef.current) {
+      clearTimeout(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+  }, []);
 
   const { microphone } = usePermissions();
   const haptic = useHapticFeedback();
@@ -560,15 +603,18 @@ const VoiceExpenseButton = ({
 
         console.log("[Voice] Parsed expense:", expenseData);
 
-        // ✅ DETENER GRABACIÓN pero mantener modal abierto
+        // ✅ DETENER GRABACIÓN
         setIsListening(false);
 
         // Pequeña pausa para que el usuario vea el feedback
         await new Promise(resolve => setTimeout(resolve, 300));
 
-        // ✅ SIEMPRE MOSTRAR DIÁLOGO DE CONFIRMACIÓN para gastos por voz
+        // ✅ SIEMPRE mostrar diálogo con countdown de 6 segundos
+        console.log("[Voice] Showing confirmation dialog with countdown");
         setPendingExpense(expenseData);
         setShowConfirmDialog(true);
+        setCountdown(6); // Resetear countdown
+        setIsCountdownPaused(false); // Iniciar countdown
 
       } catch (error) {
         console.error("[Voice] Error parsing expense:", error);
@@ -578,7 +624,7 @@ const VoiceExpenseButton = ({
         setIsProcessing(false);
       }
     },
-    [isProcessing, isListening, showNotification]
+    [isProcessing, showNotification]
   );
 
   // ============================================
@@ -834,9 +880,7 @@ const VoiceExpenseButton = ({
           border-2 ${darkMode ? "border-white/20" : "border-white/30"}
           backdrop-blur-xl`}
         style={{
-          bottom: hasFilterButton
-            ? "calc(9.5rem + env(safe-area-inset-bottom))"
-            : "calc(5.5rem + env(safe-area-inset-bottom))",
+          bottom: "calc(5.5rem + env(safe-area-inset-bottom))",
         }}
         title={
           isProcessing
@@ -1130,6 +1174,7 @@ const VoiceExpenseButton = ({
                   {categories.length > 0 ? (
                     <select
                       value={pendingExpense.category || categories[0]}
+                      onFocus={handlePauseCountdown}
                       onChange={(e) =>
                         setPendingExpense({
                           ...pendingExpense,
@@ -1225,11 +1270,11 @@ const VoiceExpenseButton = ({
                   Cancelar
                 </button>
 
-                {/* Confirm - Gradient button */}
+                {/* Confirm - Gradient button with countdown */}
                 <button
                   onClick={confirmExpense}
                   disabled={isProcessing}
-                  className={`flex-1 py-4 rounded-2xl font-semibold
+                  className={`flex-1 py-4 rounded-2xl font-semibold relative overflow-hidden
                     transform transition-all duration-300
                     hover:scale-[1.02] active:scale-[0.98]
                     ${isProcessing
@@ -1240,13 +1285,30 @@ const VoiceExpenseButton = ({
                     shadow-lg ${isProcessing ? "shadow-purple-500/20" : "shadow-green-500/30 hover:shadow-green-500/40"}
                     border-2 border-white/20`}
                 >
+                  {/* Countdown progress bar */}
+                  {!isProcessing && !isCountdownPaused && countdown > 0 && (
+                    <div
+                      className="absolute bottom-0 left-0 h-1 bg-white/40 transition-all duration-1000 ease-linear"
+                      style={{ width: `${((6 - countdown) / 6) * 100}%` }}
+                    />
+                  )}
+
                   {isProcessing ? (
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 className="w-5 h-5 animate-spin" />
                       <span>Añadiendo...</span>
                     </div>
                   ) : (
-                    "✅ Confirmar"
+                    <div className="flex items-center justify-center gap-2">
+                      {!isCountdownPaused && countdown > 0 ? (
+                        <>
+                          <span className="text-2xl font-bold">{countdown}</span>
+                          <span>✅ Guardar</span>
+                        </>
+                      ) : (
+                        "✅ Confirmar"
+                      )}
+                    </div>
                   )}
                 </button>
               </div>

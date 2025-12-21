@@ -702,29 +702,7 @@ const MainContent = memo<MainContentProps>(
             </div>
           )}
 
-          {/* Botón de filtros avanzados - Ahora con bottom calculado desde la barra */}
-          {(activeView === "table" || activeView === "chart") && (
-            <div
-              className="fixed right-4 z-40 md:hidden"
-              style={{
-                bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))",
-              }}
-            >
-              <button
-                onClick={onToggleFilters}
-                className={`p-4 rounded-full shadow-2xl border transition-all active:scale-95 ${showFilters
-                  ? darkMode
-                    ? "bg-purple-600 border-purple-500/40 text-white"
-                    : "bg-purple-600 border-purple-400/40 text-white"
-                  : darkMode
-                    ? "bg-gray-800 border-gray-700/40 text-gray-300"
-                    : "bg-white border-gray-200/40 text-purple-600"
-                  }`}
-              >
-                <Filter className="w-5 h-5" />
-              </button>
-            </div>
-          )}
+
 
           {/* Botón de añadir gasto por voz - Solo en móvil, NO en la vista del asistente IA */}
           {activeView !== "assistant" && (
@@ -743,19 +721,30 @@ const MainContent = memo<MainContentProps>(
               <BottomSheet
                 visible={showFilters}
                 onClose={onToggleFilters}
-                title={t("filters.title")}
+                title="Filtros"
                 darkMode={darkMode}
-                maxHeight="90vh"
+                maxHeight="80vh"
               >
-                <div className="px-4 py-4 space-y-4">
-                  {/* Filtros rápidos */}
+                <div className="px-4 py-4 space-y-6" style={{ paddingBottom: 'calc(8rem + env(safe-area-inset-bottom, 0px))' }}>
+                  {/* Sección 1: Filtros Rápidos */}
                   <div>
-                    <label
-                      className={`block text-sm font-medium mb-2 ${textClass}`}
-                    >
-                      Filtros rápidos
-                    </label>
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className={`text-sm font-semibold ${textClass}`}>
+                        ⚡ Accesos Rápidos
+                      </h3>
+                      {(filterPeriodType !== "all" || selectedCategory !== "all") && onClearFilters && (
+                        <button
+                          onClick={() => {
+                            onClearFilters();
+                          }}
+                          className={`text-xs font-medium ${darkMode ? "text-purple-400" : "text-purple-600"
+                            }`}
+                        >
+                          Limpiar filtros
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => {
                           const today = new Date();
@@ -763,207 +752,98 @@ const MainContent = memo<MainContentProps>(
                           onMonthChange(today.toISOString().slice(0, 7));
                           onToggleFilters();
                         }}
-                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${filterPeriodType === "month" &&
-                          selectedMonth ===
-                          new Date().toISOString().slice(0, 7)
+                        className={`p-3 rounded-xl text-sm font-medium transition-all ${filterPeriodType === "month" &&
+                          selectedMonth === new Date().toISOString().slice(0, 7)
                           ? darkMode
-                            ? "bg-purple-600 text-white"
-                            : "bg-purple-600 text-white"
+                            ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg"
+                            : "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg"
                           : darkMode
-                            ? "bg-gray-700 text-gray-300"
-                            : "bg-white/80 text-purple-700 border border-purple-200"
+                            ? "bg-gray-800 text-gray-300 border border-gray-700"
+                            : "bg-white text-gray-700 border border-gray-200"
                           }`}
                       >
+                        <div className="text-xs opacity-70 mb-1">📅</div>
                         Este mes
                       </button>
+
                       <button
                         onClick={() => {
-                          const today = new Date();
-                          const lastMonth = new Date(
-                            today.getFullYear(),
-                            today.getMonth() - 1,
-                            1
-                          );
+                          const lastMonth = new Date();
+                          lastMonth.setMonth(lastMonth.getMonth() - 1);
                           onFilterPeriodTypeChange("month");
-                          onMonthChange(
-                            lastMonth.toISOString().slice(0, 7)
-                          );
+                          onMonthChange(lastMonth.toISOString().slice(0, 7));
                           onToggleFilters();
                         }}
-                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${filterPeriodType === "month" &&
-                          selectedMonth !==
-                          new Date().toISOString().slice(0, 7)
+                        className={`p-3 rounded-xl text-sm font-medium transition-all ${filterPeriodType === "month" &&
+                          selectedMonth !== new Date().toISOString().slice(0, 7)
                           ? darkMode
-                            ? "bg-purple-600 text-white"
-                            : "bg-purple-600 text-white"
+                            ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg"
+                            : "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg"
                           : darkMode
-                            ? "bg-gray-700 text-gray-300"
-                            : "bg-white/80 text-purple-700 border border-purple-200"
+                            ? "bg-gray-800 text-gray-300 border border-gray-700"
+                            : "bg-white text-gray-700 border border-gray-200"
                           }`}
                       >
+                        <div className="text-xs opacity-70 mb-1">📆</div>
                         Mes anterior
                       </button>
+
                       <button
                         onClick={() => {
                           onFilterPeriodTypeChange("year");
                           onYearChange(new Date().getFullYear().toString());
                           onToggleFilters();
                         }}
-                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${filterPeriodType === "year"
+                        className={`p-3 rounded-xl text-sm font-medium transition-all ${filterPeriodType === "year"
                           ? darkMode
-                            ? "bg-purple-600 text-white"
-                            : "bg-purple-600 text-white"
+                            ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg"
+                            : "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg"
                           : darkMode
-                            ? "bg-gray-700 text-gray-300"
-                            : "bg-white/80 text-purple-700 border border-purple-200"
+                            ? "bg-gray-800 text-gray-300 border border-gray-700"
+                            : "bg-white text-gray-700 border border-gray-200"
                           }`}
                       >
+                        <div className="text-xs opacity-70 mb-1">🗓️</div>
                         Este año
                       </button>
+
                       <button
                         onClick={() => {
                           onFilterPeriodTypeChange("all");
                           onToggleFilters();
                         }}
-                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${filterPeriodType === "all"
+                        className={`p-3 rounded-xl text-sm font-medium transition-all ${filterPeriodType === "all"
                           ? darkMode
-                            ? "bg-purple-600 text-white"
-                            : "bg-purple-600 text-white"
+                            ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg"
+                            : "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg"
                           : darkMode
-                            ? "bg-gray-700 text-gray-300"
-                            : "bg-white/80 text-purple-700 border border-purple-200"
+                            ? "bg-gray-800 text-gray-300 border border-gray-700"
+                            : "bg-white text-gray-700 border border-gray-200"
                           }`}
                       >
+                        <div className="text-xs opacity-70 mb-1">📊</div>
                         Todos
                       </button>
                     </div>
                   </div>
 
+                  {/* Divider */}
+                  <div className={`border-t ${darkMode ? "border-gray-700" : "border-gray-200"}`} />
+
+                  {/* Sección 2: Filtro por Categoría */}
                   <div>
-                    <label
-                      className={`block text-sm font-medium mb-2 ${textClass}`}
-                    >
-                      {t("filters.period")}
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      <button
-                        onClick={() => {
-                          const today = new Date();
-                          onFilterPeriodTypeChange("month");
-                          onMonthChange(today.toISOString().slice(0, 7));
-                          onToggleFilters();
-                        }}
-                        className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${filterPeriodType === "month"
-                          ? darkMode
-                            ? "bg-purple-600 text-white"
-                            : "bg-purple-600 text-white"
-                          : darkMode
-                            ? "bg-gray-700 text-gray-300"
-                            : "bg-gray-100 text-gray-700"
-                          }`}
-                      >
-                        Mes
-                      </button>
-                      <button
-                        onClick={() => {
-                          onFilterPeriodTypeChange("year");
-                          onYearChange(new Date().getFullYear().toString());
-                          onToggleFilters();
-                        }}
-                        className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${filterPeriodType === "year"
-                          ? darkMode
-                            ? "bg-purple-600 text-white"
-                            : "bg-purple-600 text-white"
-                          : darkMode
-                            ? "bg-gray-700 text-gray-300"
-                            : "bg-gray-100 text-gray-700"
-                          }`}
-                      >
-                        Año
-                      </button>
-                      <button
-                        onClick={() => {
-                          onFilterPeriodTypeChange("all");
-                          onToggleFilters();
-                        }}
-                        className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${filterPeriodType === "all"
-                          ? darkMode
-                            ? "bg-purple-600 text-white"
-                            : "bg-purple-600 text-white"
-                          : darkMode
-                            ? "bg-gray-700 text-gray-300"
-                            : "bg-gray-100 text-gray-700"
-                          }`}
-                      >
-                        Todos
-                      </button>
-                    </div>
-                  </div>
-
-                  {filterPeriodType === "month" && (
-                    <div>
-                      <label
-                        className={`block text-sm font-medium mb-2 ${textClass}`}
-                      >
-                        {t("filters.selectMonth")}
-                      </label>
-                      <input
-                        type="month"
-                        value={selectedMonth}
-                        onChange={(e) => {
-                          onMonthChange(e.target.value);
-                          onToggleFilters();
-                        }}
-                        className={`w-full px-4 py-2.5 rounded-xl border text-base transition-all ${darkMode
-                          ? "bg-gray-800 border-gray-700 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/40"
-                          : "bg-white border-purple-200 text-purple-900 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/40"
-                          }`}
-                      />
-                    </div>
-                  )}
-
-                  {filterPeriodType === "year" && (
-                    <div>
-                      <label
-                        className={`block text-sm font-medium mb-2 ${textClass}`}
-                      >
-                        {t("filters.selectYear")}
-                      </label>
-                      <input
-                        type="number"
-                        min="2020"
-                        max={new Date().getFullYear()}
-                        value={selectedYear}
-                        onChange={(e) => {
-                          onYearChange(e.target.value);
-                          onToggleFilters();
-                        }}
-                        className={`w-full px-4 py-2.5 rounded-xl border text-base transition-all ${darkMode
-                          ? "bg-gray-800 border-gray-700 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/40"
-                          : "bg-white border-purple-200 text-purple-900 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/40"
-                          }`}
-                      />
-                    </div>
-                  )}
-
-                  <div>
-                    <label
-                      className={`block text-sm font-medium mb-2 ${textClass}`}
-                    >
-                      {t("filters.category")}
-                    </label>
+                    <h3 className={`text-sm font-semibold mb-3 ${textClass}`}>
+                      🏷️ Por Categoría
+                    </h3>
                     <select
                       value={selectedCategory}
                       onClick={(e) => e.stopPropagation()}
                       onMouseDown={(e) => e.stopPropagation()}
                       onTouchStart={(e) => e.stopPropagation()}
-                      onChange={(e) => {
-                        onCategoryChange(e.target.value);
-                        onToggleFilters();
-                      }}
-                      className={`w-full px-4 py-2.5 rounded-xl border text-base transition-all ${darkMode
-                        ? "bg-gray-800 border-gray-700 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/40"
-                        : "bg-white border-purple-200 text-purple-900 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/40"
+                      onChange={(e) => onCategoryChange(e.target.value)}
+                      className={`w-full px-4 py-3 rounded-xl border text-base transition-all ${darkMode
+                          ? "bg-gray-800 border-gray-700 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/40"
+                          : "bg-white border-purple-200 text-purple-900 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/40"
                         }`}
                     >
                       <option value="all">{t("filters.all")}</option>
@@ -975,22 +855,59 @@ const MainContent = memo<MainContentProps>(
                     </select>
                   </div>
 
-                  {onClearFilters && (
-                    <div className="pt-4">
-                      <button
-                        onClick={() => {
-                          onClearFilters();
-                          onToggleFilters();
-                        }}
-                        className={`w-full px-4 py-3 rounded-xl text-sm font-medium transition-all ${darkMode
-                          ? "bg-gray-700 hover:bg-gray-600 text-gray-200"
-                          : "bg-purple-100 hover:bg-purple-200 text-purple-700"
-                          }`}
-                      >
-                        {t("filters.clear")}
-                      </button>
-                    </div>
+                  {/* Sección 3: Filtro Personalizado (si filterPeriodType === "month") */}
+                  {filterPeriodType === "month" && (
+                    <>
+                      <div className={`border-t ${darkMode ? "border-gray-700" : "border-gray-200"}`} />
+                      <div>
+                        <h3 className={`text-sm font-semibold mb-3 ${textClass}`}>
+                          📅 Mes Específico
+                        </h3>
+                        <input
+                          type="month"
+                          value={selectedMonth}
+                          onChange={(e) => onMonthChange(e.target.value)}
+                          className={`w-full px-4 py-3 rounded-xl border text-base transition-all ${darkMode
+                            ? "bg-gray-800 border-gray-700 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/40"
+                            : "bg-white border-purple-200 text-purple-900 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/40"
+                            }`}
+                        />
+                      </div>
+                    </>
                   )}
+
+                  {/* Sección 4: Filtro Personalizado (si filterPeriodType === "year") */}
+                  {filterPeriodType === "year" && (
+                    <>
+                      <div className={`border-t ${darkMode ? "border-gray-700" : "border-gray-200"}`} />
+                      <div>
+                        <h3 className={`text-sm font-semibold mb-3 ${textClass}`}>
+                          🗓️ Año Específico
+                        </h3>
+                        <input
+                          type="number"
+                          value={selectedYear}
+                          onChange={(e) => onYearChange(e.target.value)}
+                          min="2020"
+                          max={new Date().getFullYear()}
+                          className={`w-full px-4 py-3 rounded-xl border text-base transition-all ${darkMode
+                            ? "bg-gray-800 border-gray-700 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/40"
+                            : "bg-white border-purple-200 text-purple-900 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/40"
+                            }`}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {/* Botón de aplicar - con padding extra para asegurar visibilidad */}
+                  <div className="pt-4">
+                    <button
+                      onClick={onToggleFilters}
+                      className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold shadow-lg transition-all active:scale-95"
+                    >
+                      Aplicar Filtros
+                    </button>
+                  </div>
                 </div>
               </BottomSheet>
             )}
@@ -1198,27 +1115,51 @@ const MainContent = memo<MainContentProps>(
                 {/* Buscador - Mostrar si hay gastos (expensesByCategory) O si hay una búsqueda activa */}
                 {(Object.keys(expensesByCategory).length > 0 || searchQuery) && (
                   <div className="mb-3 sm:mb-4">
-                    <div
-                      className={`relative ${darkMode ? "bg-gray-800/50" : "bg-white/60"
-                        } rounded-lg md:rounded-xl border ${darkMode ? "border-gray-700/40" : "border-white/40"
-                        } backdrop-blur-xl`}
-                    >
-                      <Search
-                        className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 ${textSecondaryClass}`}
-                      />
-                      <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Buscar gastos por nombre, categoría o subcategoría..."
-                        className={`w-full pl-10 pr-4 py-2.5 sm:py-3 rounded-lg md:rounded-xl bg-transparent ${textClass} placeholder:${textSecondaryClass} focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-sm sm:text-base`}
-                      />
-                      {searchQuery && (
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={`relative flex-1 ${darkMode ? "bg-gray-800/50" : "bg-white/60"
+                          } rounded-lg md:rounded-xl border ${darkMode ? "border-gray-700/40" : "border-white/40"
+                          } backdrop-blur-xl`}
+                      >
+                        <Search
+                          className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 ${textSecondaryClass}`}
+                        />
+                        <input
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          placeholder="Buscar gastos por nombre, categoría o subcategoría..."
+                          className={`w-full pl-10 ${searchQuery ? 'pr-10' : 'pr-4'} py-2.5 sm:py-3 rounded-lg md:rounded-xl bg-transparent ${textClass} placeholder:${textSecondaryClass} focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-sm sm:text-base`}
+                        />
+                        {searchQuery && (
+                          <button
+                            onClick={handleClearSearch}
+                            className={`absolute right-3 top-1/2 transform -translate-y-1/2 ${textSecondaryClass} hover:opacity-70 transition-opacity`}
+                          >
+                            <X className="w-4 h-4 sm:w-5 sm:h-5" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Botón de filtros integrado */}
+                      {(activeView === "table" || activeView === "chart") && (
                         <button
-                          onClick={handleClearSearch}
-                          className={`absolute right-3 top-1/2 transform -translate-y-1/2 ${textSecondaryClass} hover:opacity-70 transition-opacity`}
+                          onClick={onToggleFilters}
+                          className={`relative p-2.5 sm:p-3 rounded-lg md:rounded-xl border transition-all ${showFilters
+                            ? darkMode
+                              ? "bg-purple-600 border-purple-500 text-white"
+                              : "bg-purple-600 border-purple-500 text-white"
+                            : darkMode
+                              ? "bg-gray-800/50 border-gray-700/40 text-gray-300 hover:bg-gray-700/50"
+                              : "bg-white/60 border-white/40 text-purple-600 hover:bg-white/80"
+                            } backdrop-blur-xl`}
+                          aria-label="Filtros"
                         >
-                          <X className="w-4 h-4 sm:w-5 sm:h-5" />
+                          <Filter className="w-4 h-4 sm:w-5 sm:h-5" />
+                          {/* Badge si hay filtros activos */}
+                          {(filterPeriodType !== "all" || selectedCategory !== "all") && (
+                            <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+                          )}
                         </button>
                       )}
                     </div>

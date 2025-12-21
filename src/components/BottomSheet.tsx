@@ -1,5 +1,6 @@
 import { X } from "@/components/icons";
 import { memo, ReactNode, useCallback, useEffect, useRef } from "react";
+import { useDisableBodyScroll } from "../hooks/useDisableBodyScroll";
 
 interface BottomSheetProps {
   visible: boolean;
@@ -34,6 +35,9 @@ const BottomSheet = memo(
     const velocity = useRef(0);
     const lastTime = useRef(0);
     const rafId = useRef<number | null>(null);
+
+    // Deshabilitar scroll del body cuando el bottom sheet está visible
+    useDisableBodyScroll(visible);
 
     // ✅ Función para actualizar transform usando RAF
     const updateTransform = useCallback(() => {
@@ -215,8 +219,8 @@ const BottomSheet = memo(
               onClick={onClose}
               type="button"
               className={`p-2 rounded-lg transition-colors touch-manipulation ${darkMode
-                  ? "hover:bg-gray-700 text-gray-400 hover:text-white"
-                  : "hover:bg-gray-100 text-gray-600 hover:text-gray-900"
+                ? "hover:bg-gray-700 text-gray-400 hover:text-white"
+                : "hover:bg-gray-100 text-gray-600 hover:text-gray-900"
                 }`}
             >
               <X className="w-6 h-6" />

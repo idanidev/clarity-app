@@ -280,7 +280,7 @@ const AddExpenseModal = memo(({
       darkMode={darkMode}
       maxHeight="90vh"
     >
-      <form onSubmit={handleSubmit} className="px-6 pt-6 pb-10 space-y-4">
+      <form onSubmit={handleSubmit} className="px-6 pt-6 pb-safe space-y-4">
         {/* Error general */}
         {errors.submit && (
           <div className={`p-4 rounded-xl ${darkMode
