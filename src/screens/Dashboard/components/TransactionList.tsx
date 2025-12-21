@@ -25,7 +25,7 @@ interface TransactionListProps {
 
 }
 
-const TransactionList = memo((
+const TransactionList = memo(({
     expensesByCategory,
     categories,
     expandedCategories,
