@@ -149,18 +149,29 @@ const vibrate = async (style: ImpactStyle = ImpactStyle.Light) => {
 const useKeyboardHeight = () => {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const rafRef = useRef<number>();
+  const resetTimeoutRef = useRef<number>();
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.visualViewport) return;
 
     const handleResize = () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
 
       rafRef.current = requestAnimationFrame(() => {
         const viewport = window.visualViewport;
         if (!viewport) return;
         const heightDiff = window.innerHeight - viewport.height;
-        setKeyboardHeight(heightDiff > 100 ? heightDiff : 0);
+
+        if (heightDiff > 100) {
+          // Keyboard is showing
+          setKeyboardHeight(heightDiff);
+        } else {
+          // Keyboard is closing - reset with slight delay for smooth transition
+          resetTimeoutRef.current = window.setTimeout(() => {
+            setKeyboardHeight(0);
+          }, 150);
+        }
       });
     };
 
@@ -170,6 +181,7 @@ const useKeyboardHeight = () => {
 
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
       viewport.removeEventListener("resize", handleResize);
       viewport.removeEventListener("scroll", handleResize);
     };

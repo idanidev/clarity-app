@@ -551,17 +551,6 @@ const ExpensesChart: React.FC<ExpensesChartProps> = React.memo(({
             </div>
         </div>
     );
-}, (prevProps, nextProps) => {
-    // Custom comparison function - only re-render if these props change
-    return (
-        prevProps.categoryTotals === nextProps.categoryTotals &&
-        prevProps.totalExpenses === nextProps.totalExpenses &&
-        prevProps.darkMode === nextProps.darkMode &&
-        prevProps.expandedCategories === nextProps.expandedCategories &&
-        prevProps.filteredExpenses === nextProps.filteredExpenses &&
-        prevProps.filterPeriodType === nextProps.filterPeriodType &&
-        prevProps.selectedMonth === nextProps.selectedMonth
-    );
 });
 
 ExpensesChart.displayName = 'ExpensesChart';

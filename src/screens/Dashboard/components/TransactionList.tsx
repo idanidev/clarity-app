@@ -5,6 +5,7 @@ import { formatCurrency } from "../../../utils/currency"; // Check path
 // @ts-ignore
 import { getCategoryColor } from "../../../services/firestoreService";
 import { useHaptics } from "../../../hooks/useHaptics";
+import { memo } from "react";
 
 interface TransactionListProps {
     expensesByCategory: { [category: string]: { [subcategory: string]: Expense[] } };
@@ -24,7 +25,7 @@ interface TransactionListProps {
 
 }
 
-const TransactionList = ({
+const TransactionList = memo((
     expensesByCategory,
     categories,
     expandedCategories,
@@ -189,6 +190,8 @@ const TransactionList = ({
             })}
         </div>
     );
-};
+});
+
+TransactionList.displayName = 'TransactionList';
 
 export default TransactionList;
