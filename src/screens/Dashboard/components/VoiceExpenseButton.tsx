@@ -110,6 +110,38 @@ const VoiceExpenseButton = ({
   }, [voiceSettings]);
 
   // ============================================
+  // CONFIRMAR Y CANCELAR GASTO (antes del useEffect que los usa)
+  // ============================================
+  const confirmExpense = useCallback(async () => {
+    if (!pendingExpense) return;
+
+    setIsProcessing(true);
+    try {
+      await onAddExpense(pendingExpense);
+      showNotification?.(
+        `✅ Añadido: €${pendingExpense.amount.toFixed(2)} en ${pendingExpense.category} `,
+        "success"
+      );
+      setShowConfirmDialog(false);
+      setPendingExpense(null);
+      setTranscript("");
+      setInterimTranscript("");
+    } catch (error) {
+      console.error("[Voice] Error adding expense:", error);
+      showNotification?.("❌ Error al añadir gasto", "error");
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [pendingExpense, onAddExpense, showNotification]);
+
+  const cancelExpense = useCallback(() => {
+    setShowConfirmDialog(false);
+    setPendingExpense(null);
+    setTranscript("");
+    setInterimTranscript("");
+  }, []);
+
+  // ============================================
   // COUNTDOWN AUTO-SAVE
   // ============================================
   useEffect(() => {
@@ -137,7 +169,7 @@ const VoiceExpenseButton = ({
         countdownTimerRef.current = null;
       }
     };
-  }, [showConfirmDialog, countdown, isCountdownPaused, pendingExpense]);
+  }, [showConfirmDialog, countdown, isCountdownPaused, pendingExpense, confirmExpense]);
 
   // Pausar countdown cuando el usuario interactúa con categoría/subcategoría
   const handlePauseCountdown = useCallback(() => {
@@ -542,40 +574,7 @@ const VoiceExpenseButton = ({
     };
   };
 
-  // ============================================
-  // CONFIRMAR GASTO
-  // ============================================
-  const confirmExpense = async () => {
-    if (!pendingExpense) return;
 
-    setIsProcessing(true);
-    try {
-      await onAddExpense(pendingExpense);
-      showNotification?.(
-        `✅ Añadido:€${pendingExpense.amount.toFixed(2)} en ${pendingExpense.category} `,
-        "success"
-      );
-      setShowConfirmDialog(false);
-      setPendingExpense(null);
-      setTranscript("");
-      setInterimTranscript("");
-    } catch (error) {
-      console.error("[Voice] Error adding expense:", error);
-      showNotification?.("❌ Error al añadir gasto", "error");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  // ============================================
-  // CANCELAR
-  // ============================================
-  const cancelExpense = () => {
-    setShowConfirmDialog(false);
-    setPendingExpense(null);
-    setTranscript("");
-    setInterimTranscript("");
-  };
 
   // ============================================
   // PROCESAR TRANSCRIPCIÓN-NUEVA VERSIÓN CON DIÁLOGO

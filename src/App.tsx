@@ -25,10 +25,13 @@ const preloadDashboard = () => import("./screens/Dashboard/Dashboard");
 const LoadingScreen = () => {
   const { t } = useTranslation();
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-white to-blue-50">
-      <span className="text-purple-600 font-semibold text-lg">
-        {t("common.loading")}
-      </span>
+    <div className="min-h-screen flex items-center justify-center bg-slate-900">
+      <div className="text-center">
+        <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+        <span className="text-purple-400 font-medium text-sm">
+          {t("common.loading")}
+        </span>
+      </div>
     </div>
   );
 };
@@ -105,7 +108,7 @@ const App = () => {
         if (isMountedRef.current) {
           setInitializing(false);
         }
-      }, 5000); // 5 segundos máximo
+      }, 2000); // 2 segundos máximo - reducido para carga más rápida
 
       unsubscribeRef.current = onAuthStateChanged(
         auth,
