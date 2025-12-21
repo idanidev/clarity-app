@@ -169,7 +169,7 @@ const VoiceExpenseButton = ({
         countdownTimerRef.current = null;
       }
     };
-  }, [showConfirmDialog, countdown, isCountdownPaused, pendingExpense, confirmExpense]);
+  }, [showConfirmDialog, countdown, isCountdownPaused, pendingExpense]);
 
   // Pausar countdown cuando el usuario interactúa con categoría/subcategoría
   const handlePauseCountdown = useCallback(() => {
