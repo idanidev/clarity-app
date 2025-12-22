@@ -93,13 +93,8 @@ const VoiceExpenseButton = ({
   const [confidenceLevel, setConfidenceLevel] = useState(0);
   const [currentExampleIndex, setCurrentExampleIndex] = useState(0);
 
-  // ⏱️ Countdown auto-save
-  const [countdown, setCountdown] = useState(6);
-  const [isCountdownActive, setIsCountdownActive] = useState(false);
-
   const recognitionRef = useRef<any>(null);
   const listenersAddedRef = useRef(false);
-  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isNative = Capacitor.isNativePlatform();
   // Plataforma no utilizada actualmente, pero se deja Capacitor para detección nativa
 
@@ -109,52 +104,7 @@ const VoiceExpenseButton = ({
     voiceSettingsRef.current = voiceSettings;
   }, [voiceSettings]);
 
-  // ============================================
-  // COUNTDOWN AUTO-SAVE
-  // ============================================
-  useEffect(() => {
-    // Limpiar interval anterior
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-      countdownIntervalRef.current = null;
-    }
 
-    // Solo iniciar countdown si está activo y el diálogo está visible
-    if (!isCountdownActive || !showConfirmDialog || !pendingExpense) {
-      return;
-    }
-
-    // Si llegó a 0, confirmar
-    if (countdown === 0) {
-      console.log("[Voice] Countdown finished, auto-confirming...");
-      setIsCountdownActive(false);
-      // Usar setTimeout para evitar state update durante render
-      setTimeout(() => {
-        if (confirmExpenseRef.current) {
-          confirmExpenseRef.current();
-        }
-      }, 0);
-      return;
-    }
-
-    // Iniciar interval de 1 segundo
-    countdownIntervalRef.current = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    // Cleanup
-    return () => {
-      if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current);
-        countdownIntervalRef.current = null;
-      }
-    };
-  }, [isCountdownActive, showConfirmDialog, countdown, pendingExpense]);
 
   // ============================================
   // CONFIRMAR Y CANCELAR GASTO
@@ -163,13 +113,6 @@ const VoiceExpenseButton = ({
 
   confirmExpenseRef.current = async () => {
     if (!pendingExpense) return;
-
-    // Detener countdown
-    setIsCountdownActive(false);
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-      countdownIntervalRef.current = null;
-    }
 
     setIsProcessing(true);
     try {
@@ -182,7 +125,6 @@ const VoiceExpenseButton = ({
       setPendingExpense(null);
       setTranscript("");
       setInterimTranscript("");
-      setCountdown(6);
     } catch (error) {
       console.error("[Voice] Error adding expense:", error);
       showNotification?.("❌ Error al añadir gasto", "error");
@@ -194,25 +136,10 @@ const VoiceExpenseButton = ({
   const confirmExpense = () => confirmExpenseRef.current?.();
 
   const cancelExpense = useCallback(() => {
-    setIsCountdownActive(false);
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-      countdownIntervalRef.current = null;
-    }
     setShowConfirmDialog(false);
     setPendingExpense(null);
     setTranscript("");
     setInterimTranscript("");
-    setCountdown(6);
-  }, []);
-
-  const pauseCountdown = useCallback(() => {
-    console.log("[Voice] Pausing countdown due to user interaction");
-    setIsCountdownActive(false);
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-      countdownIntervalRef.current = null;
-    }
   }, []);
 
   const { microphone } = usePermissions();
@@ -642,12 +569,10 @@ const VoiceExpenseButton = ({
         // Pequeña pausa para que el usuario vea el feedback
         await new Promise(resolve => setTimeout(resolve, 300));
 
-        // ✅ Mostrar diálogo de confirmación con countdown
-        console.log("[Voice] Showing confirmation dialog with countdown");
+        // ✅ Mostrar diálogo de confirmación
+        console.log("[Voice] Showing confirmation dialog");
         setPendingExpense(expenseData);
         setShowConfirmDialog(true);
-        setCountdown(6);
-        setIsCountdownActive(true); // Iniciar countdown
 
       } catch (error) {
         console.error("[Voice] Error parsing expense:", error);
@@ -1194,7 +1119,6 @@ const VoiceExpenseButton = ({
                     step="0.01"
                     min="0"
                     value={pendingExpense.amount}
-                    onFocus={pauseCountdown}
                     onChange={(e) =>
                       setPendingExpense({
                         ...pendingExpense,
@@ -1219,7 +1143,6 @@ const VoiceExpenseButton = ({
                   {categories.length > 0 ? (
                     <select
                       value={pendingExpense.category || categories[0]}
-                      onFocus={pauseCountdown}
                       onChange={(e) =>
                         setPendingExpense({
                           ...pendingExpense,
@@ -1315,7 +1238,7 @@ const VoiceExpenseButton = ({
                   Cancelar
                 </button>
 
-                {/* Confirm - Gradient button with countdown */}
+                {/* Confirm - Gradient button */}
                 <button
                   onClick={confirmExpense}
                   disabled={isProcessing}
@@ -1330,30 +1253,13 @@ const VoiceExpenseButton = ({
                     shadow-lg ${isProcessing ? "shadow-purple-500/20" : "shadow-green-500/30 hover:shadow-green-500/40"}
                     border-2 border-white/20`}
                 >
-                  {/* Countdown progress bar */}
-                  {!isProcessing && isCountdownActive && countdown > 0 && (
-                    <div
-                      className="absolute bottom-0 left-0 h-1 bg-white/40 transition-all duration-1000 ease-linear"
-                      style={{ width: `${((6 - countdown) / 6) * 100}%` }}
-                    />
-                  )}
-
                   {isProcessing ? (
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 className="w-5 h-5 animate-spin" />
                       <span>Añadiendo...</span>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-center gap-2">
-                      {isCountdownActive && countdown > 0 ? (
-                        <>
-                          <span className="text-2xl font-bold">{countdown}</span>
-                          <span>✅ Guardar</span>
-                        </>
-                      ) : (
-                        "✅ Confirmar"
-                      )}
-                    </div>
+                    "✅ Confirmar"
                   )}
                 </button>
               </div>
