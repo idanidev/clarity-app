@@ -68,8 +68,10 @@ interface VoiceExpenseButtonProps {
     type: "success" | "error" | "info"
   ) => void;
   categories?: string[];
+  categoriesWithSubcategories?: Record<string, { subcategories?: string[]; color?: string }>;
   voiceSettings?: VoiceSettings;
-  isNavbarButton?: boolean; // ✅ Modo navbar
+  isNavbarButton?: boolean;
+  hasFilterButton?: boolean;
 }
 
 const VoiceExpenseButton = ({
@@ -77,8 +79,10 @@ const VoiceExpenseButton = ({
   darkMode,
   showNotification,
   categories = [],
+  categoriesWithSubcategories = {},
   voiceSettings = DEFAULT_VOICE_SETTINGS,
-  isNavbarButton = false, // ✅ Default: modo flotante
+  isNavbarButton = false,
+  hasFilterButton: _hasFilterButton = false,
 }: VoiceExpenseButtonProps) => {
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -95,6 +99,9 @@ const VoiceExpenseButton = ({
 
   const recognitionRef = useRef<any>(null);
   const listenersAddedRef = useRef(false);
+  const hasDetectedSpeechRef = useRef(false); // 🎯 Track if we've detected any speech yet
+  const transcriptRef = useRef(""); // 🎯 Track transcript for closure
+  const interimTranscriptRef = useRef(""); // 🎯 Track interim for closure
   const isNative = Capacitor.isNativePlatform();
   // Plataforma no utilizada actualmente, pero se deja Capacitor para detección nativa
 
@@ -103,6 +110,11 @@ const VoiceExpenseButton = ({
   useEffect(() => {
     voiceSettingsRef.current = voiceSettings;
   }, [voiceSettings]);
+
+  // 👁️ DEBUG: Monitorear cambios de estado del diálogo
+  useEffect(() => {
+    console.log("👁️ [Voice] STATE CHANGE - showConfirmDialog:", showConfirmDialog, "pendingExpense:", pendingExpense);
+  }, [showConfirmDialog, pendingExpense]);
 
 
 
@@ -113,6 +125,12 @@ const VoiceExpenseButton = ({
 
   confirmExpenseRef.current = async () => {
     if (!pendingExpense) return;
+
+    // 🎯 Validar que la subcategoría esté seleccionada
+    if (!pendingExpense.subcategory || pendingExpense.subcategory.trim() === "") {
+      showNotification?.("⚠️ Selecciona una subcategoría", "error");
+      return;
+    }
 
     setIsProcessing(true);
     try {
@@ -245,11 +263,21 @@ const VoiceExpenseButton = ({
       recognition.lang = "es-ES";
 
       recognition.onstart = () => {
+        console.log("🎤 [Voice] Web recognition STARTED");
         setIsListening(true);
-        resetSilenceTimer();
+        hasDetectedSpeechRef.current = false; // 🎯 Reset flag
+        // ❌ NO iniciar timer aquí - esperar a que hable
       };
 
       recognition.onresult = (event: any) => {
+        console.log("📝 [Voice] Got speech result, event:", event);
+
+        // ✅ Solo iniciar timer DESPUÉS de detectar la primera voz
+        if (!hasDetectedSpeechRef.current) {
+          console.log("✅ [Voice] First speech detected! Starting silence timer now");
+          hasDetectedSpeechRef.current = true;
+        }
+
         resetSilenceTimer(); // Reset timer on speech activity
         let interim = "";
         let final = "";
@@ -283,9 +311,14 @@ const VoiceExpenseButton = ({
 
         // Only accumulate transcript, don't process yet
         if (final) {
-          setTranscript((prev) => (prev + " " + final).trim());
+          setTranscript((prev) => {
+            const newVal = (prev + " " + final).trim();
+            transcriptRef.current = newVal; // 🎯 Keep ref in sync
+            return newVal;
+          });
         }
         setInterimTranscript(interim);
+        interimTranscriptRef.current = interim; // 🎯 Keep ref in sync
       };
 
       recognition.onerror = (event: any) => {
@@ -310,15 +343,19 @@ const VoiceExpenseButton = ({
       recognition.onend = () => {
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
 
-        console.log("[Voice] Recognition ended");
+        console.log("🛑 [Voice] Recognition ENDED");
 
-        // Solo procesar si hay texto acumulado
-        const currentTranscript = transcript.trim();
-        const currentInterim = interimTranscript.trim();
+        // 🎯 Usar REFS para obtener valores actuales (evitar closure stale)
+        const currentTranscript = transcriptRef.current.trim();
+        const currentInterim = interimTranscriptRef.current.trim();
         const finalText = (currentTranscript + " " + currentInterim).trim();
 
+        console.log("📊 [Voice] Transcript ref:", currentTranscript);
+        console.log("📊 [Voice] Interim ref:", currentInterim);
+        console.log("📊 [Voice] Final text:", finalText);
+
         if (finalText) {
-          console.log("[Voice] Processing final text:", finalText);
+          console.log("✅ [Voice] Processing final text:", finalText);
           setIsListening(false); // Parar para procesar
           processTranscript(finalText);
         } else {
@@ -427,8 +464,52 @@ const VoiceExpenseButton = ({
   // ============================================
   // PARSER DE GASTOS
   // ============================================
+
+  // 🎯 Convertir palabras numéricas en español a dígitos
+  const spanishNumberToDigit = (text: string): string => {
+    const numberWords: Record<string, number> = {
+      // Unidades
+      'cero': 0, 'uno': 1, 'una': 1, 'dos': 2, 'tres': 3, 'cuatro': 4,
+      'cinco': 5, 'seis': 6, 'siete': 7, 'ocho': 8, 'nueve': 9,
+      // Decenas
+      'diez': 10, 'once': 11, 'doce': 12, 'trece': 13, 'catorce': 14,
+      'quince': 15, 'dieciséis': 16, 'dieciseis': 16, 'diecisiete': 17,
+      'dieciocho': 18, 'diecinueve': 19,
+      'veinte': 20, 'veintiuno': 21, 'veintidos': 22, 'veintitrés': 23,
+      'veintitres': 23, 'veinticuatro': 24, 'veinticinco': 25,
+      'veintiseis': 26, 'veintisiete': 27, 'veintiocho': 28, 'veintinueve': 29,
+      'treinta': 30, 'cuarenta': 40, 'cincuenta': 50, 'sesenta': 60,
+      'setenta': 70, 'ochenta': 80, 'noventa': 90,
+      // Centenas
+      'cien': 100, 'ciento': 100, 'doscientos': 200, 'trescientos': 300,
+      'cuatrocientos': 400, 'quinientos': 500, 'seiscientos': 600,
+      'setecientos': 700, 'ochocientos': 800, 'novecientos': 900,
+      // Otros
+      'mil': 1000,
+    };
+
+    let result = text.toLowerCase();
+
+    // Reemplazar palabras numéricas por dígitos
+    Object.entries(numberWords).forEach(([word, digit]) => {
+      // Match palabra + posible "y" + otra palabra (ej: "treinta y cinco")
+      const regex = new RegExp(`\\b${word}\\b`, 'gi');
+      result = result.replace(regex, String(digit));
+    });
+
+    // Manejar "X y Y" patterns (ej: "30 y 5" -> "35")
+    result = result.replace(/(\d+)\s+y\s+(\d+)/gi, (_, tens, units) => {
+      return String(parseInt(tens) + parseInt(units));
+    });
+
+    console.log("🔢 [Voice] Number conversion:", text, "->", result);
+    return result;
+  };
+
   const parseExpense = (text: string) => {
-    const lowerText = text.toLowerCase().trim();
+    // 🎯 Primero convertir palabras numéricas a dígitos
+    const convertedText = spanishNumberToDigit(text);
+    const lowerText = convertedText.toLowerCase().trim();
 
     const amountMatch = lowerText.match(/(\d+(?:[.,]\d+)?)\s*(?:euros?|€)?/i);
     if (!amountMatch) return null;
@@ -482,6 +563,12 @@ const VoiceExpenseButton = ({
         "fiesta",
         "copas",
         "discoteca",
+        "cerveza",
+        "cervezas",
+        "birra",
+        "birras",
+        "bar",
+        "pub",
       ],
       Salud: [
         "farmacia",
@@ -542,43 +629,57 @@ const VoiceExpenseButton = ({
   // ============================================
   const processTranscript = useCallback(
     async (text: string) => {
-      if (isProcessing) return;
+      console.log("🔄 [Voice] processTranscript CALLED with:", text);
+      console.log("🔄 [Voice] isProcessing:", isProcessing);
 
-      console.log("[Voice] Processing transcript:", text);
+      if (isProcessing) {
+        console.log("⚠️ [Voice] Already processing, SKIPPING");
+        return;
+      }
+
+      console.log("✅ [Voice] Starting to process transcript:", text);
 
       // Indicar que estamos procesando
       setIsProcessing(true);
+      console.log("🔄 [Voice] Set isProcessing = true");
 
       try {
         const expenseData = parseExpense(text);
+        console.log("🔍 [Voice] parseExpense returned:", expenseData);
 
         // Don't show error immediately-give user context via dialog instead
         if (!expenseData) {
-          console.log("[Voice] Could not parse expense from:", text);
+          console.log("❌ [Voice] Could not parse expense from:", text);
           setIsProcessing(false);
           showNotification?.("❌ No se pudo entender el gasto", "error");
           setIsListening(false);
           return;
         }
 
-        console.log("[Voice] Parsed expense:", expenseData);
+        console.log("✅ [Voice] Successfully parsed expense:", expenseData);
 
         // ✅ DETENER GRABACIÓN
         setIsListening(false);
+        console.log("🛑 [Voice] Set isListening = false");
 
         // Pequeña pausa para que el usuario vea el feedback
+        console.log("⏳ [Voice] Waiting 300ms before showing dialog...");
         await new Promise(resolve => setTimeout(resolve, 300));
 
         // ✅ Mostrar diálogo de confirmación
-        console.log("[Voice] Showing confirmation dialog");
+        console.log("🎯 [Voice] NOW SHOWING CONFIRMATION DIALOG");
+        console.log("🎯 [Voice] Setting pendingExpense to:", expenseData);
         setPendingExpense(expenseData);
+        console.log("🎯 [Voice] Setting showConfirmDialog = true");
         setShowConfirmDialog(true);
+        console.log("🎯 [Voice] Dialog should be visible now!");
 
       } catch (error) {
-        console.error("[Voice] Error parsing expense:", error);
+        console.error("💥 [Voice] EXCEPTION in processTranscript:", error);
         showNotification?.("❌ Error al procesar gasto", "error");
         setIsListening(false);
       } finally {
+        console.log("🏁 [Voice] processTranscript FINISHED, setting isProcessing = false");
         setIsProcessing(false);
       }
     },
@@ -613,6 +714,9 @@ const VoiceExpenseButton = ({
       } else {
         console.log("[Voice] Starting native recognition");
 
+        // 🎯 Reset speech detection flag
+        hasDetectedSpeechRef.current = false;
+
         // ✅ Solicitar permisos SOLO cuando se presiona el botón
         try {
           const permission = await SpeechRecognition.requestPermissions();
@@ -625,17 +729,27 @@ const VoiceExpenseButton = ({
 
           setTranscript("");
           setInterimTranscript("");
+          transcriptRef.current = ""; // 🎯 Reset refs
+          interimTranscriptRef.current = ""; // 🎯 Reset refs
 
           // ✅ Agregar listeners SOLO UNA VEZ
           if (!listenersAddedRef.current) {
             await SpeechRecognition.addListener(
               "partialResults",
               (data: any) => {
-                resetSilenceTimer(); // Reset timer on speech activity
                 console.log("[Voice] Partial results:", data);
+
+                // ✅ Solo iniciar timer DESPUÉS de detectar la primera voz
+                if (!hasDetectedSpeechRef.current && data.matches && data.matches.length > 0) {
+                  console.log("✅ [Voice] First speech detected (native)! Starting silence timer now");
+                  hasDetectedSpeechRef.current = true;
+                }
+
+                resetSilenceTimer(); // Reset timer on speech activity
                 if (data.matches && data.matches.length > 0) {
                   const text = data.matches[0];
                   setInterimTranscript(text);
+                  interimTranscriptRef.current = text; // 🎯 Keep ref in sync
                 }
               }
             );
@@ -647,20 +761,21 @@ const VoiceExpenseButton = ({
                 const isListeningState = data.status === "started";
                 setIsListening(isListeningState);
 
-                if (isListeningState) {
-                  resetSilenceTimer();
-                }
+                // ❌ NO iniciar timer cuando empieza - esperar a que hable
+                // if (isListeningState) {
+                //   resetSilenceTimer();
+                // }
 
                 if (data.status === "stopped") {
                   if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
 
-                  setTranscript((prev) => {
-                    const finalText = interimTranscript || prev;
-                    if (finalText) {
-                      processTranscript(finalText);
-                    }
-                    return finalText;
-                  });
+                  // 🎯 Usar refs para obtener valores actuales
+                  const finalText = interimTranscriptRef.current || transcriptRef.current;
+                  console.log("📊 [Voice Native] Final text from refs:", finalText);
+
+                  if (finalText) {
+                    processTranscript(finalText);
+                  }
                 }
               }
             );
@@ -723,6 +838,9 @@ const VoiceExpenseButton = ({
 
           setTranscript("");
           setInterimTranscript("");
+          transcriptRef.current = ""; // 🎯 Reset refs
+          interimTranscriptRef.current = ""; // 🎯 Reset refs
+          hasDetectedSpeechRef.current = false; // 🎯 Reset flag
           recognitionRef.current.start();
           // isListening will be set in onstart
         } catch (error: any) {
@@ -1053,220 +1171,269 @@ const VoiceExpenseButton = ({
       )}
 
       {/* Diálogo de confirmación - Premium Glass */}
-      {showConfirmDialog && pendingExpense && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-        >
-          {/* Backdrop */}
+      {(() => {
+        console.log("👁️ [Voice] RENDER CHECK - showConfirmDialog:", showConfirmDialog, "pendingExpense:", pendingExpense);
+        return showConfirmDialog && pendingExpense;
+      })() && (
           <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-md transition-opacity duration-300"
-            onClick={cancelExpense}
-          />
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ zIndex: 99999999 }}
+            onClick={() => console.log("🖱️ [Voice] Dialog backdrop clicked")}
+          >
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/50 backdrop-blur-md transition-opacity duration-300"
+              onClick={cancelExpense}
+            />
 
-          {/* Dialog Container - iOS Glassmorphism */}
-          <div
-            className={`relative max-w-md w-full rounded-3xl p-8
+            {/* Dialog Container - iOS Glassmorphism */}
+            <div
+              className={`relative max-w-md w-full rounded-3xl p-8
               transform transition-all duration-500 ease-out
               ${darkMode
-                ? "bg-gray-900/90 border-gray-700/30 shadow-purple-500/20"
-                : "bg-white/90 border-white/40 shadow-purple-500/30"
-              }
+                  ? "bg-gray-900/90 border-gray-700/30 shadow-purple-500/20"
+                  : "bg-white/90 border-white/40 shadow-purple-500/30"
+                }
               backdrop-blur-2xl
               border
               shadow-2xl
               ring-1 ring-purple-500/10
               animate-in zoom-in-95 fade-in duration-300`}
-          >
-            {/* Gradient overlay  */}
-            <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-purple-500/5 via-transparent to-blue-500/5 pointer-events-none" />
+            >
+              {/* Gradient overlay  */}
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-purple-500/5 via-transparent to-blue-500/5 pointer-events-none" />
 
-            {/* Content */}
-            <div className="relative">
-              <h3
-                className={`text-2xl font-bold mb-2 text-center
+              {/* Content */}
+              <div className="relative">
+                <h3
+                  className={`text-2xl font-bold mb-2 text-center
                   bg-gradient-to-r ${darkMode
-                    ? "from-purple-400 to-blue-400"
-                    : "from-purple-600 to-blue-600"
-                  }
+                      ? "from-purple-400 to-blue-400"
+                      : "from-purple-600 to-blue-600"
+                    }
                   bg-clip-text text-transparent`}
-              >
-                Confirmar Gasto
-              </h3>
-              <p
-                className={`text-sm mb-6 text-center ${darkMode ? "text-gray-400" : "text-gray-600"
-                  }`}
-              >
-                Revisa los datos antes de continuar
-              </p>
+                >
+                  Confirmar Gasto
+                </h3>
+                <p
+                  className={`text-sm mb-6 text-center ${darkMode ? "text-gray-400" : "text-gray-600"
+                    }`}
+                >
+                  Revisa los datos antes de continuar
+                </p>
 
-              {/* Expense details */}
-              <div
-                className={`p-5 rounded-2xl mb-6 space-y-4
+                {/* Expense details */}
+                <div
+                  className={`p-5 rounded-2xl mb-6 space-y-4
                   ${darkMode ? "bg-gray-900/50" : "bg-white/50"}
                   backdrop-blur-xl
                   border ${darkMode ? "border-gray-700/30" : "border-white/40"}`}
-              >
-                {/* Cantidad editable */}
-                <div>
-                  <label
-                    className={`block text-xs font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"
-                      }`}
-                  >
-                    Cantidad (€)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={pendingExpense.amount}
-                    onChange={(e) =>
-                      setPendingExpense({
-                        ...pendingExpense,
-                        amount: parseFloat(e.target.value) || 0,
-                      })
-                    }
-                    className={`w-full px-3 py-2 rounded-lg border text-sm font-bold ${darkMode
-                      ? "bg-gray-900 border-gray-700 text-gray-100"
-                      : "bg-white border-gray-300 text-gray-900"
-                      } focus:outline-none focus:ring-2 focus:ring-purple-500`}
-                  />
-                </div>
-
-                {/* Categoría editable */}
-                <div>
-                  <label
-                    className={`block text-xs font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"
-                      } `}
-                  >
-                    Categoría
-                  </label>
-                  {categories.length > 0 ? (
-                    <select
-                      value={pendingExpense.category || categories[0]}
+                >
+                  {/* Cantidad editable */}
+                  <div>
+                    <label
+                      className={`block text-xs font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"
+                        }`}
+                    >
+                      Cantidad (€)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={pendingExpense.amount}
                       onChange={(e) =>
                         setPendingExpense({
                           ...pendingExpense,
-                          category: e.target.value,
+                          amount: parseFloat(e.target.value) || 0,
+                        })
+                      }
+                      className={`w-full px-3 py-2 rounded-lg border text-sm font-bold ${darkMode
+                        ? "bg-gray-900 border-gray-700 text-gray-100"
+                        : "bg-white border-gray-300 text-gray-900"
+                        } focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                    />
+                  </div>
+
+                  {/* Categoría editable */}
+                  <div>
+                    <label
+                      className={`block text-xs font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"
+                        } `}
+                    >
+                      Categoría
+                    </label>
+                    {categories.length > 0 ? (
+                      <select
+                        value={pendingExpense.category || ""}
+                        onChange={(e) =>
+                          setPendingExpense({
+                            ...pendingExpense,
+                            category: e.target.value,
+                            subcategory: "", // 🎯 Reset subcategory when category changes
+                          })
+                        }
+                        className={`w-full px-3 py-2 rounded-lg border text-sm ${darkMode
+                          ? "bg-gray-900 border-gray-700 text-gray-100"
+                          : "bg-white border-gray-300 text-gray-900"
+                          } focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                      >
+                        {!pendingExpense.category && (
+                          <option value="">-- Selecciona categoría --</option>
+                        )}
+                        {categories.map((cat) => (
+                          <option key={cat} value={cat}>
+                            {cat}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <p
+                        className={`text-sm ${darkMode ? "text-gray-300" : "text-gray-700"
+                          } `}
+                      >
+                        {pendingExpense.category}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Subcategoría - OBLIGATORIA, basada en categoría */}
+                  <div>
+                    <label
+                      className={`block text-xs font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"
+                        } `}
+                    >
+                      Subcategoría <span className="text-red-500">*</span>
+                    </label>
+                    {(() => {
+                      const selectedCat = pendingExpense.category;
+                      const subcats = categoriesWithSubcategories[selectedCat]?.subcategories || [];
+
+                      if (!selectedCat) {
+                        // No hay categoría seleccionada
+                        return (
+                          <select
+                            disabled
+                            className={`w-full px-3 py-2 rounded-lg border text-sm ${darkMode
+                              ? "bg-gray-900 border-gray-700 text-gray-500"
+                              : "bg-white border-gray-300 text-gray-400"
+                              } focus:outline-none cursor-not-allowed`}
+                          >
+                            <option value="">-- Selecciona categoría primero --</option>
+                          </select>
+                        );
+                      } else if (subcats.length > 0) {
+                        return (
+                          <select
+                            value={pendingExpense.subcategory || ""}
+                            onChange={(e) =>
+                              setPendingExpense({
+                                ...pendingExpense,
+                                subcategory: e.target.value,
+                              })
+                            }
+                            className={`w-full px-3 py-2 rounded-lg border text-sm ${darkMode
+                              ? "bg-gray-900 border-gray-700 text-gray-100"
+                              : "bg-white border-gray-300 text-gray-900"
+                              } focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                          >
+                            <option value="">-- Selecciona subcategoría --</option>
+                            {subcats.map((sub: string) => (
+                              <option key={sub} value={sub}>
+                                {sub}
+                              </option>
+                            ))}
+                          </select>
+                        );
+                      } else {
+                        // Categoría seleccionada pero sin subcategorías definidas
+                        return (
+                          <select
+                            disabled
+                            className={`w-full px-3 py-2 rounded-lg border text-sm ${darkMode
+                              ? "bg-gray-900 border-gray-700 text-gray-500"
+                              : "bg-white border-gray-300 text-gray-400"
+                              } focus:outline-none cursor-not-allowed`}
+                          >
+                            <option value="">-- No hay subcategorías para {selectedCat} --</option>
+                          </select>
+                        );
+                      }
+                    })()}
+                  </div>
+
+                  {/* Descripción editable */}
+                  <div>
+                    <label
+                      className={`block text-xs font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"
+                        } `}
+                    >
+                      Descripción
+                    </label>
+                    <input
+                      type="text"
+                      value={pendingExpense.name || ""}
+                      onChange={(e) =>
+                        setPendingExpense({
+                          ...pendingExpense,
+                          name: e.target.value,
                         })
                       }
                       className={`w-full px-3 py-2 rounded-lg border text-sm ${darkMode
                         ? "bg-gray-900 border-gray-700 text-gray-100"
                         : "bg-white border-gray-300 text-gray-900"
                         } focus:outline-none focus:ring-2 focus:ring-purple-500`}
-                    >
-                      {categories.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <p
-                      className={`text-sm ${darkMode ? "text-gray-300" : "text-gray-700"
-                        } `}
-                    >
-                      {pendingExpense.category}
-                    </p>
-                  )}
+                    />
+                  </div>
                 </div>
 
-                {/* Subcategoría editable (texto libre) */}
-                <div>
-                  <label
-                    className={`block text-xs font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"
-                      } `}
-                  >
-                    Subcategoría (opcional)
-                  </label>
-                  <input
-                    type="text"
-                    value={pendingExpense.subcategory || ""}
-                    onChange={(e) =>
-                      setPendingExpense({
-                        ...pendingExpense,
-                        subcategory: e.target.value,
-                      })
-                    }
-                    placeholder="Ej:Cenas, Netflix, Farmacia..."
-                    className={`w-full px-3 py-2 rounded-lg border text-sm ${darkMode
-                      ? "bg-gray-900 border-gray-700 text-gray-100 placeholder-gray-500"
-                      : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
-                      } focus:outline-none focus:ring-2 focus:ring-purple-500`}
-                  />
-                </div>
-
-                {/* Descripción editable */}
-                <div>
-                  <label
-                    className={`block text-xs font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"
-                      } `}
-                  >
-                    Descripción
-                  </label>
-                  <input
-                    type="text"
-                    value={pendingExpense.name || ""}
-                    onChange={(e) =>
-                      setPendingExpense({
-                        ...pendingExpense,
-                        name: e.target.value,
-                      })
-                    }
-                    className={`w-full px-3 py-2 rounded-lg border text-sm ${darkMode
-                      ? "bg-gray-900 border-gray-700 text-gray-100"
-                      : "bg-white border-gray-300 text-gray-900"
-                      } focus:outline-none focus:ring-2 focus:ring-purple-500`}
-                  />
-                </div>
-              </div>
-
-              {/* Buttons */}
-              <div className="flex gap-3">
-                {/* Cancel - Glass button */}
-                <button
-                  onClick={cancelExpense}
-                  className={`flex-1 py-4 rounded-2xl font-semibold
+                {/* Buttons */}
+                <div className="flex gap-3">
+                  {/* Cancel - Glass button */}
+                  <button
+                    onClick={cancelExpense}
+                    className={`flex-1 py-4 rounded-2xl font-semibold
                     transition-all duration-300
                     transform hover:scale-[1.02] active:scale-[0.98]
                     ${darkMode
-                      ? "bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white"
-                      : "bg-gray-900/10 hover:bg-gray-900/20 text-gray-700 hover:text-gray-900"
-                    }
+                        ? "bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white"
+                        : "bg-gray-900/10 hover:bg-gray-900/20 text-gray-700 hover:text-gray-900"
+                      }
                     backdrop-blur-xl
                     border ${darkMode ? "border-gray-700/30" : "border-gray-300/30"}`}
-                >
-                  Cancelar
-                </button>
+                  >
+                    Cancelar
+                  </button>
 
-                {/* Confirm - Gradient button */}
-                <button
-                  onClick={confirmExpense}
-                  disabled={isProcessing}
-                  className={`flex-1 py-4 rounded-2xl font-semibold relative overflow-hidden
+                  {/* Confirm - Gradient button */}
+                  <button
+                    onClick={confirmExpense}
+                    disabled={isProcessing}
+                    className={`flex-1 py-4 rounded-2xl font-semibold relative overflow-hidden
                     transform transition-all duration-300
                     hover:scale-[1.02] active:scale-[0.98]
                     ${isProcessing
-                      ? "bg-gradient-to-r from-purple-600/50 to-blue-600/50 cursor-wait"
-                      : "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
-                    }
+                        ? "bg-gradient-to-r from-purple-600/50 to-blue-600/50 cursor-wait"
+                        : "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                      }
                     text-white
                     shadow-lg ${isProcessing ? "shadow-purple-500/20" : "shadow-green-500/30 hover:shadow-green-500/40"}
                     border-2 border-white/20`}
-                >
-                  {isProcessing ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      <span>Añadiendo...</span>
-                    </div>
-                  ) : (
-                    "✅ Confirmar"
-                  )}
-                </button>
+                  >
+                    {isProcessing ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span>Añadiendo...</span>
+                      </div>
+                    ) : (
+                      "✅ Confirmar"
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
     </>
   );
 };

@@ -709,6 +709,7 @@ const MainContent = memo<MainContentProps>(
             <VoiceExpenseButton
               darkMode={darkMode}
               categories={Object.keys(categories)}
+              categoriesWithSubcategories={categories}
               onAddExpense={onAddExpenseFromAI}
               showNotification={showNotification}
               hasFilterButton={activeView === "table" || activeView === "chart"}
@@ -842,8 +843,8 @@ const MainContent = memo<MainContentProps>(
                       onTouchStart={(e) => e.stopPropagation()}
                       onChange={(e) => onCategoryChange(e.target.value)}
                       className={`w-full px-4 py-3 rounded-xl border text-base transition-all ${darkMode
-                          ? "bg-gray-800 border-gray-700 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/40"
-                          : "bg-white border-purple-200 text-purple-900 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/40"
+                        ? "bg-gray-800 border-gray-700 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/40"
+                        : "bg-white border-purple-200 text-purple-900 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/40"
                         }`}
                     >
                       <option value="all">{t("filters.all")}</option>
