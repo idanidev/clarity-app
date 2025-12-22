@@ -31,26 +31,26 @@ export const useAppState = (onForeground?: () => void, onBackground?: () => void
     }
 
     // En nativo, usar el plugin de App
-    const listener = App.addListener('appStateChange', (state: AppState) => {
-      if (state.isActive) {
-        setAppState('active');
-        onForeground?.();
-      } else {
-        setAppState('background');
-        onBackground?.();
-      }
-    });
+    let listenerHandle: any = null;
 
-    // También escuchar cuando la app vuelve al foreground
-    const resumeListener = App.addListener('appStateChange', (state: AppState) => {
-      if (state.isActive) {
-        onForeground?.();
-      }
-    });
+    const setupListener = async () => {
+      listenerHandle = await App.addListener('appStateChange', (state: AppState) => {
+        if (state.isActive) {
+          setAppState('active');
+          onForeground?.();
+        } else {
+          setAppState('background');
+          onBackground?.();
+        }
+      });
+    };
+
+    setupListener();
 
     return () => {
-      listener.remove();
-      resumeListener.remove();
+      if (listenerHandle) {
+        listenerHandle.remove();
+      }
     };
   }, [onForeground, onBackground]);
 
