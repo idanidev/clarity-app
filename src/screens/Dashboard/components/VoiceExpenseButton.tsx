@@ -1,6 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 import { SpeechRecognition } from "@capgo/capacitor-speech-recognition";
-import { Loader2, Mic, MicOff } from "@/components/icons";
+import { Loader2, Mic, MicOff, Plus } from "@/components/icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import AudioWaveVisualizer from "../../../components/AudioWaveVisualizer";
 import { usePermissions } from "../../../hooks/usePermissions";
@@ -91,6 +91,10 @@ const VoiceExpenseButton = ({
   const [voiceAvailable, setVoiceAvailable] = useState(false);
   const [pendingExpense, setPendingExpense] = useState<any>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  
+  // States for new subcategory creation
+  const [showNewSubcategory, setShowNewSubcategory] = useState(false);
+  const [newSubcategoryName, setNewSubcategoryName] = useState("");
 
   // 🎯 Mejoras Premium
   const [detectedCategory, setDetectedCategory] = useState("");
@@ -516,97 +520,81 @@ const VoiceExpenseButton = ({
 
     const amount = parseFloat(amountMatch[1].replace(",", "."));
 
-    // No default a "Otros"-dejar vacío si no se detecta
+    // Variables para categoría y subcategoría detectadas
     let category = "";
+    let subcategory: string | null = null;
 
-    const categoryKeywords = {
-      Alimentación: [
-        "supermercado",
-        "comida",
-        "mercado",
-        "alimentación",
-        "compra",
-        "cenas",
-        "cena",
-        "desayuno",
-        "almuerzo",
-        "merienda",
-        "restaurante",
-        "bar",
-        "cafetería",
-        "café",
-        "pizza",
-        "comida rápida",
-        "burguer",
-      ],
-      Transporte: [
-        "gasolina",
-        "combustible",
-        "parking",
-        "aparcamiento",
-        "taxi",
-        "uber",
-        "cabify",
-        "transporte",
-        "metro",
-        "autobús",
-        "bus",
-        "tren",
-        "peaje",
-      ],
-      Ocio: [
-        "cine",
-        "teatro",
-        "concierto",
-        "entretenimiento",
-        "ocio",
-        "fiesta",
-        "copas",
-        "discoteca",
-        "cerveza",
-        "cervezas",
-        "birra",
-        "birras",
-        "bar",
-        "pub",
-      ],
-      Salud: [
-        "farmacia",
-        "médico",
-        "doctor",
-        "hospital",
-        "salud",
-        "dentista",
-      ],
-      Hogar: [
-        "casa",
-        "hogar",
-        "muebles",
-        "decoración",
-        "alquiler",
-        "luz",
-        "agua",
-        "gas",
-        "internet",
-      ],
-      Ropa: [
-        "ropa",
-        "zapatos",
-        "vestir",
-        "calzado",
-      ],
-      Tabaco: [
-        "tabaco",
-        "cigarros",
-        "cigarrillos",
-        "estanco",
-      ],
-    };
+    // 🎯 1️⃣ PRIMERO: Buscar en las categorías y subcategorías del usuario
+    const userCategories = Object.entries(categoriesWithSubcategories);
+    
+    for (const [catName, catData] of userCategories) {
+      const subs = catData?.subcategories || [];
+      // Limpiar nombre de categoría (quitar emoji)
+      const catNameClean = catName.replace(/\s*[\u{1F300}-\u{1F9FF}]/gu, '').trim().toLowerCase();
+      
+      // Buscar si alguna subcategoría coincide con el texto
+      for (const sub of subs) {
+        const subLower = sub.toLowerCase().trim();
+        if (lowerText.includes(subLower)) {
+          // ✅ Encontramos una subcategoría que coincide!
+          category = catName;
+          subcategory = sub;
+          console.log(`🎯 [Voice] Matched user subcategory "${sub}" -> category "${catName}"`);
+          break;
+        }
+      }
+      
+      // Si no encontramos subcategoría, verificar si el texto contiene el nombre de la categoría
+      if (!category && catNameClean && lowerText.includes(catNameClean)) {
+        category = catName;
+        console.log(`🎯 [Voice] Matched user category "${catName}"`);
+      }
+      
+      if (category) break;
+    }
 
-    for (const [cat, keywords] of Object.entries(categoryKeywords)) {
-      if (keywords.some((keyword) => lowerText.includes(keyword))) {
-        category = cat;
-        break;
+    // 🎯 2️⃣ FALLBACK: Si no encontramos en las categorías del usuario, usar keywords
+    if (!category) {
+      const categoryKeywords: Record<string, string[]> = {
+        Alimentación: [
+          "supermercado", "comida", "mercado", "alimentación", "compra",
+          "cena", "cenas", "desayuno", "almuerzo", "merienda",
+          "restaurante", "cafetería", "café", "pizza", "burguer",
+        ],
+        Transporte: [
+          "gasolina", "combustible", "parking", "aparcamiento",
+          "taxi", "uber", "cabify", "transporte",
+          "metro", "autobús", "bus", "tren", "peaje",
+        ],
+        Ocio: [
+          "cine", "teatro", "concierto", "entretenimiento", "ocio",
+          "fiesta", "copas", "discoteca", "bar", "pub",
+          "cerveza", "cervezas", "birra", "birras",
+        ],
+        Salud: [
+          "farmacia", "médico", "doctor", "hospital", "salud", "dentista",
+        ],
+        Hogar: [
+          "casa", "hogar", "muebles", "decoración",
+          "alquiler", "luz", "agua", "gas", "internet",
+        ],
+        Ropa: [
+          "ropa", "zapatos", "vestir", "calzado",
+        ],
+      };
+
+      for (const [cat, keywords] of Object.entries(categoryKeywords)) {
+        if (keywords.some((keyword) => lowerText.includes(keyword))) {
+          // Intentar encontrar la categoría del usuario que coincida con el nombre
+          const matchedUserCat = userCategories.find(([catName]) => {
+            const catNameClean = catName.replace(/\s*[\u{1F300}-\u{1F9FF}]/gu, '').trim().toLowerCase();
+            return catNameClean === cat.toLowerCase();
+          });
+          
+          category = matchedUserCat ? matchedUserCat[0] : cat;
+          console.log(`🎯 [Voice] Matched keyword "${cat}" -> category "${category}"`);
+          break;
+        }
       }
     }
 
@@ -614,9 +602,9 @@ const VoiceExpenseButton = ({
 
     return {
       amount,
-      category, // Vacío si no se detectó
-      subcategory: null,
-      name: cleanSpokenText(text), // Texto limpio en lugar de literal
+      category, // Vacío si no se detectó, con emoji si viene del usuario
+      subcategory, // Subcategoría detectada automáticamente si coincide
+      name: cleanSpokenText(text),
       date,
       paymentMethod: "Tarjeta",
     };
@@ -1307,67 +1295,138 @@ const VoiceExpenseButton = ({
 
                   {/* Subcategoría - OBLIGATORIA, basada en categoría */}
                   <div>
-                    <label
-                      className={`block text-xs font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"
-                        } `}
-                    >
-                      Subcategoría <span className="text-red-500">*</span>
-                    </label>
-                    {(() => {
-                      const selectedCat = pendingExpense.category;
-                      const subcats = categoriesWithSubcategories[selectedCat]?.subcategories || [];
-
-                      if (!selectedCat) {
-                        // No hay categoría seleccionada
-                        return (
-                          <select
-                            disabled
-                            className={`w-full px-3 py-2 rounded-lg border text-sm ${darkMode
-                              ? "bg-gray-900 border-gray-700 text-gray-500"
-                              : "bg-white border-gray-300 text-gray-400"
-                              } focus:outline-none cursor-not-allowed`}
-                          >
-                            <option value="">-- Selecciona categoría primero --</option>
-                          </select>
-                        );
-                      } else if (subcats.length > 0) {
-                        return (
-                          <select
-                            value={pendingExpense.subcategory || ""}
-                            onChange={(e) =>
-                              setPendingExpense({
-                                ...pendingExpense,
-                                subcategory: e.target.value,
-                              })
+                    <div className="flex items-center justify-between mb-1">
+                      <label className={`block text-xs font-medium ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+                        Subcategoría <span className="text-red-500">*</span>
+                      </label>
+                      {pendingExpense.category && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setShowNewSubcategory(!showNewSubcategory);
+                            if (!showNewSubcategory) {
+                              // Al activar, limpiar para escribir nueva
+                              setNewSubcategoryName("");
                             }
-                            className={`w-full px-3 py-2 rounded-lg border text-sm ${darkMode
-                              ? "bg-gray-900 border-gray-700 text-gray-100"
-                              : "bg-white border-gray-300 text-gray-900"
+                          }}
+                          className={`text-[10px] px-2 py-0.5 rounded-lg flex items-center gap-1 ${darkMode
+                            ? "bg-purple-600/20 text-purple-300 hover:bg-purple-600/30"
+                            : "bg-purple-100 text-purple-700 hover:bg-purple-200"
+                            } transition-all`}
+                        >
+                          <Plus className="w-3 h-3" />
+                          Nueva
+                        </button>
+                      )}
+                    </div>
+                    
+                    {showNewSubcategory ? (
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={newSubcategoryName}
+                            onChange={(e) => setNewSubcategoryName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                if (newSubcategoryName.trim()) {
+                                  setPendingExpense({
+                                    ...pendingExpense,
+                                    subcategory: newSubcategoryName.trim(),
+                                  });
+                                  setShowNewSubcategory(false);
+                                }
+                              }
+                            }}
+                            placeholder="Nombre de nueva subcategoría"
+                            className={`flex-1 px-3 py-2 rounded-lg border text-sm ${darkMode
+                              ? "bg-gray-900 border-gray-700 text-gray-100 placeholder-gray-500"
+                              : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
                               } focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                            autoFocus
+                          />
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              if (newSubcategoryName.trim()) {
+                                setPendingExpense({
+                                  ...pendingExpense,
+                                  subcategory: newSubcategoryName.trim(),
+                                });
+                                setShowNewSubcategory(false);
+                              }
+                            }}
+                            disabled={!newSubcategoryName.trim()}
+                            className="px-3 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            <option value="">-- Selecciona subcategoría --</option>
-                            {subcats.map((sub: string) => (
-                              <option key={sub} value={sub}>
-                                {sub}
-                              </option>
-                            ))}
-                          </select>
-                        );
-                      } else {
-                        // Categoría seleccionada pero sin subcategorías definidas
-                        return (
-                          <select
-                            disabled
-                            className={`w-full px-3 py-2 rounded-lg border text-sm ${darkMode
-                              ? "bg-gray-900 border-gray-700 text-gray-500"
-                              : "bg-white border-gray-300 text-gray-400"
-                              } focus:outline-none cursor-not-allowed`}
-                          >
-                            <option value="">-- No hay subcategorías para {selectedCat} --</option>
-                          </select>
-                        );
-                      }
-                    })()}
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {(() => {
+                          const selectedCat = pendingExpense.category;
+                          const subcats = categoriesWithSubcategories[selectedCat]?.subcategories || [];
+                          // Limpiar nombre de categoría (quitar emojis)
+                          const selectedCatClean = selectedCat?.replace(/\s*[\u{1F300}-\u{1F9FF}]/gu, '').trim() || '';
+
+                          if (!selectedCat) {
+                            // No hay categoría seleccionada
+                            return (
+                              <select
+                                disabled
+                                className={`w-full px-3 py-2 rounded-lg border text-sm ${darkMode
+                                  ? "bg-gray-900 border-gray-700 text-gray-500"
+                                  : "bg-white border-gray-300 text-gray-400"
+                                  } focus:outline-none cursor-not-allowed`}
+                              >
+                                <option value="">-- Selecciona categoría primero --</option>
+                              </select>
+                            );
+                          } else if (subcats.length > 0) {
+                            return (
+                              <select
+                                value={pendingExpense.subcategory || ""}
+                                onChange={(e) =>
+                                  setPendingExpense({
+                                    ...pendingExpense,
+                                    subcategory: e.target.value,
+                                  })
+                                }
+                                className={`w-full px-3 py-2 rounded-lg border text-sm ${darkMode
+                                  ? "bg-gray-900 border-gray-700 text-gray-100"
+                                  : "bg-white border-gray-300 text-gray-900"
+                                  } focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                              >
+                                <option value="">-- Selecciona subcategoría --</option>
+                                {subcats.map((sub: string) => (
+                                  <option key={sub} value={sub}>
+                                    {sub}
+                                  </option>
+                                ))}
+                              </select>
+                            );
+                          } else {
+                            // Categoría seleccionada pero sin subcategorías
+                            return (
+                              <select
+                                disabled
+                                className={`w-full px-3 py-2 rounded-lg border text-sm ${darkMode
+                                  ? "bg-gray-900 border-gray-700 text-gray-500"
+                                  : "bg-white border-gray-300 text-gray-400"
+                                  } focus:outline-none cursor-not-allowed`}
+                              >
+                                <option value="">-- No hay subcategorías en {selectedCatClean} --</option>
+                              </select>
+                            );
+                          }
+                        })()}
+                      </>
+                    )}
                   </div>
 
                   {/* Descripción editable */}
