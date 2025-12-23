@@ -134,79 +134,29 @@ const App = () => {
     // Inicializar inmediatamente
     initializeAuth();
 
-    // Listener para cuando la app vuelve a estar visible (iOS PWA)
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible" && isMountedRef.current) {
-        // Forzar una verificación del estado de auth
-        const currentUser = auth.currentUser;
-        if (currentUser) {
-          // Si hay usuario, verificar que el estado esté actualizado
-          currentUser.reload().catch(() => {
-            // Si falla el reload, usar el usuario actual de todas formas
-            if (isMountedRef.current) {
-              setUser(currentUser);
-              setInitializing(false);
-            }
-          });
-        } else {
-          // Si no hay usuario, asegurarse de que el estado esté actualizado
-          if (isMountedRef.current) {
-            setUser(null);
-            setInitializing(false);
-          }
-        }
-      }
-    };
-
-    // Listener para cuando la página se muestra (iOS PWA)
+    // Listener para cuando la página se muestra desde bfcache (iOS PWA)
+    // Solo re-inicializar si la página fue restaurada desde cache
     const handlePageShow = (event: PageTransitionEvent) => {
-      // Si la página se muestra desde cache (iOS PWA), re-inicializar
       if (event.persisted && isMountedRef.current) {
+        console.log("[App] Page restored from bfcache, re-initializing auth");
         setInitializing(true);
         initializeAuth();
       }
     };
 
-    // Listener para cuando la app se reactiva (iOS específico)
-    const handleFocus = () => {
-      if (isMountedRef.current) {
-        const currentUser = auth.currentUser;
-        setUser((prevUser) => {
-          if (currentUser !== prevUser) {
-            return currentUser;
-          }
-          return prevUser;
-        });
-        setInitializing((prevInitializing) => {
-          if (prevInitializing) {
-            return false;
-          }
-          return prevInitializing;
-        });
-      }
-    };
+    // NOTA: Removemos los listeners agresivos que causaban refreshes innecesarios:
+    // - handleVisibilityChange: llamaba currentUser.reload() en cada cambio de pestaña
+    // - handleFocus: actualizaba el usuario en cada focus
+    // - handleAppRestored: re-inicializaba auth sin necesidad
+    // Firebase onAuthStateChanged ya maneja los cambios de estado correctamente
 
-    // Listener para cuando la app se restaura desde cache (iOS PWA)
-    const handleAppRestored = () => {
-      if (isMountedRef.current) {
-        setInitializing(true);
-        initializeAuth();
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("pageshow", handlePageShow);
-    window.addEventListener("focus", handleFocus);
-    window.addEventListener("apprestored", handleAppRestored);
 
     return () => {
       isMountedRef.current = false;
       if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
       if (unsubscribeRef.current) unsubscribeRef.current();
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("pageshow", handlePageShow);
-      window.removeEventListener("focus", handleFocus);
-      window.removeEventListener("apprestored", handleAppRestored);
     };
   }, []);
 

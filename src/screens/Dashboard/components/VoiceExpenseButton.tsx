@@ -689,170 +689,178 @@ const VoiceExpenseButton = ({
   // ============================================
   // TOGGLE LISTENING
   // ============================================
-  const toggleListening = async () => {
-    console.log("[Voice] Toggle listening, current state:", isListening);
+  const toggleListening = async (e?: React.MouseEvent) => {
+    // 🛡️ Prevenir cualquier comportamiento por defecto
+    e?.preventDefault();
+    e?.stopPropagation();
 
-    // Haptic feedback
-    if (isNative) {
-      try {
-        if (isListening) {
-          haptic.medium();
-        } else {
-          haptic.light();
-        }
-      } catch (error) {
-        // Silencioso
-      }
-    }
+    try {
+      console.log("[Voice] Toggle listening, current state:", isListening);
 
-    if (isNative) {
-      // ============================================
-      // CAPACITOR:Plugin nativo
-      // ============================================
-      if (isListening) {
-        await stopRecording();
-      } else {
-        console.log("[Voice] Starting native recognition");
-
-        // 🎯 Reset speech detection flag
-        hasDetectedSpeechRef.current = false;
-
-        // ✅ Solicitar permisos SOLO cuando se presiona el botón
+      // Haptic feedback
+      if (isNative) {
         try {
-          const permission = await SpeechRecognition.requestPermissions();
-          const hasPermission = permission?.speechRecognition === "granted";
-
-          if (!hasPermission) {
-            showNotification?.("❌ Permiso de micrófono denegado", "error");
-            return;
+          if (isListening) {
+            haptic.medium();
+          } else {
+            haptic.light();
           }
-
-          setTranscript("");
-          setInterimTranscript("");
-          transcriptRef.current = ""; // 🎯 Reset refs
-          interimTranscriptRef.current = ""; // 🎯 Reset refs
-
-          // ✅ Agregar listeners SOLO UNA VEZ
-          if (!listenersAddedRef.current) {
-            await SpeechRecognition.addListener(
-              "partialResults",
-              (data: any) => {
-                console.log("[Voice] Partial results:", data);
-
-                // ✅ Solo iniciar timer DESPUÉS de detectar la primera voz
-                if (!hasDetectedSpeechRef.current && data.matches && data.matches.length > 0) {
-                  console.log("✅ [Voice] First speech detected (native)! Starting silence timer now");
-                  hasDetectedSpeechRef.current = true;
-                }
-
-                resetSilenceTimer(); // Reset timer on speech activity
-                if (data.matches && data.matches.length > 0) {
-                  const text = data.matches[0];
-                  setInterimTranscript(text);
-                  interimTranscriptRef.current = text; // 🎯 Keep ref in sync
-                }
-              }
-            );
-
-            await SpeechRecognition.addListener(
-              "listeningState",
-              (data: any) => {
-                console.log("[Voice] Listening state:", data);
-                const isListeningState = data.status === "started";
-                setIsListening(isListeningState);
-
-                // ❌ NO iniciar timer cuando empieza - esperar a que hable
-                // if (isListeningState) {
-                //   resetSilenceTimer();
-                // }
-
-                if (data.status === "stopped") {
-                  if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-
-                  // 🎯 Usar refs para obtener valores actuales
-                  const finalText = interimTranscriptRef.current || transcriptRef.current;
-                  console.log("📊 [Voice Native] Final text from refs:", finalText);
-
-                  if (finalText) {
-                    processTranscript(finalText);
-                  }
-                }
-              }
-            );
-
-            listenersAddedRef.current = true;
-          }
-
-          await SpeechRecognition.start({
-            language: "es-ES",
-            maxResults: 1,
-            prompt: 'Di tu gasto (ej:"25 euros en supermercado")',
-            partialResults: true,
-            popup: false,
-          });
-
-          console.log("[Voice] Native recognition started");
-          setIsListening(true);
-          resetSilenceTimer(); // Initial timer
         } catch (error) {
-          console.error("[Voice] Error starting native recognition:", error);
-          showNotification?.("❌ Error al iniciar micrófono", "error");
-          await stopRecording();
+          // Silencioso
         }
       }
-    } else {
-      // ============================================
-      // WEB/PWA:Web Speech API
-      // ============================================
-      if (!recognitionRef.current) {
-        showNotification?.("❌ Voz no disponible en este navegador", "error");
-        return;
-      }
 
-      if (isListening) {
-        await stopRecording();
-      } else {
-        console.log("[Voice] Starting web recognition");
-        try {
-          // ✅ Verificar estado del permiso primero
-          const micStatus = microphone.status;
-          console.log("[Voice] Microphone permission status:", micStatus);
+      if (isNative) {
+        // ============================================
+        // CAPACITOR:Plugin nativo
+        // ============================================
+        if (isListening) {
+          await stopRecording();
+        } else {
+          console.log("[Voice] Starting native recognition");
 
-          if (micStatus === "denied" || microphone.permanentlyDenied) {
-            showNotification?.(
-              "❌ Permiso de micrófono denegado. Habilítalo en la configuración.",
-              "error"
-            );
-            return;
-          }
+          // 🎯 Reset speech detection flag
+          hasDetectedSpeechRef.current = false;
 
-          // ✅ Si el permiso no está concedido, solicitarlo SOLO cuando el usuario presiona el botón
-          if (micStatus !== "granted") {
-            console.log("[Voice] Requesting microphone permission...");
-            const granted = await microphone.request();
-            if (!granted) {
-              showNotification?.("❌ Permiso de micrófono necesario para usar la voz", "error");
+          // ✅ Solicitar permisos SOLO cuando se presiona el botón
+          try {
+            const permission = await SpeechRecognition.requestPermissions();
+            const hasPermission = permission?.speechRecognition === "granted";
+
+            if (!hasPermission) {
+              showNotification?.("❌ Permiso de micrófono denegado", "error");
               return;
             }
-          }
 
-          setTranscript("");
-          setInterimTranscript("");
-          transcriptRef.current = ""; // 🎯 Reset refs
-          interimTranscriptRef.current = ""; // 🎯 Reset refs
-          hasDetectedSpeechRef.current = false; // 🎯 Reset flag
-          recognitionRef.current.start();
-          // isListening will be set in onstart
-        } catch (error: any) {
-          console.error("[Voice] Error starting web recognition:", error);
-          if (error.name === "NotAllowedError") {
-            showNotification?.("❌ Permiso de micrófono denegado", "error");
-          } else {
+            setTranscript("");
+            setInterimTranscript("");
+            transcriptRef.current = ""; // 🎯 Reset refs
+            interimTranscriptRef.current = ""; // 🎯 Reset refs
+
+            // ✅ Agregar listeners SOLO UNA VEZ
+            if (!listenersAddedRef.current) {
+              await SpeechRecognition.addListener(
+                "partialResults",
+                (data: any) => {
+                  console.log("[Voice] Partial results:", data);
+
+                  // ✅ Solo iniciar timer DESPUÉS de detectar la primera voz
+                  if (!hasDetectedSpeechRef.current && data.matches && data.matches.length > 0) {
+                    console.log("✅ [Voice] First speech detected (native)! Starting silence timer now");
+                    hasDetectedSpeechRef.current = true;
+                  }
+
+                  resetSilenceTimer(); // Reset timer on speech activity
+                  if (data.matches && data.matches.length > 0) {
+                    const text = data.matches[0];
+                    setInterimTranscript(text);
+                    interimTranscriptRef.current = text; // 🎯 Keep ref in sync
+                  }
+                }
+              );
+
+              await SpeechRecognition.addListener(
+                "listeningState",
+                (data: any) => {
+                  console.log("[Voice] Listening state:", data);
+                  const isListeningState = data.status === "started";
+                  setIsListening(isListeningState);
+
+                  // ❌ NO iniciar timer cuando empieza - esperar a que hable
+                  // if (isListeningState) {
+                  //   resetSilenceTimer();
+                  // }
+
+                  if (data.status === "stopped") {
+                    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+
+                    // 🎯 Usar refs para obtener valores actuales
+                    const finalText = interimTranscriptRef.current || transcriptRef.current;
+                    console.log("📊 [Voice Native] Final text from refs:", finalText);
+
+                    if (finalText) {
+                      processTranscript(finalText);
+                    }
+                  }
+                }
+              );
+
+              listenersAddedRef.current = true;
+            }
+
+            await SpeechRecognition.start({
+              language: "es-ES",
+              maxResults: 1,
+              popup: false,
+              partialResults: true,
+            });
+
+            setIsListening(true);
+            // No resetSilenceTimer() aquí - esperar a que hable
+          } catch (error: any) {
+            console.error("[Voice] Error starting native recognition:", error);
             showNotification?.("❌ Error al iniciar micrófono", "error");
+            await stopRecording();
           }
+        }
+      } else {
+        // ============================================
+        // WEB/PWA:Web Speech API
+        // ============================================
+        if (!recognitionRef.current) {
+          showNotification?.("❌ Voz no disponible en este navegador", "error");
+          return;
+        }
+
+        if (isListening) {
           await stopRecording();
+        } else {
+          console.log("[Voice] Starting web recognition");
+          try {
+            // ✅ Verificar estado del permiso primero
+            const micStatus = microphone.status;
+            console.log("[Voice] Microphone permission status:", micStatus);
+
+            if (micStatus === "denied" || microphone.permanentlyDenied) {
+              showNotification?.(
+                "❌ Permiso de micrófono denegado. Habilítalo en la configuración.",
+                "error"
+              );
+              return;
+            }
+
+            // ✅ Si el permiso no está concedido, solicitarlo SOLO cuando el usuario presiona el botón
+            if (micStatus !== "granted") {
+              console.log("[Voice] Requesting microphone permission...");
+              const granted = await microphone.request();
+              if (!granted) {
+                showNotification?.("❌ Permiso de micrófono necesario para usar la voz", "error");
+                return;
+              }
+            }
+
+            setTranscript("");
+            setInterimTranscript("");
+            transcriptRef.current = ""; // 🎯 Reset refs
+            interimTranscriptRef.current = ""; // 🎯 Reset refs
+            hasDetectedSpeechRef.current = false; // 🎯 Reset flag
+            recognitionRef.current.start();
+            // isListening will be set in onstart
+          } catch (error: any) {
+            console.error("[Voice] Error starting web recognition:", error);
+            if (error.name === "NotAllowedError") {
+              showNotification?.("❌ Permiso de micrófono denegado", "error");
+            } else {
+              showNotification?.("❌ Error al iniciar micrófono", "error");
+            }
+            await stopRecording();
+          }
         }
       }
+    } catch (globalError) {
+      // 🛡️ Catch-all para cualquier error no manejado
+      console.error("[Voice] GLOBAL ERROR in toggleListening:", globalError);
+      showNotification?.("❌ Error inesperado", "error");
     }
   };
 
@@ -899,7 +907,7 @@ const VoiceExpenseButton = ({
         )}
 
         <button
-          onClick={toggleListening}
+          onClick={(e) => toggleListening(e)}
           disabled={isProcessing}
           className={`navbar-button flex items-center justify-center p-3 rounded-xl transition-all ${isListening
             ? "bg-gradient-to-br from-pink-600 via-purple-600 to-pink-600 text-white shadow-2xl scale-110 animate-pulse"
@@ -933,7 +941,7 @@ const VoiceExpenseButton = ({
     <>
       {/* Botón flotante - Premium iOS Style */}
       <button
-        onClick={toggleListening}
+        onClick={(e) => toggleListening(e)}
         disabled={isProcessing}
         className={`group fixed right-4 z-40 p-5 rounded-full
           transform transition-all duration-500 ease-out
