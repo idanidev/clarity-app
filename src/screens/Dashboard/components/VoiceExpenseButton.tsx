@@ -176,7 +176,7 @@ const VoiceExpenseButton = ({
   // STOP RECORDING HELPER
   // ============================================
   const stopRecording = useCallback(async () => {
-    console.log("[Voice] Stopping recording (Silence/Manual)...");
+
 
     // Clear silence timer
     if (silenceTimerRef.current) {
@@ -217,7 +217,7 @@ const VoiceExpenseButton = ({
 
     // Solo iniciar timer si estamos escuchando (o a punto de)
     silenceTimerRef.current = setTimeout(() => {
-      console.log("[Voice] Silence timeout reached, stopping...");
+
       stopRecording();
     }, timeoutMs);
   }, [stopRecording]);
@@ -236,7 +236,7 @@ const VoiceExpenseButton = ({
         try {
           const availableResult = await SpeechRecognition.available();
           const available = availableResult?.available ?? false;
-          console.log("[Voice] Native speech available:", available);
+
 
           if (mounted) {
             setVoiceAvailable(available);
@@ -267,18 +267,18 @@ const VoiceExpenseButton = ({
       recognition.lang = "es-ES";
 
       recognition.onstart = () => {
-        console.log("🎤 [Voice] Web recognition STARTED");
+
         setIsListening(true);
         hasDetectedSpeechRef.current = false; // 🎯 Reset flag
         // ❌ NO iniciar timer aquí - esperar a que hable
       };
 
       recognition.onresult = (event: any) => {
-        console.log("📝 [Voice] Got speech result, event:", event);
+
 
         // ✅ Solo iniciar timer DESPUÉS de detectar la primera voz
         if (!hasDetectedSpeechRef.current) {
-          console.log("✅ [Voice] First speech detected! Starting silence timer now");
+
           hasDetectedSpeechRef.current = true;
         }
 
@@ -347,23 +347,23 @@ const VoiceExpenseButton = ({
       recognition.onend = () => {
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
 
-        console.log("🛑 [Voice] Recognition ENDED");
+
 
         // 🎯 Usar REFS para obtener valores actuales (evitar closure stale)
         const currentTranscript = transcriptRef.current.trim();
         const currentInterim = interimTranscriptRef.current.trim();
         const finalText = (currentTranscript + " " + currentInterim).trim();
 
-        console.log("📊 [Voice] Transcript ref:", currentTranscript);
-        console.log("📊 [Voice] Interim ref:", currentInterim);
-        console.log("📊 [Voice] Final text:", finalText);
+
+
+
 
         if (finalText) {
-          console.log("✅ [Voice] Processing final text:", finalText);
+
           setIsListening(false); // Parar para procesar
           processTranscript(finalText);
         } else {
-          console.log("[Voice] No text yet, restarting recognition to keep modal open");
+
           // No hay texto aún, reiniciar el reconocimiento para mantener modal abierto
           // El usuario debe pulsar "Detener" manualmente
           try {
@@ -371,7 +371,7 @@ const VoiceExpenseButton = ({
               recognitionRef.current.start();
             }
           } catch (e) {
-            console.log("[Voice] Recognition already running or error:", e);
+
           }
         }
       };
@@ -506,7 +506,7 @@ const VoiceExpenseButton = ({
       return String(parseInt(tens) + parseInt(units));
     });
 
-    console.log("🔢 [Voice] Number conversion:", text, "->", result);
+
     return result;
   };
 
@@ -617,57 +617,35 @@ const VoiceExpenseButton = ({
   // ============================================
   const processTranscript = useCallback(
     async (text: string) => {
-      console.log("🔄 [Voice] processTranscript CALLED with:", text);
-      console.log("🔄 [Voice] isProcessing:", isProcessing);
+      if (isProcessing) return;
 
-      if (isProcessing) {
-        console.log("⚠️ [Voice] Already processing, SKIPPING");
+      const expenseData = parseExpense(text);
+
+      if (!expenseData) {
+        showNotification?.("❌ No se pudo entender el gasto", "error");
+        setIsListening(false);
         return;
       }
 
-      console.log("✅ [Voice] Starting to process transcript:", text);
-
-      // Indicar que estamos procesando
+      // Solo mostrar spinner si tenemos datos válidos y vamos a procesar
       setIsProcessing(true);
-      console.log("🔄 [Voice] Set isProcessing = true");
 
       try {
-        const expenseData = parseExpense(text);
-        console.log("🔍 [Voice] parseExpense returned:", expenseData);
-
-        // Don't show error immediately-give user context via dialog instead
-        if (!expenseData) {
-          console.log("❌ [Voice] Could not parse expense from:", text);
-          setIsProcessing(false);
-          showNotification?.("❌ No se pudo entender el gasto", "error");
-          setIsListening(false);
-          return;
-        }
-
-        console.log("✅ [Voice] Successfully parsed expense:", expenseData);
-
         // ✅ DETENER GRABACIÓN
         setIsListening(false);
-        console.log("🛑 [Voice] Set isListening = false");
 
         // Pequeña pausa para que el usuario vea el feedback
-        console.log("⏳ [Voice] Waiting 300ms before showing dialog...");
         await new Promise(resolve => setTimeout(resolve, 300));
 
         // ✅ Mostrar diálogo de confirmación
-        console.log("🎯 [Voice] NOW SHOWING CONFIRMATION DIALOG");
-        console.log("🎯 [Voice] Setting pendingExpense to:", expenseData);
         setPendingExpense(expenseData);
-        console.log("🎯 [Voice] Setting showConfirmDialog = true");
         setShowConfirmDialog(true);
-        console.log("🎯 [Voice] Dialog should be visible now!");
 
       } catch (error) {
-        console.error("💥 [Voice] EXCEPTION in processTranscript:", error);
+        console.error("Error processing transcript:", error);
         showNotification?.("❌ Error al procesar gasto", "error");
         setIsListening(false);
       } finally {
-        console.log("🏁 [Voice] processTranscript FINISHED, setting isProcessing = false");
         setIsProcessing(false);
       }
     },
@@ -683,7 +661,7 @@ const VoiceExpenseButton = ({
     e?.stopPropagation();
 
     try {
-      console.log("[Voice] Toggle listening, current state:", isListening);
+
 
       // Haptic feedback
       if (isNative) {
@@ -705,7 +683,7 @@ const VoiceExpenseButton = ({
         if (isListening) {
           await stopRecording();
         } else {
-          console.log("[Voice] Starting native recognition");
+
 
           // 🎯 Reset speech detection flag
           hasDetectedSpeechRef.current = false;
@@ -730,11 +708,11 @@ const VoiceExpenseButton = ({
               await SpeechRecognition.addListener(
                 "partialResults",
                 (data: any) => {
-                  console.log("[Voice] Partial results:", data);
+
 
                   // ✅ Solo iniciar timer DESPUÉS de detectar la primera voz
                   if (!hasDetectedSpeechRef.current && data.matches && data.matches.length > 0) {
-                    console.log("✅ [Voice] First speech detected (native)! Starting silence timer now");
+
                     hasDetectedSpeechRef.current = true;
                   }
 
@@ -750,7 +728,7 @@ const VoiceExpenseButton = ({
               await SpeechRecognition.addListener(
                 "listeningState",
                 (data: any) => {
-                  console.log("[Voice] Listening state:", data);
+
                   const isListeningState = data.status === "started";
                   setIsListening(isListeningState);
 
@@ -764,7 +742,7 @@ const VoiceExpenseButton = ({
 
                     // 🎯 Usar refs para obtener valores actuales
                     const finalText = interimTranscriptRef.current || transcriptRef.current;
-                    console.log("📊 [Voice Native] Final text from refs:", finalText);
+
 
                     if (finalText) {
                       processTranscript(finalText);
@@ -803,11 +781,11 @@ const VoiceExpenseButton = ({
         if (isListening) {
           await stopRecording();
         } else {
-          console.log("[Voice] Starting web recognition");
+
           try {
             // ✅ Verificar estado del permiso primero
             const micStatus = microphone.status;
-            console.log("[Voice] Microphone permission status:", micStatus);
+
 
             if (micStatus === "denied" || microphone.permanentlyDenied) {
               showNotification?.(
@@ -819,7 +797,7 @@ const VoiceExpenseButton = ({
 
             // ✅ Si el permiso no está concedido, solicitarlo SOLO cuando el usuario presiona el botón
             if (micStatus !== "granted") {
-              console.log("[Voice] Requesting microphone permission...");
+
               const granted = await microphone.request();
               if (!granted) {
                 showNotification?.("❌ Permiso de micrófono necesario para usar la voz", "error");
@@ -1168,13 +1146,13 @@ const VoiceExpenseButton = ({
 
       {/* Diálogo de confirmación - Premium Glass */}
       {(() => {
-        console.log("👁️ [Voice] RENDER CHECK - showConfirmDialog:", showConfirmDialog, "pendingExpense:", pendingExpense);
+
         return showConfirmDialog && pendingExpense;
       })() && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
             style={{ zIndex: 99999999 }}
-            onClick={() => console.log("🖱️ [Voice] Dialog backdrop clicked")}
+            onClick={() => {}}
           >
             {/* Backdrop */}
             <div
