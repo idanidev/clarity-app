@@ -947,7 +947,7 @@ const WelcomeScreen = memo(
         {/* Header con animación */}
         <div className="text-center animate-fade-in">
           <div className="flex items-center justify-center gap-3 mb-3">
-            <Sparkles className="w-6 h-6 text-purple-500 animate-pulse" />
+            <Sparkles className="w-6 h-6 text-purple-500" />
             <h3 className={`text-xl md:text-2xl font-bold ${textClass}`}>
               Asistente Financiero IA
             </h3>
@@ -2536,7 +2536,7 @@ const AIAssistant: React.FC<AIAssistantProps> = memo(
               className={`p-1 md:p-2 rounded-lg flex-shrink-0 ${darkMode ? "bg-purple-500/20" : "bg-purple-100"
                 }`}
             >
-              <Sparkles className="w-4 h-4 md:w-6 md:h-6 text-purple-500 animate-pulse" />
+              <Sparkles className="w-4 h-4 md:w-6 md:h-6 text-purple-500" />
             </div>
             <div className="min-w-0 flex-1">
               <h3 className={`text-xs md:text-base font-bold truncate ${textClass}`}>

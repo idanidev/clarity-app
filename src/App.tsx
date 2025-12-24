@@ -115,7 +115,27 @@ const App = () => {
         (currentUser) => {
           if (isMountedRef.current) {
             if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
-            setUser(currentUser);
+            
+            // ✅ OPTIMIZACIÓN: Solo actualizar si el usuario realmente cambió
+            // Evita re-renders innecesarios cuando Firebase refresca el token
+            setUser((prevUser) => {
+              // Si ambos son null, no hay cambio
+              if (!prevUser && !currentUser) return prevUser;
+              // Si uno es null y el otro no, hay cambio
+              if (!prevUser || !currentUser) {
+                console.log("[Auth] Usuario cambió:", { prev: prevUser?.uid, current: currentUser?.uid });
+                return currentUser;
+              }
+              // Si el UID es el mismo, mantener la referencia anterior (evita re-render)
+              if (prevUser.uid === currentUser.uid) {
+                // Token refresh - no actualizar referencia
+                return prevUser;
+              }
+              // Usuario diferente, actualizar
+              console.log("[Auth] Usuario cambió:", { prev: prevUser.uid, current: currentUser.uid });
+              return currentUser;
+            });
+            
             setInitializing(false);
             if (isNative) SplashScreen.hide().catch(() => { });
           }

@@ -36,3 +36,4 @@ if (user) {
   console.error("❌ No hay usuario autenticado. Asegúrate de estar logueado.");
 }
 
+
