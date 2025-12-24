@@ -1,14 +1,24 @@
-// src/services/goalsService.js
+// src/services/goalsService.ts
+
+import type { 
+  Goals, 
+  Badge, 
+  LongTermGoal, 
+  MonthlyHistory,
+  MonthlyHistoryEntry,
+  LongTermGoalProgress,
+  MonthComparison,
+  CompletedGoalNotification
+} from '../types/dashboard';
 
 /**
  * Servicio para gestión de objetivos y logros
  * Calcula badges, rachas, comparaciones y detecta objetivos completados
  */
 
-/**
- * Definición de badges disponibles
- */
-export const BADGES = {
+// ==================== BADGES ====================
+
+export const BADGES: Record<string, Badge> = {
   FIRST_SAVER: {
     id: "first-saver",
     name: "🎯 Primer Ahorrador",
@@ -53,19 +63,34 @@ export const BADGES = {
   },
 };
 
+// ==================== INTERFACES INTERNAS ====================
+
+interface HistoryEntry extends MonthlyHistoryEntry {
+  month: string;
+}
+
+// ==================== CÁLCULO DE BADGES ====================
+
 /**
  * Calcula los badges que el usuario debería tener basado en su historial
  */
-export const calculateBadges = (goals, monthlyHistory, income, currentMonthExpenses) => {
-  const badges = [];
+export const calculateBadges = (
+  goals: Goals | null,
+  monthlyHistory: MonthlyHistory | undefined,
+  income: number,
+  currentMonthExpenses: number
+): Badge[] => {
+  const badges: Badge[] = [];
+  
+  if (!goals) return badges;
+  
   const today = new Date();
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth() + 1;
-  const currentMonthKey = `${currentYear}-${String(currentMonth).padStart(2, "0")}`;
   const daysPassed = today.getDate();
 
   // Obtener historial como array ordenado
-  const historyEntries = Object.entries(monthlyHistory || {})
+  const historyEntries: HistoryEntry[] = Object.entries(monthlyHistory || {})
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([key, value]) => ({ month: key, ...value }));
 
@@ -108,16 +133,16 @@ export const calculateBadges = (goals, monthlyHistory, income, currentMonthExpen
   }
 
   // 6. EARLY_BIRD - Completar objetivo antes del día 15
-  if (goals.monthlySavingsGoal > 0 && daysPassed <= 15) {
-    const expectedSavingsByNow = (goals.monthlySavingsGoal * daysPassed) / new Date(currentYear, currentMonth, 0).getDate();
-    if (monthlySavings >= goals.monthlySavingsGoal) {
+  const monthlySavingsGoal = goals.monthlySavingsGoal || 0;
+  if (monthlySavingsGoal > 0 && daysPassed <= 15) {
+    if (monthlySavings >= monthlySavingsGoal) {
       badges.push(BADGES.EARLY_BIRD);
     }
   }
 
   // 7. OVERACHIEVER - Cumplir objetivo al 150% o más
-  if (goals.monthlySavingsGoal > 0) {
-    const percentage = (monthlySavings / goals.monthlySavingsGoal) * 100;
+  if (monthlySavingsGoal > 0) {
+    const percentage = (monthlySavings / monthlySavingsGoal) * 100;
     if (percentage >= 150) {
       badges.push(BADGES.OVERACHIEVER);
     }
@@ -126,11 +151,13 @@ export const calculateBadges = (goals, monthlyHistory, income, currentMonthExpen
   return badges;
 };
 
+// ==================== CÁLCULO DE RACHA ====================
+
 /**
  * Calcula la racha actual de meses cumpliendo objetivos
  */
-export const calculateStreak = (monthlyHistory) => {
-  const historyEntries = Object.entries(monthlyHistory || {})
+export const calculateStreak = (monthlyHistory: MonthlyHistory | undefined): number => {
+  const historyEntries: HistoryEntry[] = Object.entries(monthlyHistory || {})
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([key, value]) => ({ month: key, ...value }));
 
@@ -146,10 +173,15 @@ export const calculateStreak = (monthlyHistory) => {
   return streak;
 };
 
+// ==================== COMPARACIÓN CON MES ANTERIOR ====================
+
 /**
  * Compara el mes actual con el mes anterior
  */
-export const compareWithPreviousMonth = (monthlyHistory, currentMonthSavings) => {
+export const compareWithPreviousMonth = (
+  monthlyHistory: MonthlyHistory | undefined,
+  currentMonthSavings: number
+): MonthComparison | null => {
   const today = new Date();
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth() + 1;
@@ -180,21 +212,27 @@ export const compareWithPreviousMonth = (monthlyHistory, currentMonthSavings) =>
   };
 };
 
+// ==================== ACTUALIZACIÓN DE HISTORIAL ====================
+
 /**
  * Actualiza el historial mensual con los datos del mes actual
  */
-export const updateMonthlyHistory = (goals, income, currentMonthExpenses) => {
+export const updateMonthlyHistory = (
+  goals: Goals | null,
+  income: number,
+  currentMonthExpenses: number
+): MonthlyHistory => {
   const today = new Date();
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth() + 1;
   const currentMonthKey = `${currentYear}-${String(currentMonth).padStart(2, "0")}`;
 
   const monthlySavings = income - currentMonthExpenses;
-  const monthlyGoal = goals.monthlySavingsGoal || 0;
+  const monthlyGoal = goals?.monthlySavingsGoal || 0;
   const completed = monthlyGoal > 0 && monthlySavings >= monthlyGoal;
 
   return {
-    ...(goals.monthlyHistory || {}),
+    ...(goals?.monthlyHistory || {}),
     [currentMonthKey]: {
       savings: monthlySavings,
       goal: monthlyGoal,
@@ -204,17 +242,19 @@ export const updateMonthlyHistory = (goals, income, currentMonthExpenses) => {
   };
 };
 
+// ==================== OBJETIVOS A LARGO PLAZO ====================
+
 /**
  * Calcula si un objetivo a largo plazo está completo
  */
-export const isLongTermGoalComplete = (goal) => {
+export const isLongTermGoalComplete = (goal: LongTermGoal): boolean => {
   return goal.currentAmount >= goal.targetAmount;
 };
 
 /**
  * Calcula cuánto falta para completar un objetivo a largo plazo
  */
-export const getLongTermGoalProgress = (goal) => {
+export const getLongTermGoalProgress = (goal: LongTermGoal | null): LongTermGoalProgress => {
   if (!goal) {
     return {
       progress: 0,
@@ -229,9 +269,11 @@ export const getLongTermGoalProgress = (goal) => {
   const currentAmount = goal.currentAmount || 0;
   const progress = targetAmount > 0 ? (currentAmount / targetAmount) * 100 : 0;
   const remaining = Math.max(0, targetAmount - currentAmount);
+  
   const daysRemaining = goal.targetDate 
-    ? Math.max(0, Math.ceil((new Date(goal.targetDate) - new Date()) / (1000 * 60 * 60 * 24)))
+    ? Math.max(0, Math.ceil((new Date(goal.targetDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))
     : null;
+    
   const monthlyContribution = daysRemaining && daysRemaining > 30 
     ? remaining / (daysRemaining / 30)
     : goal.monthlyContribution || 0;
@@ -241,15 +283,22 @@ export const getLongTermGoalProgress = (goal) => {
     remaining,
     daysRemaining,
     monthlyContribution,
-    isOnTrack: daysRemaining && daysRemaining > 0 ? (remaining / daysRemaining) * 30 <= (goal.monthlyContribution || 0) : false,
+    isOnTrack: daysRemaining !== null && daysRemaining > 0 
+      ? (remaining / daysRemaining) * 30 <= (goal.monthlyContribution || 0) 
+      : false,
   };
 };
+
+// ==================== DETECCIÓN DE OBJETIVOS COMPLETADOS ====================
 
 /**
  * Detecta objetivos recién completados (para mostrar celebraciones)
  */
-export const detectNewlyCompletedGoals = (oldGoals, newGoals) => {
-  const completed = [];
+export const detectNewlyCompletedGoals = (
+  oldGoals: Goals | null,
+  newGoals: Goals | null
+): CompletedGoalNotification[] => {
+  const completed: CompletedGoalNotification[] = [];
 
   // Verificar objetivo mensual
   if (oldGoals && newGoals) {
@@ -293,5 +342,4 @@ export const detectNewlyCompletedGoals = (oldGoals, newGoals) => {
 
   return completed;
 };
-
 

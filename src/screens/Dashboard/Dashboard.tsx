@@ -69,11 +69,12 @@ import type {
   EditingSubcategory,
   Expense,
   ExpenseDataFromAI,
-  ExpenseInput,
+  ExpenseFormInput,
   FilterPeriodType,
   Goals,
   NotificationSettings,
   RecurringExpense,
+  RecurringExpenseFormInput,
 } from "../../types/dashboard";
 import { exportToCSV } from "../../utils/exportUtils";
 import { hapticError, hapticMedium, hapticSuccess } from "../../utils/haptics";
@@ -197,13 +198,13 @@ const Dashboard = ({ user }: DashboardProps) => {
 
   // Versión actual del changelog - incrementar cuando hay nuevos cambios
   const CURRENT_CHANGELOG_VERSION = "2.1.0";
-  const [newRecurring, setNewRecurring] = useState<Partial<RecurringExpense>>({
+  const [newRecurring, setNewRecurring] = useState<RecurringExpenseFormInput>({
     name: "",
     amount: "",
     category: "",
     subcategory: "",
     dayOfMonth: 1,
-    frequency: "monthly", // monthly, quarterly, semiannual, annual
+    frequency: "monthly",
     paymentMethod: "Tarjeta",
     active: true,
     endDate: "",
@@ -243,7 +244,7 @@ const Dashboard = ({ user }: DashboardProps) => {
     trackFilter("category", value);
   }, []);
 
-  const [newExpense, setNewExpense] = useState<Partial<ExpenseInput>>({
+  const [newExpense, setNewExpense] = useState<ExpenseFormInput>({
     name: "",
     amount: "",
     category: "",
@@ -563,7 +564,7 @@ const Dashboard = ({ user }: DashboardProps) => {
         frequency: "monthly",
         paymentMethod: "Tarjeta",
         active: true,
-        endDate: "",
+        endDate: null,
       });
 
       showNotification("Gasto recurrente añadido correctamente", "success");
@@ -1268,7 +1269,7 @@ const Dashboard = ({ user }: DashboardProps) => {
   const budgetAlertsShownRef = useRef<Set<string> & { lastCheckDate?: string }>(
     Object.assign(new Set<string>(), { lastCheckDate: undefined })
   );
-  const unsubscribeRef = useRef(null);
+  const unsubscribeRef = useRef<(() => void) | null>(null);
   const listenerConfiguredRef = useRef(false);
   // ✅ showNotificationRef ahora viene del hook useNotifications
 
@@ -2010,7 +2011,7 @@ const Dashboard = ({ user }: DashboardProps) => {
         setGoals(goalsToSave);
 
         // Trackear qué tipo de objetivos se guardaron
-        if (newGoals.monthlySavingsGoal > 0 || newGoals.totalSavingsGoal > 0) {
+        if ((newGoals.monthlySavingsGoal ?? 0) > 0 || (newGoals.totalSavingsGoal ?? 0) > 0) {
           trackSaveGoal("total_savings");
         }
         if (
@@ -2128,7 +2129,9 @@ const Dashboard = ({ user }: DashboardProps) => {
       handleDeleteRecurring(context.id);
     } else if (context.type === "categoryGoal") {
       const updatedGoals = { ...goals };
-      delete updatedGoals.categoryGoals[context.category];
+      if (updatedGoals.categoryGoals) {
+        delete updatedGoals.categoryGoals[context.category];
+      }
       handleSaveGoals(updatedGoals);
     } else if (context.type === "longTermGoal") {
       const updatedGoals = { ...goals };
@@ -2203,7 +2206,7 @@ const Dashboard = ({ user }: DashboardProps) => {
         darkMode={darkMode}
         textClass={textClass}
         textSecondaryClass={textSecondaryClass}
-        userEmail={user.email}
+        userEmail={user.email || ""}
         showCategories={showCategories}
         showSettings={showSettings}
         showRecurring={showRecurring}
@@ -2321,8 +2324,8 @@ const Dashboard = ({ user }: DashboardProps) => {
             if (editingCategory) {
               handleEditCategory(
                 editingCategory.name,
-                editingCategory.newName,
-                editingCategory.newColor
+                editingCategory.newName || editingCategory.name,
+                editingCategory.newColor || editingCategory.color
               );
             }
           }}
@@ -2362,7 +2365,7 @@ const Dashboard = ({ user }: DashboardProps) => {
           categoryTotals={categoryTotalsForBudgets}
           onSaveGoals={handleSaveGoals}
           onSaveIncome={handleSaveIncome}
-          onRequestDelete={(context) => setShowDeleteConfirm(context)}
+          onRequestDelete={(context: DeleteContext) => setShowDeleteConfirm(context)}
           onClose={() => setShowGoals(false)}
         />
       </Suspense>

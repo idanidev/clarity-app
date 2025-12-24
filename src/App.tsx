@@ -24,6 +24,7 @@ const preloadDashboard = () => import("./screens/Dashboard/Dashboard");
 
 const LoadingScreen = () => {
   const { t } = useTranslation();
+  console.log("🔄 [SPINNER 1] LoadingScreen - initializing=true");
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-900">
       <div className="text-center">
@@ -122,17 +123,10 @@ const App = () => {
               // Si ambos son null, no hay cambio
               if (!prevUser && !currentUser) return prevUser;
               // Si uno es null y el otro no, hay cambio
-              if (!prevUser || !currentUser) {
-                console.log("[Auth] Usuario cambió:", { prev: prevUser?.uid, current: currentUser?.uid });
-                return currentUser;
-              }
+              if (!prevUser || !currentUser) return currentUser;
               // Si el UID es el mismo, mantener la referencia anterior (evita re-render)
-              if (prevUser.uid === currentUser.uid) {
-                // Token refresh - no actualizar referencia
-                return prevUser;
-              }
+              if (prevUser.uid === currentUser.uid) return prevUser;
               // Usuario diferente, actualizar
-              console.log("[Auth] Usuario cambió:", { prev: prevUser.uid, current: currentUser.uid });
               return currentUser;
             });
             

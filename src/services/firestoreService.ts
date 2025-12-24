@@ -1,4 +1,4 @@
-// src/services/firestoreService.js
+// src/services/firestoreService.ts
 import {
   addDoc,
   collection,
@@ -12,8 +12,54 @@ import {
   query,
   setDoc,
   updateDoc,
+  DocumentReference,
+  DocumentSnapshot,
+  GetOptions,
+  Unsubscribe,
 } from "firebase/firestore";
 import { db } from "../firebase";
+import type { 
+  Expense, 
+  ExpenseInput 
+} from "../types/expense";
+import type { 
+  Categories, 
+  Category, 
+  Budgets,
+  LegacyCategoryData 
+} from "../types/category";
+import type { 
+  RecurringExpense, 
+  Goals, 
+  NotificationSettings,
+  UserData
+} from "../types/dashboard";
+
+// ==================== TIPOS INTERNOS ====================
+
+interface SubscribeOptions {
+  limit?: number;
+}
+
+interface SaveCategoriesOptions {
+  mergeMode?: 'smart' | 'replace' | 'merge';
+}
+
+interface OnboardingStatus {
+  completed: boolean;
+  completedAt: string | null;
+}
+
+interface RestoreCategoriesResult {
+  success: boolean;
+  message: string;
+  restored: number;
+  new?: number;
+  updated?: number;
+  total: number;
+}
+
+// ==================== HELPERS ====================
 
 /**
  * Obtiene un documento con estrategia híbrida:
@@ -21,15 +67,17 @@ import { db } from "../firebase";
  * 2. Si no existe en cache, lee del servidor
  * 3. Si hay conexión, sincroniza en background
  */
-const getDocHybrid = async (docRef) => {
+const getDocHybrid = async (docRef: DocumentReference): Promise<DocumentSnapshot> => {
   try {
     // Primero intentar cache (instantáneo, funciona offline)
-    const cachedDoc = await getDoc(docRef, { source: 'cache' });
+    const cacheOptions: GetOptions = { source: 'cache' };
+    const cachedDoc = await getDoc(docRef, cacheOptions);
     
     if (cachedDoc.exists()) {
       // En background, verificar si hay actualizaciones en el servidor
       if (navigator.onLine) {
-        getDoc(docRef, { source: 'server' })
+        const serverOptions: GetOptions = { source: 'server' };
+        getDoc(docRef, serverOptions)
           .then((serverDoc) => {
             if (serverDoc.exists() && 
                 serverDoc.metadata.hasPendingWrites === false &&
@@ -44,20 +92,23 @@ const getDocHybrid = async (docRef) => {
       
       return cachedDoc;
     }
-  } catch (cacheError) {}
+  } catch {
+    // Cache miss, continuar con servidor
+  }
   
   // Si no está en cache, leer del servidor
-  const serverDoc = await getDoc(docRef, { source: 'server' });
+  const serverOptions: GetOptions = { source: 'server' };
+  const serverDoc = await getDoc(docRef, serverOptions);
   return serverDoc;
 };
 
-const normalizeSubcategories = (rawSubcategories) => {
+const normalizeSubcategories = (rawSubcategories: unknown): string[] => {
   if (!rawSubcategories) {
     return [];
   }
 
   if (Array.isArray(rawSubcategories)) {
-    return rawSubcategories.filter((sub) => typeof sub === "string" && sub.trim().length > 0);
+    return rawSubcategories.filter((sub): sub is string => typeof sub === "string" && sub.trim().length > 0);
   }
 
   if (typeof rawSubcategories === "string") {
@@ -65,8 +116,8 @@ const normalizeSubcategories = (rawSubcategories) => {
   }
 
   if (typeof rawSubcategories === "object") {
-    return Object.values(rawSubcategories)
-      .filter((sub) => typeof sub === "string" && sub.trim().length > 0);
+    return Object.values(rawSubcategories as Record<string, unknown>)
+      .filter((sub): sub is string => typeof sub === "string" && sub.trim().length > 0);
   }
 
   return [];
@@ -74,7 +125,10 @@ const normalizeSubcategories = (rawSubcategories) => {
 
 // ==================== EXPENSES ====================
 
-export const addExpense = async (userId, expenseData) => {
+export const addExpense = async (
+  userId: string, 
+  expenseData: Partial<ExpenseInput>
+): Promise<Expense> => {
   try {
     // Validación: asegurar que amount no sea negativo
     if (expenseData.amount !== undefined && expenseData.amount < 0) {
@@ -84,18 +138,22 @@ export const addExpense = async (userId, expenseData) => {
     const expensesRef = collection(db, "users", userId, "expenses");
     const docRef = await addDoc(expensesRef, {
       ...expenseData,
-      amount: Math.max(0, expenseData.amount || 0), // Asegurar que sea >= 0
+      amount: Math.max(0, expenseData.amount || 0),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
-    return { id: docRef.id, ...expenseData };
+    return { id: docRef.id, ...expenseData } as Expense;
   } catch (error) {
     console.error("Error adding expense:", error);
     throw error;
   }
 };
 
-export const updateExpense = async (userId, expenseId, expenseData) => {
+export const updateExpense = async (
+  userId: string, 
+  expenseId: string, 
+  expenseData: Partial<ExpenseInput>
+): Promise<Expense> => {
   try {
     // Validación: asegurar que amount no sea negativo
     if (expenseData.amount !== undefined && expenseData.amount < 0) {
@@ -103,25 +161,25 @@ export const updateExpense = async (userId, expenseId, expenseData) => {
     }
 
     const expenseRef = doc(db, "users", userId, "expenses", expenseId);
-    const updateData = {
+    const updateData: Record<string, unknown> = {
       ...expenseData,
       updatedAt: new Date().toISOString(),
     };
     
     // Asegurar que amount sea >= 0 si está presente
     if (updateData.amount !== undefined) {
-      updateData.amount = Math.max(0, updateData.amount);
+      updateData.amount = Math.max(0, updateData.amount as number);
     }
 
     await updateDoc(expenseRef, updateData);
-    return { id: expenseId, ...expenseData };
+    return { id: expenseId, ...expenseData } as Expense;
   } catch (error) {
     console.error("Error updating expense:", error);
     throw error;
   }
 };
 
-export const deleteExpense = async (userId, expenseId) => {
+export const deleteExpense = async (userId: string, expenseId: string): Promise<void> => {
   try {
     const expenseRef = doc(db, "users", userId, "expenses", expenseId);
     await deleteDoc(expenseRef);
@@ -131,7 +189,7 @@ export const deleteExpense = async (userId, expenseId) => {
   }
 };
 
-export const getExpenses = async (userId) => {
+export const getExpenses = async (userId: string): Promise<Expense[]> => {
   try {
     const expensesRef = collection(db, "users", userId, "expenses");
     const q = query(expensesRef, orderBy("date", "desc"));
@@ -140,18 +198,21 @@ export const getExpenses = async (userId) => {
     return querySnapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
-    }));
+    })) as Expense[];
   } catch (error) {
     console.error("Error getting expenses:", error);
     throw error;
   }
 };
 
-export const subscribeToExpenses = (userId, callback, options = {}) => {
-  const { limit: limitCount = 500 } = options; // Límite por defecto: 500 gastos
+export const subscribeToExpenses = (
+  userId: string, 
+  callback: (expenses: Expense[]) => void, 
+  options: SubscribeOptions = {}
+): Unsubscribe => {
+  const { limit: limitCount = 500 } = options;
   const expensesRef = collection(db, "users", userId, "expenses");
   
-  // OPTIMIZACIÓN: Agregar límite para reducir lecturas y mejorar rendimiento
   const q = query(
     expensesRef,
     orderBy("date", "desc"),
@@ -164,7 +225,7 @@ export const subscribeToExpenses = (userId, callback, options = {}) => {
       const expenses = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
-      }));
+      })) as Expense[];
       callback(expenses);
     },
     (error) => {
@@ -175,21 +236,27 @@ export const subscribeToExpenses = (userId, callback, options = {}) => {
 
 // ==================== RECURRING EXPENSES ====================
 
-export const addRecurringExpense = async (userId, recurringData) => {
+export const addRecurringExpense = async (
+  userId: string, 
+  recurringData: Partial<RecurringExpense>
+): Promise<RecurringExpense> => {
   try {
-    // Validación: asegurar que amount no sea negativo
-    if (recurringData.amount !== undefined && recurringData.amount < 0) {
+    const amount = typeof recurringData.amount === 'string' 
+      ? parseFloat(recurringData.amount) 
+      : recurringData.amount;
+      
+    if (amount !== undefined && amount < 0) {
       throw new Error("El monto del gasto recurrente no puede ser negativo");
     }
 
     const recurringRef = collection(db, "users", userId, "recurringExpenses");
     const docRef = await addDoc(recurringRef, {
       ...recurringData,
-      amount: Math.max(0, recurringData.amount || 0), // Asegurar que sea >= 0
+      amount: Math.max(0, amount || 0),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
-    return { id: docRef.id, ...recurringData };
+    return { id: docRef.id, ...recurringData } as RecurringExpense;
   } catch (error) {
     console.error("Error adding recurring expense:", error);
     throw error;
@@ -197,50 +264,40 @@ export const addRecurringExpense = async (userId, recurringData) => {
 };
 
 export const updateRecurringExpense = async (
-  userId,
-  recurringId,
-  recurringData
-) => {
+  userId: string,
+  recurringId: string,
+  recurringData: Partial<RecurringExpense>
+): Promise<RecurringExpense> => {
   try {
-    // Validación: asegurar que amount no sea negativo
-    if (recurringData.amount !== undefined && recurringData.amount < 0) {
+    const amount = typeof recurringData.amount === 'string' 
+      ? parseFloat(recurringData.amount) 
+      : recurringData.amount;
+      
+    if (amount !== undefined && amount < 0) {
       throw new Error("El monto del gasto recurrente no puede ser negativo");
     }
 
-    const recurringRef = doc(
-      db,
-      "users",
-      userId,
-      "recurringExpenses",
-      recurringId
-    );
-    const updateData = {
+    const recurringRef = doc(db, "users", userId, "recurringExpenses", recurringId);
+    const updateData: Record<string, unknown> = {
       ...recurringData,
       updatedAt: new Date().toISOString(),
     };
     
-    // Asegurar que amount sea >= 0 si está presente
     if (updateData.amount !== undefined) {
-      updateData.amount = Math.max(0, updateData.amount);
+      updateData.amount = Math.max(0, amount || 0);
     }
 
     await updateDoc(recurringRef, updateData);
-    return { id: recurringId, ...recurringData };
+    return { id: recurringId, ...recurringData } as RecurringExpense;
   } catch (error) {
     console.error("Error updating recurring expense:", error);
     throw error;
   }
 };
 
-export const deleteRecurringExpense = async (userId, recurringId) => {
+export const deleteRecurringExpense = async (userId: string, recurringId: string): Promise<void> => {
   try {
-    const recurringRef = doc(
-      db,
-      "users",
-      userId,
-      "recurringExpenses",
-      recurringId
-    );
+    const recurringRef = doc(db, "users", userId, "recurringExpenses", recurringId);
     await deleteDoc(recurringRef);
   } catch (error) {
     console.error("Error deleting recurring expense:", error);
@@ -248,25 +305,26 @@ export const deleteRecurringExpense = async (userId, recurringId) => {
   }
 };
 
-export const getRecurringExpenses = async (userId) => {
+export const getRecurringExpenses = async (userId: string): Promise<RecurringExpense[]> => {
   try {
     const recurringRef = collection(db, "users", userId, "recurringExpenses");
-    // Traer TODOS los gastos recurrentes (activos e inactivos)
     const querySnapshot = await getDocs(recurringRef);
 
     return querySnapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
-    }));
+    })) as RecurringExpense[];
   } catch (error) {
     console.error("Error getting recurring expenses:", error);
     throw error;
   }
 };
 
-export const subscribeToRecurringExpenses = (userId, callback) => {
+export const subscribeToRecurringExpenses = (
+  userId: string, 
+  callback: (recurring: RecurringExpense[]) => void
+): Unsubscribe => {
   const recurringRef = collection(db, "users", userId, "recurringExpenses");
-  // Traer TODOS los gastos recurrentes (activos e inactivos)
 
   return onSnapshot(
     recurringRef,
@@ -274,7 +332,7 @@ export const subscribeToRecurringExpenses = (userId, callback) => {
       const recurring = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
-      }));
+      })) as RecurringExpense[];
       callback(recurring);
     },
     (error) => {
@@ -285,59 +343,50 @@ export const subscribeToRecurringExpenses = (userId, callback) => {
 
 // ==================== CATEGORIES ====================
 
-// Helper functions for category structure compatibility
-export const getCategorySubcategories = (categoryData) => {
+export const getCategorySubcategories = (categoryData: LegacyCategoryData | Category): string[] => {
   if (Array.isArray(categoryData)) {
-    // Old format: ["Sub1", "Sub2"]
     return normalizeSubcategories(categoryData);
   }
 
   if (categoryData && typeof categoryData === "object") {
-    // New format or unknown structure
-    return normalizeSubcategories(categoryData.subcategories);
+    return normalizeSubcategories((categoryData as Category).subcategories);
   }
 
   return [];
 };
 
-export const getCategoryColor = (categoryData, defaultColor = "#8B5CF6") => {
-  // Si es undefined o null, devolver color por defecto
+export const getCategoryColor = (
+  categoryData: LegacyCategoryData | Category | null | undefined, 
+  defaultColor: string = "#8B5CF6"
+): string => {
   if (!categoryData) {
     return defaultColor;
   }
   
-  // Si es un array (formato antiguo), devolver color por defecto
   if (Array.isArray(categoryData)) {
     return defaultColor;
   }
   
-  // Si es un objeto y tiene la propiedad color, devolverla
-  if (typeof categoryData === "object" && categoryData.color) {
-    return categoryData.color;
+  if (typeof categoryData === "object" && (categoryData as Category).color) {
+    return (categoryData as Category).color;
   }
   
-  // Si es un string (color directo), devolverlo
   if (typeof categoryData === "string") {
     return categoryData;
   }
   
-  // Por defecto, devolver color por defecto
   return defaultColor;
 };
 
-export const migrateCategoriesToNewFormat = (categories) => {
+export const migrateCategoriesToNewFormat = (
+  categories: Record<string, LegacyCategoryData | Category> | null | undefined
+): Categories => {
   if (!categories || typeof categories !== "object") return {};
 
-  const migrated = {};
+  const migrated: Categories = {};
   const defaultColors = [
-    "#8B5CF6", // purple
-    "#3B82F6", // blue
-    "#EC4899", // pink
-    "#10B981", // green
-    "#F59E0B", // amber
-    "#EF4444", // red
-    "#6366F1", // indigo
-    "#A855F7", // violet
+    "#8B5CF6", "#3B82F6", "#EC4899", "#10B981", "#F59E0B",
+    "#EF4444", "#6366F1", "#A855F7",
   ];
 
   let colorIndex = 0;
@@ -349,33 +398,23 @@ export const migrateCategoriesToNewFormat = (categories) => {
 
     const normalizedSubcategories = Array.isArray(categoryData)
       ? normalizeSubcategories(categoryData)
-      : normalizeSubcategories(categoryData?.subcategories);
+      : normalizeSubcategories((categoryData as Category)?.subcategories);
 
-    // CRÍTICO: PRESERVAR el color existente SIEMPRE que exista
-    // Solo asignar color por defecto si es formato antiguo (array) y NO tiene color
-    let color;
-    if (categoryData && typeof categoryData === "object" && categoryData.color) {
-      // Si ya tiene color, PRESERVARLO EXACTAMENTE (no cambiarlo nunca)
-      color = categoryData.color;
+    let color: string;
+    if (categoryData && typeof categoryData === "object" && !Array.isArray(categoryData) && (categoryData as Category).color) {
+      color = (categoryData as Category).color;
     } else if (Array.isArray(categoryData)) {
-      // Formato antiguo (array), usar color por defecto solo para migración
       color = defaultColors[colorIndex % defaultColors.length];
-    } else if (categoryData && typeof categoryData === "object" && !categoryData.color) {
-      // Objeto sin color: NO asignar color por defecto, dejar que el usuario lo configure
-      // O usar el color existente si hay uno en algún lugar
-      color = categoryData.color || defaultColors[colorIndex % defaultColors.length];
+    } else if (categoryData && typeof categoryData === "object" && !(categoryData as Category).color) {
+      color = (categoryData as Category).color || defaultColors[colorIndex % defaultColors.length];
     } else {
-      // No tiene color, usar color por defecto solo para migración
       color = defaultColors[colorIndex % defaultColors.length];
     }
 
-    // PRESERVAR todos los campos existentes (icon, etc.)
     migrated[categoryName] = {
-      ...(typeof categoryData === "object" && !Array.isArray(categoryData) ? categoryData : {}),
-      subcategories: Array.from(new Set(normalizedSubcategories)).sort((a, b) =>
-        a.localeCompare(b)
-      ),
-      color, // El color ya fue determinado arriba (preservado o asignado)
+      ...(typeof categoryData === "object" && !Array.isArray(categoryData) ? categoryData as Category : {}),
+      subcategories: Array.from(new Set(normalizedSubcategories)).sort((a, b) => a.localeCompare(b)),
+      color,
     };
 
     colorIndex++;
@@ -384,39 +423,30 @@ export const migrateCategoriesToNewFormat = (categories) => {
   return migrated;
 };
 
-/**
- * Guarda las categorías de forma segura, preservando todas las subcategorías existentes
- * y fusionando con las nuevas para evitar pérdida de datos
- * 
- * Estrategia de fusión:
- * 1. Para categorías que se están modificando explícitamente: usar los datos proporcionados
- * 2. Para categorías que NO se están modificando: preservar las existentes de Firestore
- * 3. Fusionar subcategorías solo cuando sea necesario (restauración automática)
- */
-export const saveCategories = async (userId, categories, options = {}) => {
+export const saveCategories = async (
+  userId: string, 
+  categories: Categories, 
+  options: SaveCategoriesOptions = {}
+): Promise<Categories> => {
   try {
-    // VALIDACIÓN CRÍTICA: NUNCA permitir arrays, solo objetos
     if (!categories) {
       console.error("Invalid categories data provided to saveCategories: null or undefined");
       throw new Error("Invalid categories data");
     }
     
-    // Si es un array, rechazarlo explícitamente
     if (Array.isArray(categories)) {
-      console.error("ERROR CRÍTICO: Se intentó guardar categorías como array. Las categorías deben ser un objeto, nunca un array.");
+      console.error("ERROR CRÍTICO: Se intentó guardar categorías como array.");
       throw new Error("Categories cannot be an array. Must be an object.");
     }
     
-    // Verificar que sea un objeto
     if (typeof categories !== "object") {
       console.error("Invalid categories data provided to saveCategories: not an object");
       throw new Error("Invalid categories data: must be an object");
     }
 
-    const { mergeMode = "smart" } = options; // "smart" | "replace" | "merge"
+    const { mergeMode = "smart" } = options;
 
-    // Leer categorías actuales de Firestore para preservar datos existentes
-    let existingCategories = {};
+    let existingCategories: Categories = {};
     try {
       const userDocRef = doc(db, "users", userId);
       const userDoc = await getDoc(userDocRef);
@@ -430,23 +460,18 @@ export const saveCategories = async (userId, categories, options = {}) => {
       console.warn("Could not read existing categories, proceeding with new data:", readError);
     }
 
-    // Migrar las nuevas categorías al formato correcto
     const migratedNewCategories = migrateCategoriesToNewFormat(categories);
-
-    let finalCategories;
+    let finalCategories: Categories;
 
     if (mergeMode === "replace") {
-      // Modo reemplazo: usar solo las nuevas categorías (útil para restauración)
       finalCategories = { ...migratedNewCategories };
       
-      // Pero preservar categorías que no se están modificando
       Object.keys(existingCategories).forEach((categoryName) => {
         if (!finalCategories[categoryName]) {
           finalCategories[categoryName] = existingCategories[categoryName];
         }
       });
     } else if (mergeMode === "merge") {
-      // Modo fusión: combinar todo (útil para restauración automática)
       finalCategories = { ...existingCategories };
 
       Object.entries(migratedNewCategories).forEach(([categoryName, categoryData]) => {
@@ -461,7 +486,6 @@ export const saveCategories = async (userId, categories, options = {}) => {
 
         const newSubcategories = getCategorySubcategories(categoryData);
         
-        // Unión de subcategorías: combinar existentes + nuevas, sin duplicados
         const allSubcategories = Array.from(
           new Set([...existingSubcategories, ...newSubcategories])
         ).sort((a, b) => a.localeCompare(b));
@@ -475,14 +499,8 @@ export const saveCategories = async (userId, categories, options = {}) => {
         };
       });
     } else {
-      // Modo "smart" (por defecto): 
-      // IMPORTANTE: Se espera que `categories` contenga TODAS las categorías que debe tener el usuario
-      // - Si una categoría está en `categories`, se actualiza/modifica
-      // - Si una categoría NO está en `categories`, se elimina explícitamente
-      // - Preservar solo las categorías que están en `migratedNewCategories`
       finalCategories = {};
 
-      // Procesar todas las categorías en migratedNewCategories
       Object.entries(migratedNewCategories).forEach(([categoryName, categoryData]) => {
         if (!categoryName || !categoryData) {
           return;
@@ -492,22 +510,15 @@ export const saveCategories = async (userId, categories, options = {}) => {
         const existingSubs = existingCategory ? getCategorySubcategories(existingCategory) : [];
         const newSubs = getCategorySubcategories(categoryData);
         
-        // Detectar si se está eliminando subcategorías (subconjunto estricto) o añadiendo
         const isSubset = newSubs.every((sub) => existingSubs.includes(sub));
         const isStrictSubset = isSubset && newSubs.length < existingSubs.length;
         
         if (isStrictSubset) {
-          // ELIMINACIÓN EXPLÍCITA DE SUBCATEGORÍAS: El usuario eliminó subcategorías
-          // Respetar la decisión del usuario y NO fusionar con Firestore
-          // (Ya se verificó que no hay gastos antes de permitir la eliminación)
           finalCategories[categoryName] = {
             subcategories: newSubs,
             color: categoryData.color || (existingCategory ? getCategoryColor(existingCategory) : "#8B5CF6"),
           };
         } else if (newSubs.length > existingSubs.length || !isSubset) {
-          // AÑADIR/MODIFICAR: Se están añadiendo nuevas subcategorías
-          // Fusionar para preservar todas las subcategorías (existentes + nuevas)
-          // Esto es una protección adicional por si acaso
           const allSubs = Array.from(new Set([...existingSubs, ...newSubs])).sort(
             (a, b) => a.localeCompare(b)
           );
@@ -516,45 +527,23 @@ export const saveCategories = async (userId, categories, options = {}) => {
             color: categoryData.color || (existingCategory ? getCategoryColor(existingCategory) : "#8B5CF6"),
           };
         } else {
-          // Mismo número, cambio de color, o nueva categoría
-          // Usar los datos proporcionados
           finalCategories[categoryName] = {
             subcategories: newSubs,
             color: categoryData.color || (existingCategory ? getCategoryColor(existingCategory) : "#8B5CF6"),
           };
         }
       });
-      
-      // En modo "smart", NO preservar categorías que no están en migratedNewCategories
-      // Si una categoría no está en el objeto pasado, se está eliminando explícitamente
     }
 
-    // Validación final: en modo "smart", si una categoría no está en migratedNewCategories,
-    // significa que se está eliminando explícitamente, así que NO la preservamos
-    // En otros modos, preservar categorías que no se están modificando
-    if (mergeMode === "smart") {
-      // En modo smart, solo preservar categorías que están explícitamente en los datos nuevos
-      // Si una categoría no está en migratedNewCategories, se está eliminando explícitamente
-      // y NO debe preservarse
-      
-      // PROTECCIÓN ADICIONAL: Verificar que no se estén borrando categorías que existen en Firestore
-      // pero no están en los datos nuevos. Si una categoría existe en Firestore pero no en los nuevos,
-      // podría ser un error. En modo "smart", solo borramos si está explícitamente en el objeto pasado.
-      // Si no está en el objeto pasado, significa que el usuario la eliminó intencionalmente.
-    } else {
-      // En modo "replace" o "merge", preservar categorías existentes que no se están modificando
+    if (mergeMode !== "smart") {
       Object.keys(existingCategories).forEach((categoryName) => {
         if (!finalCategories[categoryName] && !migratedNewCategories[categoryName]) {
-          // Categoría existente que no está en los datos nuevos ni en los finales
-          // Solo preservarla en modos que no sean "smart"
           console.log(`[saveCategories] Preserving existing category in ${mergeMode} mode: ${categoryName}`);
           finalCategories[categoryName] = existingCategories[categoryName];
         }
       });
     }
 
-    // VALIDACIÓN FINAL DE SEGURIDAD: Verificar que no se estén borrando categorías críticas
-    // Si una categoría existía en Firestore y no está en finalCategories, registrar advertencia
     Object.keys(existingCategories).forEach((categoryName) => {
       if (!finalCategories[categoryName]) {
         console.warn(
@@ -564,7 +553,6 @@ export const saveCategories = async (userId, categories, options = {}) => {
       }
     });
 
-    // Guardar en Firestore
     const userDocRef = doc(db, "users", userId);
     await updateDoc(userDocRef, {
       categories: finalCategories,
@@ -578,51 +566,10 @@ export const saveCategories = async (userId, categories, options = {}) => {
   }
 };
 
-// Migrar categorías duplicadas (por ejemplo, versiones con y sin emoji)
-const mergeDuplicateDefaultCategories = (categories) => {
-  if (!categories || typeof categories !== "object") return categories;
-
-  const duplicatesMap = {
-    Alimentacion: "Alimentacion🫄",
-    "Coche/Moto": "Coche/Moto 🏍️🏎️",
-    Compras: "Compras🛍️",
-    Educacion: "Educacion 🤖📚",
-    Ocio: "Ocio 🍻",
-    Salud: "Salud 🏋️‍♀️",
-    Vivienda: "Vivienda🏡",
-  };
-
-  const updated = { ...categories };
-
-  Object.entries(duplicatesMap).forEach(([baseName, emojiName]) => {
-    const baseCat = updated[baseName];
-    const emojiCat = updated[emojiName];
-
-    if (baseCat && emojiCat) {
-      // Fusionar subcategorías (únicas, ordenadas)
-      const baseSubs = Array.isArray(baseCat.subcategories) ? baseCat.subcategories : [];
-      const emojiSubs = Array.isArray(emojiCat.subcategories) ? emojiCat.subcategories : [];
-      const mergedSubs = Array.from(new Set([...baseSubs, ...emojiSubs])).sort((a, b) =>
-        a.localeCompare(b)
-      );
-
-      updated[emojiName] = {
-        ...emojiCat,
-        subcategories: mergedSubs,
-      };
-
-      // Eliminar la categoría base duplicada
-      delete updated[baseName];
-    }
-  });
-
-  return updated;
-};
-
-export const getUserCategories = async (userId) => {
+export const getUserCategories = async (userId: string): Promise<Categories | null> => {
   try {
     const userDocRef = doc(db, "users", userId);
-    const userDoc = await getDocHybrid(userDocRef); // 👈 Usa estrategia híbrida
+    const userDoc = await getDocHybrid(userDocRef);
 
     if (!userDoc.exists()) {
       return null;
@@ -631,28 +578,20 @@ export const getUserCategories = async (userId) => {
     const data = userDoc.data();
     const categories = data.categories;
     
-    // CRÍTICO: Si categories es undefined o null, devolver null (usuario no tiene categorías)
-    // Pero si es un objeto vacío {}, devolverlo (usuario tiene categorías vacías intencionalmente)
     if (categories === undefined || categories === null) {
       return null;
     }
     
-    // Si categories existe pero no es un objeto, hay un error de formato
     if (typeof categories !== "object" || Array.isArray(categories)) {
       console.error(`[getUserCategories] ERROR: Usuario ${userId} tiene categorías en formato inválido:`, typeof categories, Array.isArray(categories));
-      // Devolver null para que el usuario pueda empezar de nuevo
       return null;
     }
     
-    // CRÍTICO: Si el usuario ya tiene categorías, NO hacer ninguna modificación automática
-    // Solo migrar el formato si es absolutamente necesario (formato antiguo con arrays)
     const needsMigration = Object.values(categories).some(cat => Array.isArray(cat));
     
     if (needsMigration) {
-      // Solo migrar formato (arrays -> objetos con color), pero PRESERVAR colores existentes
       const finalCategories = migrateCategoriesToNewFormat(categories);
       
-      // Actualizar Firestore solo si hubo migración de formato
       const changed = JSON.stringify(finalCategories) !== JSON.stringify(categories);
       if (changed) {
         await updateDoc(userDocRef, {
@@ -661,27 +600,23 @@ export const getUserCategories = async (userId) => {
         });
       }
       
-      // IMPORTANTE: NO fusionar categorías duplicadas automáticamente
-      // El usuario puede tener categorías con nombres similares intencionalmente
       return finalCategories;
     }
 
-    // Si no necesita migración, devolver las categorías TAL CUAL están
-    // NO hacer ninguna modificación automática
-    return categories;
+    return categories as Categories;
   } catch (error) {
     console.error(`[getUserCategories] ERROR para usuario ${userId}:`, error);
     throw error;
   }
 };
 
-export const getCategories = async (userId) => {
+export const getCategories = async (userId: string): Promise<Categories | null> => {
   return getUserCategories(userId);
 };
 
 // ==================== BUDGETS ====================
 
-export const saveBudgets = async (userId, budgets) => {
+export const saveBudgets = async (userId: string, budgets: Budgets): Promise<void> => {
   try {
     const userDocRef = doc(db, "users", userId);
     await updateDoc(userDocRef, {
@@ -694,10 +629,10 @@ export const saveBudgets = async (userId, budgets) => {
   }
 };
 
-export const getUserBudgets = async (userId) => {
+export const getUserBudgets = async (userId: string): Promise<Budgets | null> => {
   try {
     const userDocRef = doc(db, "users", userId);
-    const userDoc = await getDocHybrid(userDocRef); // 👈 Cambio aquí
+    const userDoc = await getDocHybrid(userDocRef);
 
     if (userDoc.exists()) {
       return userDoc.data().budgets || null;
@@ -709,13 +644,13 @@ export const getUserBudgets = async (userId) => {
   }
 };
 
-export const getBudgets = async (userId) => {
+export const getBudgets = async (userId: string): Promise<Budgets | null> => {
   return getUserBudgets(userId);
 };
 
 // ==================== THEME ====================
 
-export const saveTheme = async (userId, theme) => {
+export const saveTheme = async (userId: string, theme: 'light' | 'dark'): Promise<void> => {
   try {
     const userDocRef = doc(db, "users", userId);
     await updateDoc(userDocRef, {
@@ -728,10 +663,10 @@ export const saveTheme = async (userId, theme) => {
   }
 };
 
-export const getUserTheme = async (userId) => {
+export const getUserTheme = async (userId: string): Promise<'light' | 'dark'> => {
   try {
     const userDocRef = doc(db, "users", userId);
-    const userDoc = await getDocHybrid(userDocRef); // 👈 Cambio aquí
+    const userDoc = await getDocHybrid(userDocRef);
 
     if (userDoc.exists()) {
       return userDoc.data().theme || "light";
@@ -745,7 +680,7 @@ export const getUserTheme = async (userId) => {
 
 // ==================== LANGUAGE ====================
 
-export const saveUserLanguage = async (userId, language) => {
+export const saveUserLanguage = async (userId: string, language: string): Promise<void> => {
   try {
     const userDocRef = doc(db, "users", userId);
     await updateDoc(userDocRef, {
@@ -758,10 +693,10 @@ export const saveUserLanguage = async (userId, language) => {
   }
 };
 
-export const getUserLanguage = async (userId) => {
+export const getUserLanguage = async (userId: string): Promise<string | null> => {
   try {
     const userDocRef = doc(db, "users", userId);
-    const userDoc = await getDocHybrid(userDocRef); // 👈 Cambio aquí
+    const userDoc = await getDocHybrid(userDocRef);
 
     if (userDoc.exists()) {
       return userDoc.data().language || null;
@@ -775,7 +710,7 @@ export const getUserLanguage = async (userId) => {
 
 // ==================== CHANGELOG ====================
 
-export const markChangelogAsSeen = async (userId, version) => {
+export const markChangelogAsSeen = async (userId: string, version: string): Promise<void> => {
   try {
     const userDocRef = doc(db, "users", userId);
     await updateDoc(userDocRef, {
@@ -788,7 +723,7 @@ export const markChangelogAsSeen = async (userId, version) => {
   }
 };
 
-export const markOnboardingAsCompleted = async (userId) => {
+export const markOnboardingAsCompleted = async (userId: string): Promise<void> => {
   try {
     const userDocRef = doc(db, "users", userId);
     await updateDoc(userDocRef, {
@@ -802,10 +737,10 @@ export const markOnboardingAsCompleted = async (userId) => {
   }
 };
 
-export const getOnboardingStatus = async (userId) => {
+export const getOnboardingStatus = async (userId: string): Promise<OnboardingStatus> => {
   try {
     const userDocRef = doc(db, "users", userId);
-    const userDoc = await getDocHybrid(userDocRef); // 👈 Cambio aquí
+    const userDoc = await getDocHybrid(userDocRef);
 
     if (userDoc.exists()) {
       const data = userDoc.data();
@@ -821,10 +756,10 @@ export const getOnboardingStatus = async (userId) => {
   }
 };
 
-export const getChangelogSeenVersion = async (userId) => {
+export const getChangelogSeenVersion = async (userId: string): Promise<string | null> => {
   try {
     const userDocRef = doc(db, "users", userId);
-    const userDoc = await getDocHybrid(userDocRef); // 👈 Cambio aquí
+    const userDoc = await getDocHybrid(userDocRef);
 
     if (userDoc.exists()) {
       return userDoc.data().changelogSeen || null;
@@ -838,53 +773,33 @@ export const getChangelogSeenVersion = async (userId) => {
 
 // ==================== USER INITIALIZATION ====================
 
-/**
- * Inicializa un usuario nuevo o actualiza datos básicos de un usuario existente.
- * IMPORTANTE: Las categorías predeterminadas SOLO se establecen para usuarios nuevos.
- * Si un usuario ya tiene categorías (aunque sea una), NUNCA se sobrescriben.
- */
-export const initializeUser = async (userId, userData) => {
+interface InitializeUserData {
+  email?: string | null;
+}
+
+export const initializeUser = async (userId: string, userData: InitializeUserData): Promise<void> => {
   try {
     const userDocRef = doc(db, "users", userId);
     const userDoc = await getDoc(userDocRef);
 
     if (userDoc.exists()) {
-      // Usuario existente: NO MODIFICAR NADA que ya exista
       const currentData = userDoc.data();
+      const updateData: Record<string, unknown> = {};
       
-      // CRÍTICO: Para usuarios existentes, NO hacer NINGUNA modificación automática
-      // Solo actualizar el email si es diferente y se proporciona
-      const updateData = {};
-      
-      // Actualizar email SOLO si se proporciona Y es diferente
       if (userData.email && userData.email !== currentData.email) {
         updateData.email = userData.email;
         updateData.updatedAt = new Date().toISOString();
       }
 
-      // NUNCA modificar estos campos para usuarios existentes:
-      // - categories (aunque estén vacías o en formato antiguo)
-      // - theme (aunque no exista, no establecer "light" por defecto)
-      // - budgets (aunque no exista, no establecer {} por defecto)
-      // - income (aunque no exista, no establecer 0 por defecto)
-      // - goals (aunque no exista, no establecer {} por defecto)
-      // - language (aunque no exista, no establecer "es" por defecto)
-      // 
-      // El usuario debe configurar estos valores manualmente si los necesita.
-      // Si no existen, es porque el usuario no los ha configurado aún o los eliminó intencionalmente.
-
-      // Solo actualizar si hay algo que actualizar (solo email)
       if (Object.keys(updateData).length > 0) {
         await updateDoc(userDocRef, updateData);
       }
       return;
     }
 
-    // Usuario nuevo: NO establecer categorías predeterminadas
-    // El usuario debe crear sus propias categorías manualmente
     await setDoc(userDocRef, {
       ...userData,
-      categories: {}, // ⚠️ VACÍO: El usuario debe crear sus propias categorías
+      categories: {},
       budgets: {},
       theme: "light",
       createdAt: new Date().toISOString(),
@@ -898,9 +813,8 @@ export const initializeUser = async (userId, userData) => {
 
 // ==================== INCOME ====================
 
-export const saveIncome = async (userId, income) => {
+export const saveIncome = async (userId: string, income: number | null): Promise<void> => {
   try {
-    // Si income es null o undefined, guardar null (no configurado)
     if (income === null || income === undefined) {
       const userDocRef = doc(db, "users", userId);
       await updateDoc(userDocRef, {
@@ -910,8 +824,7 @@ export const saveIncome = async (userId, income) => {
       return;
     }
 
-    // Validar que el ingreso no sea negativo
-    const incomeValue = parseFloat(income);
+    const incomeValue = typeof income === 'string' ? parseFloat(income) : income;
     if (isNaN(incomeValue) || incomeValue < 0) {
       throw new Error("El ingreso debe ser un número positivo");
     }
@@ -927,21 +840,18 @@ export const saveIncome = async (userId, income) => {
   }
 };
 
-export const getUserIncome = async (userId) => {
+export const getUserIncome = async (userId: string): Promise<number | null> => {
   try {
     const userDocRef = doc(db, "users", userId);
-    const userDoc = await getDocHybrid(userDocRef); // 👈 Cambio aquí
+    const userDoc = await getDocHybrid(userDocRef);
 
     if (userDoc.exists()) {
       const income = userDoc.data().income;
-      // Si no existe el campo income o es 0, devolver null (usuario no ha configurado ingresos)
-      // Solo devolver 0 si explícitamente está guardado como 0
       if (income === undefined || income === null) {
         return null;
       }
       return income;
     }
-    // Usuario nuevo, no tiene ingresos configurados
     return null;
   } catch (error) {
     console.error("Error getting income:", error);
@@ -951,45 +861,40 @@ export const getUserIncome = async (userId) => {
 
 // ==================== GOALS ====================
 
-export const saveGoals = async (userId, goals) => {
+export const saveGoals = async (userId: string, goals: Partial<Goals>): Promise<void> => {
   try {
-    // Validar que los objetivos no sean negativos
     const validatedGoals = { ...goals };
     
-    // Validar monthlySavingsGoal
     if (validatedGoals.monthlySavingsGoal !== undefined) {
-      const value = parseFloat(validatedGoals.monthlySavingsGoal) || 0;
+      const value = parseFloat(String(validatedGoals.monthlySavingsGoal)) || 0;
       if (value < 0) {
         throw new Error("El objetivo de ahorro mensual no puede ser negativo");
       }
       validatedGoals.monthlySavingsGoal = value;
     }
     
-    // Validar totalSavingsGoal
     if (validatedGoals.totalSavingsGoal !== undefined) {
-      const value = parseFloat(validatedGoals.totalSavingsGoal) || 0;
+      const value = parseFloat(String(validatedGoals.totalSavingsGoal)) || 0;
       if (value < 0) {
         throw new Error("El objetivo de ahorro total no puede ser negativo");
       }
       validatedGoals.totalSavingsGoal = value;
     }
     
-    // Validar categoryGoals
     if (validatedGoals.categoryGoals) {
       Object.keys(validatedGoals.categoryGoals).forEach((category) => {
-        const value = parseFloat(validatedGoals.categoryGoals[category]) || 0;
+        const value = parseFloat(String(validatedGoals.categoryGoals![category])) || 0;
         if (value < 0) {
           throw new Error(`El objetivo de la categoría ${category} no puede ser negativo`);
         }
-        validatedGoals.categoryGoals[category] = value;
+        validatedGoals.categoryGoals![category] = value;
       });
     }
     
-    // Validar longTermGoals
     if (validatedGoals.longTermGoals && Array.isArray(validatedGoals.longTermGoals)) {
       validatedGoals.longTermGoals = validatedGoals.longTermGoals.map((goal) => {
-        const targetAmount = parseFloat(goal.targetAmount) || 0;
-        const currentAmount = parseFloat(goal.currentAmount) || 0;
+        const targetAmount = parseFloat(String(goal.targetAmount)) || 0;
+        const currentAmount = parseFloat(String(goal.currentAmount)) || 0;
         if (targetAmount < 0) {
           throw new Error(`El objetivo a largo plazo "${goal.name}" no puede tener un monto objetivo negativo`);
         }
@@ -1018,25 +923,22 @@ export const saveGoals = async (userId, goals) => {
   }
 };
 
-export const getUserGoals = async (userId) => {
+export const getUserGoals = async (userId: string): Promise<Goals | null> => {
   try {
     const userDocRef = doc(db, "users", userId);
-    const userDoc = await getDocHybrid(userDocRef); // 👈 Cambio aquí
+    const userDoc = await getDocHybrid(userDocRef);
 
     if (userDoc.exists()) {
       const goals = userDoc.data().goals;
       
-      // Si no existe el campo goals, devolver null (usuario no ha configurado objetivos)
       if (!goals) {
         return null;
       }
       
-      // Migrar estructura antigua a nueva si es necesario
       if (goals.totalSavingsGoal !== undefined) {
         return {
-          // Mantener compatibilidad con estructura anterior
           monthlySavingsGoal: goals.totalSavingsGoal || goals.monthlySavingsGoal || 0,
-          totalSavingsGoal: goals.totalSavingsGoal || 0, // Mantener por compatibilidad
+          totalSavingsGoal: goals.totalSavingsGoal || 0,
           categoryGoals: goals.categoryGoals || {},
           longTermGoals: goals.longTermGoals || [],
           achievements: goals.achievements || {
@@ -1050,7 +952,6 @@ export const getUserGoals = async (userId) => {
         };
       }
       
-      // Si existe pero está vacío, devolver null
       const hasAnyGoal = 
         (goals.monthlySavingsGoal && goals.monthlySavingsGoal > 0) ||
         (goals.totalSavingsGoal && goals.totalSavingsGoal > 0) ||
@@ -1061,9 +962,8 @@ export const getUserGoals = async (userId) => {
         return null;
       }
       
-      return goals;
+      return goals as Goals;
     }
-    // Usuario nuevo, no tiene objetivos configurados
     return null;
   } catch (error) {
     console.error("Error getting goals:", error);
@@ -1073,7 +973,10 @@ export const getUserGoals = async (userId) => {
 
 // ==================== NOTIFICATIONS ====================
 
-export const saveNotificationSettings = async (userId, settings) => {
+export const saveNotificationSettings = async (
+  userId: string, 
+  settings: Partial<NotificationSettings>
+): Promise<void> => {
   try {
     const userDocRef = doc(db, "users", userId);
     await updateDoc(userDocRef, {
@@ -1089,72 +992,46 @@ export const saveNotificationSettings = async (userId, settings) => {
   }
 };
 
-export const getUserNotificationSettings = async (userId) => {
+export const getUserNotificationSettings = async (userId: string): Promise<NotificationSettings> => {
+  const defaultSettings: NotificationSettings = {
+    budgetAlerts: {
+      enabled: true,
+      at80: true,
+      at90: true,
+      at100: true,
+    },
+    recurringReminders: {
+      enabled: true,
+    },
+    customReminders: {
+      enabled: true,
+      message: "No olvides registrar tus gastos",
+    },
+    weeklyReminder: {
+      enabled: true,
+      dayOfWeek: 0,
+      message: "¡No olvides registrar tus gastos de esta semana en Clarity!",
+    },
+    monthlyIncomeReminder: {
+      enabled: true,
+      dayOfMonth: 28,
+    },
+    pushNotifications: {
+      enabled: false,
+    },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
   try {
     const userDocRef = doc(db, "users", userId);
-    const userDoc = await getDocHybrid(userDocRef); // 👈 Cambio aquí
+    const userDoc = await getDocHybrid(userDocRef);
 
     if (userDoc.exists()) {
-      const settings = userDoc.data().notificationSettings || null;
-      return settings || {
-        budgetAlerts: {
-          enabled: true,
-          at80: true,
-          at90: true,
-          at100: true,
-        },
-        recurringReminders: {
-          enabled: true,
-        },
-        customReminders: {
-          enabled: true,
-          message: "No olvides registrar tus gastos",
-        },
-        weeklyReminder: {
-          enabled: true,
-          dayOfWeek: 0, // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
-          message: "¡No olvides registrar tus gastos de esta semana en Clarity!",
-        },
-        monthlyIncomeReminder: {
-          enabled: true,
-          dayOfMonth: 28, // Día del mes para enviar el recordatorio
-        },
-        pushNotifications: {
-          enabled: false,
-        },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+      const settings = userDoc.data().notificationSettings;
+      return settings || defaultSettings;
     }
-    return {
-      budgetAlerts: {
-        enabled: true,
-        at80: true,
-        at90: true,
-        at100: true,
-      },
-      recurringReminders: {
-        enabled: true,
-      },
-      customReminders: {
-        enabled: true,
-        message: "No olvides registrar tus gastos",
-      },
-      weeklyReminder: {
-        enabled: true,
-        dayOfWeek: 0, // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
-        message: "¡No olvides registrar tus gastos de esta semana en Clarity!",
-      },
-      monthlyIncomeReminder: {
-        enabled: true,
-        dayOfMonth: 28, // Día del mes para enviar el recordatorio
-      },
-      pushNotifications: {
-        enabled: false,
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    return defaultSettings;
   } catch (error) {
     console.error("Error getting notification settings:", error);
     throw error;
@@ -1163,19 +1040,10 @@ export const getUserNotificationSettings = async (userId) => {
 
 // ==================== RESTORE CATEGORIES FROM EXPENSES ====================
 
-/**
- * Restaura las categorías y subcategorías desde los gastos del usuario
- * Esta función extrae todas las categorías y subcategorías únicas de los gastos
- * y las fusiona con las categorías existentes del usuario
- * 
- * @param {string} userId - ID del usuario
- * @returns {Promise<Object>} Objeto con el resumen de la restauración
- */
-export const restoreCategoriesFromExpenses = async (userId) => {
+export const restoreCategoriesFromExpenses = async (userId: string): Promise<RestoreCategoriesResult> => {
   try {
     console.log(`[restoreCategoriesFromExpenses] Iniciando restauración para usuario: ${userId}`);
 
-    // 1. Obtener todos los gastos del usuario
     const expenses = await getExpenses(userId);
 
     if (!expenses || expenses.length === 0) {
@@ -1190,32 +1058,28 @@ export const restoreCategoriesFromExpenses = async (userId) => {
 
     console.log(`[restoreCategoriesFromExpenses] Se encontraron ${expenses.length} gastos`);
 
-    // 2. Extraer categorías y subcategorías únicas
-    const categoriesMap = new Map();
+    const categoriesMap = new Map<string, { subcategories: Set<string> }>();
 
     expenses.forEach((expense) => {
       const category = expense.category;
       const subcategory = expense.subcategory;
 
       if (!category) {
-        return; // Saltar gastos sin categoría
+        return;
       }
 
-      // Si la categoría no existe, crearla
       if (!categoriesMap.has(category)) {
         categoriesMap.set(category, {
           subcategories: new Set(),
         });
       }
 
-      // Agregar subcategoría si existe
       if (subcategory && subcategory.trim()) {
-        categoriesMap.get(category).subcategories.add(subcategory.trim());
+        categoriesMap.get(category)!.subcategories.add(subcategory.trim());
       }
     });
 
-    // 3. Convertir Sets a Arrays y preparar el objeto de categorías
-    const restoredCategories = {};
+    const restoredCategories: Categories = {};
     const defaultColors = [
       "#8B5CF6", "#3B82F6", "#EC4899", "#10B981", "#F59E0B",
       "#EF4444", "#6366F1", "#14B8A6", "#F97316", "#84CC16",
@@ -1232,18 +1096,15 @@ export const restoreCategoriesFromExpenses = async (userId) => {
 
     console.log(`[restoreCategoriesFromExpenses] Categorías encontradas: ${Object.keys(restoredCategories).length}`);
 
-    // 4. Obtener las categorías actuales del usuario
     const currentCategories = await getUserCategories(userId);
 
-    // 5. Fusionar: mantener las categorías existentes y agregar las nuevas
-    const mergedCategories = { ...currentCategories };
+    const mergedCategories: Categories = { ...currentCategories };
 
     let updatedCount = 0;
     let newCount = 0;
 
     Object.entries(restoredCategories).forEach(([categoryName, categoryData]) => {
       if (mergedCategories[categoryName]) {
-        // Categoría existente: fusionar subcategorías y mantener el color existente
         const existingSubs = Array.isArray(mergedCategories[categoryName].subcategories)
           ? mergedCategories[categoryName].subcategories
           : [];
@@ -1252,19 +1113,17 @@ export const restoreCategoriesFromExpenses = async (userId) => {
         const allSubs = Array.from(new Set([...existingSubs, ...newSubs])).sort();
 
         mergedCategories[categoryName] = {
-          ...mergedCategories[categoryName], // Mantener color y otros datos existentes
+          ...mergedCategories[categoryName],
           subcategories: allSubs,
         };
 
         updatedCount++;
       } else {
-        // Nueva categoría: agregarla
         mergedCategories[categoryName] = categoryData;
         newCount++;
       }
     });
 
-    // 6. Guardar las categorías fusionadas
     await saveCategories(userId, mergedCategories);
 
     console.log(`[restoreCategoriesFromExpenses] Restauración completada: ${newCount} nuevas, ${updatedCount} actualizadas`);
@@ -1282,3 +1141,4 @@ export const restoreCategoriesFromExpenses = async (userId) => {
     throw error;
   }
 };
+

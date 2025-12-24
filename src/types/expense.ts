@@ -1,3 +1,5 @@
+export type PaymentMethod = 'Tarjeta' | 'Efectivo' | 'Transferencia' | 'Bizum';
+
 export interface Expense {
   id: string;
   userId: string;
@@ -6,7 +8,7 @@ export interface Expense {
   category: string;
   subcategory?: string;
   date: string; // YYYY-MM-DD format
-  paymentMethod: 'Tarjeta' | 'Efectivo' | 'Transferencia' | 'Bizum';
+  paymentMethod: PaymentMethod;
   isRecurring?: boolean;
   recurring?: boolean;
   recurringId?: string | null;
@@ -15,6 +17,20 @@ export interface Expense {
 }
 
 export type ExpenseInput = Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>;
+
+// Tipo para formularios donde amount puede empezar como string vacío
+export interface ExpenseFormInput {
+  name: string;
+  amount: number | string;
+  category: string;
+  subcategory?: string;
+  date: string;
+  paymentMethod: PaymentMethod;
+  isRecurring?: boolean;
+  recurring?: boolean;
+  recurringId?: string | null;
+  userId?: string;
+}
 
 export interface ExpenseFilters {
   month?: string;

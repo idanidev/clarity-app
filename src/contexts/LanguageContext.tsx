@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useMemo, useRef, ReactNode } from "react";
 import { defaultLanguage, translations, availableLanguages, LanguageCode } from "../utils/translations";
 
 // ============================================
@@ -70,22 +70,25 @@ export const useTranslation = () => {
 
 export const LanguageProvider = ({ children, user, onLanguageChange }: LanguageProviderProps) => {
   const [language, setLanguage] = useState<LanguageCode>(defaultLanguage);
+  
+  // ✅ Estabilizar la referencia de onLanguageChange para evitar loops
+  const onLanguageChangeRef = useRef(onLanguageChange);
+  onLanguageChangeRef.current = onLanguageChange;
 
-  // Cargar idioma guardado cuando el usuario está disponible
-  useEffect(() => {
-    if (user && onLanguageChange) {
-      onLanguageChange(language);
-    }
-  }, [user, language]); // ✅ Removed onLanguageChange to prevent infinite loops
+  // ✅ REMOVIDO: Este useEffect causaba un bucle infinito
+  // Llamaba a onLanguageChange cada vez que 'user' cambiaba,
+  // lo que disparaba re-renders innecesarios.
+  // El idioma solo debe guardarse cuando el usuario lo cambia manualmente.
 
   const changeLanguage = useCallback((newLanguage: LanguageCode) => {
     if (availableLanguages.find((lang) => lang.code === newLanguage)) {
       setLanguage(newLanguage);
-      if (user && onLanguageChange) {
-        onLanguageChange(newLanguage);
+      // ✅ Solo guardar en Firebase cuando el usuario cambia el idioma manualmente
+      if (user && onLanguageChangeRef.current) {
+        onLanguageChangeRef.current(newLanguage);
       }
     }
-  }, [user]); // ✅ Removed onLanguageChange
+  }, [user]);
 
   const initializeLanguage = useCallback((savedLanguage: LanguageCode) => {
     if (savedLanguage && availableLanguages.find((lang) => lang.code === savedLanguage)) {

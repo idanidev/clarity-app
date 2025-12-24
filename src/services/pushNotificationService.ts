@@ -1,6 +1,6 @@
-// src/services/pushNotificationService.js
+// src/services/pushNotificationService.ts
 import { messaging } from "../firebase";
-import { getToken, onMessage } from "firebase/messaging";
+import { getToken, onMessage, type MessagePayload } from "firebase/messaging";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
 
@@ -9,20 +9,40 @@ import { db } from "../firebase";
  * Gestiona permisos, tokens y mensajes de FCM
  */
 
+// ==================== TIPOS ====================
+
+export type NotificationPermissionStatus = 'default' | 'granted' | 'denied' | 'unsupported';
+
+export interface FCMPayload extends MessagePayload {
+  notification?: {
+    title?: string;
+    body?: string;
+    icon?: string;
+    badge?: string;
+    tag?: string;
+  };
+  data?: Record<string, string>;
+}
+
+// ==================== VAPID KEY ====================
+
 // La clave VAPID se debe obtener desde Firebase Console:
 // Firebase Console > Project Settings > Cloud Messaging > Web Push certificates > Generate key pair
-// Por ahora dejamos null y se pedirá cuando se inicialice
-let VAPID_KEY = null;
+let VAPID_KEY: string | null = null;
 
-// Función para configurar la clave VAPID (se debe llamar desde Dashboard)
-export const setVAPIDKey = (key) => {
+/**
+ * Función para configurar la clave VAPID (se debe llamar desde Dashboard)
+ */
+export const setVAPIDKey = (key: string): void => {
   VAPID_KEY = key;
 };
+
+// ==================== SOLICITAR PERMISOS ====================
 
 /**
  * Solicita permisos de notificaciones y obtiene el token FCM
  */
-export const requestNotificationPermission = async (userId) => {
+export const requestNotificationPermission = async (userId: string | null): Promise<string | null> => {
   if (!messaging) {
     console.warn("Firebase Messaging no está disponible");
     return null;
@@ -100,10 +120,12 @@ export const requestNotificationPermission = async (userId) => {
   }
 };
 
+// ==================== GUARDAR TOKEN FCM ====================
+
 /**
  * Guarda el token FCM del usuario en Firestore
  */
-export const saveFCMToken = async (userId, token) => {
+export const saveFCMToken = async (userId: string, token: string): Promise<void> => {
   try {
     if (!token || typeof token !== "string" || token.trim().length === 0) {
       console.error("❌ Token FCM inválido:", token);
@@ -114,8 +136,6 @@ export const saveFCMToken = async (userId, token) => {
     const userDoc = await getDoc(userDocRef);
     
     if (userDoc.exists()) {
-      const tokens = userDoc.data().fcmTokens || [];
-      
       // SIEMPRE reemplazar todos los tokens anteriores con solo el nuevo token
       // Esto asegura que solo haya 1 token activo y elimina duplicados existentes
       const updatedTokens = [token];
@@ -124,9 +144,6 @@ export const saveFCMToken = async (userId, token) => {
         fcmTokens: updatedTokens,
         updatedAt: new Date().toISOString(),
       });
-      
-      // Verificar que se guardó correctamente
-      // Verificación adicional no necesaria en producción; Firestore garantiza consistencia básica
     } else {
       console.warn(`⚠️ Usuario ${userId} no existe en Firestore`);
     }
@@ -136,16 +153,19 @@ export const saveFCMToken = async (userId, token) => {
   }
 };
 
+// ==================== ELIMINAR TOKEN FCM ====================
+
 /**
  * Elimina un token FCM de Firestore
  */
-export const removeFCMToken = async (userId, token) => {
+export const removeFCMToken = async (userId: string, token: string): Promise<void> => {
   try {
     const userDocRef = doc(db, "users", userId);
     const userDoc = await getDoc(userDocRef);
     
     if (userDoc.exists()) {
-      const tokens = userDoc.data().fcmTokens || [];
+      const data = userDoc.data();
+      const tokens: string[] = data.fcmTokens || [];
       const updatedTokens = tokens.filter((t) => t !== token);
       
       await updateDoc(userDocRef, {
@@ -158,10 +178,14 @@ export const removeFCMToken = async (userId, token) => {
   }
 };
 
+// ==================== LISTENER DE MENSAJES ====================
+
 /**
  * Configura el listener para mensajes cuando la app está en primer plano
  */
-export const setupForegroundMessageListener = (callback) => {
+export const setupForegroundMessageListener = (
+  callback: (payload: FCMPayload) => void
+): (() => void) | null => {
   if (!messaging) {
     console.warn("⚠️ Firebase Messaging no está disponible para configurar listener");
     return null;
@@ -170,39 +194,43 @@ export const setupForegroundMessageListener = (callback) => {
   const unsubscribe = onMessage(messaging, (payload) => {
     if (callback) {
       try {
-        callback(payload);
+        callback(payload as FCMPayload);
       } catch (error) {
         console.error("❌ Error ejecutando callback:", error);
       }
     } else {
       console.warn("⚠️ No hay callback configurado para mostrar notificación interna");
     }
-    
   });
+  
   return unsubscribe;
 };
+
+// ==================== ESTADO DE PERMISOS ====================
 
 /**
  * Verifica si las notificaciones están habilitadas
  */
-export const areNotificationsEnabled = () => {
+export const areNotificationsEnabled = (): boolean => {
   return "Notification" in window && Notification.permission === "granted";
 };
 
 /**
  * Verifica el estado actual de los permisos
  */
-export const getNotificationPermission = () => {
+export const getNotificationPermission = (): NotificationPermissionStatus => {
   if (!("Notification" in window)) {
     return "unsupported";
   }
-  return Notification.permission; // "default" | "granted" | "denied"
+  return Notification.permission as NotificationPermissionStatus;
 };
+
+// ==================== NOTIFICACIÓN DE PRUEBA ====================
 
 /**
  * Muestra una notificación de prueba
  */
-export const showTestNotification = () => {
+export const showTestNotification = (): Notification => {
   if (!("Notification" in window)) {
     throw new Error("Tu navegador no soporta notificaciones");
   }
