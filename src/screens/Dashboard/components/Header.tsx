@@ -70,7 +70,7 @@ const Header = memo<HeaderProps>(({
     <div
       className={`${headerClasses} backdrop-blur-md border-b ${borderClasses} sticky top-0 z-40`}
       style={{
-        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)',
+        paddingTop: 'env(safe-area-inset-top, 0px)',
         marginTop: 0,
         top: 0,
         backgroundColor: darkMode ? 'rgba(15, 23, 42, 0.95)' : undefined,

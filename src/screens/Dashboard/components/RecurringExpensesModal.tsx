@@ -519,11 +519,9 @@ const RecurringExpensesModal = ({
       {/* MODAL PRINCIPAL */}
       <div
         className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-hidden"
-        style={{ zIndex: 9999999 }}
-        onMouseDown={onClose}
         style={{
+          zIndex: 9999999,
           overscrollBehavior: "none",
-          touchAction: "none",
         }}
         onClick={(e) => {
           if (e.target === e.currentTarget) {

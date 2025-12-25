@@ -1,5 +1,4 @@
-import { memo, useState, MouseEvent } from "react";
-import { useSwipeable } from "react-swipeable";
+import { memo, useState, useCallback, useRef, TouchEvent } from "react";
 import {
   Heart,
   Dumbbell,
@@ -12,13 +11,13 @@ import {
   Calendar,
   Edit2,
   Trash2,
-  CreditCard,
   Wallet,
   LucideIcon,
 } from "@/components/icons";
 import { formatCurrency } from "../../../utils/currency";
 import { formatDate } from "../../../utils/date";
 import type { Expense } from "../../../types";
+import { useHaptics } from "../../../hooks/useHaptics";
 
 const categoryIcons: Record<string, LucideIcon> = {
   Salud: Heart,
@@ -88,121 +87,146 @@ interface ExpenseCardProps {
   isMobile?: boolean;
 }
 
-type ActionType = "none" | "edit" | "delete";
+const SWIPE_THRESHOLD = 80;
+const ACTION_WIDTH = 80;
 
 const ExpenseCard = memo(({ expense, onEdit, onDelete, darkMode, isMobile = false }: ExpenseCardProps) => {
-  const [showActions, setShowActions] = useState<ActionType>("none");
-  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [translateX, setTranslateX] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const { lightImpact, mediumImpact } = useHaptics();
+  
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
+  const currentTranslate = useRef(0);
+  const isDragging = useRef(false);
+  const isHorizontalSwipe = useRef<boolean | null>(null);
 
   const CategoryIcon = categoryIcons[expense.category] || Wallet;
   const paymentMethod = (expense.paymentMethod || 'Tarjeta') as PaymentMethod;
   const paymentStyle = paymentStyles[paymentMethod] || paymentStyles.Tarjeta;
 
-  const handlers = useSwipeable({
-    onSwipedLeft: () => {
-      if (isMobile) {
-        setShowActions("delete");
-        setSwipeOffset(0);
-      }
-    },
-    onSwipedRight: () => {
-      if (isMobile) {
-        setShowActions("edit");
-        setSwipeOffset(0);
-      }
-    },
-    onSwiping: (eventData) => {
-      if (isMobile && Math.abs(eventData.deltaX) > 10) {
-        setSwipeOffset(eventData.deltaX);
-      }
-    },
-    onSwiped: () => {
-      setSwipeOffset(0);
-    },
-    trackMouse: false,
-    delta: 30,
-    preventScrollOnSwipe: true,
-    touchEventOptions: { passive: false },
-  });
+  const handleTouchStart = useCallback((e: TouchEvent<HTMLDivElement>) => {
+    if (!isMobile) return;
+    e.stopPropagation();
+    const touch = e.touches[0];
+    touchStartX.current = touch.clientX;
+    touchStartY.current = touch.clientY;
+    currentTranslate.current = translateX;
+    isDragging.current = true;
+    isHorizontalSwipe.current = null;
+    setIsTransitioning(false);
+  }, [isMobile, translateX]);
 
-  const handleActionClick = (action: ActionType) => {
-    setShowActions("none");
-    if (action === "edit" && onEdit) {
-      onEdit(expense);
-    } else if (action === "delete" && onDelete) {
-      onDelete(expense);
+  const handleTouchMove = useCallback((e: TouchEvent<HTMLDivElement>) => {
+    if (!isMobile || !isDragging.current) return;
+    
+    const touch = e.touches[0];
+    const deltaX = touch.clientX - touchStartX.current;
+    const deltaY = touch.clientY - touchStartY.current;
+    
+    // Determine swipe direction on first significant movement
+    if (isHorizontalSwipe.current === null && (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10)) {
+      isHorizontalSwipe.current = Math.abs(deltaX) > Math.abs(deltaY);
     }
-  };
+    
+    // Only handle horizontal swipes
+    if (!isHorizontalSwipe.current) return;
+    
+    // Prevent vertical scroll during horizontal swipe
+    e.preventDefault();
+    
+    let newTranslate = currentTranslate.current + deltaX;
+    
+    // Apply resistance at edges
+    if (newTranslate > 0) {
+      newTranslate = newTranslate * 0.3; // Resistance when swiping right from closed
+    } else if (newTranslate < -ACTION_WIDTH) {
+      newTranslate = -ACTION_WIDTH + (newTranslate + ACTION_WIDTH) * 0.3; // Resistance past delete button
+    }
+    
+    setTranslateX(newTranslate);
+  }, [isMobile]);
 
-  // Cerrar acciones de swipe al hacer click fuera
-  const handleCardClick = (e: MouseEvent<HTMLDivElement>) => {
-    if (isMobile && showActions !== "none" && !(e.target as HTMLElement).closest('button')) {
-      setShowActions("none");
+  const handleTouchEnd = useCallback(() => {
+    if (!isMobile || !isDragging.current) return;
+    isDragging.current = false;
+    setIsTransitioning(true);
+    
+    // Snap to positions
+    if (translateX < -SWIPE_THRESHOLD) {
+      // Show delete action
+      lightImpact();
+      setTranslateX(-ACTION_WIDTH);
+    } else {
+      // Close
+      setTranslateX(0);
     }
-  };
+    
+    isHorizontalSwipe.current = null;
+  }, [isMobile, translateX, lightImpact]);
+
+  const handleEdit = useCallback(() => {
+    mediumImpact();
+    setIsTransitioning(true);
+    setTranslateX(0);
+    setTimeout(() => onEdit?.(expense), 200);
+  }, [expense, onEdit, mediumImpact]);
+
+  const handleDelete = useCallback(() => {
+    mediumImpact();
+    setIsTransitioning(true);
+    setTranslateX(0);
+    setTimeout(() => onDelete?.(expense), 200);
+  }, [expense, onDelete, mediumImpact]);
+
+  const closeSwipe = useCallback(() => {
+    if (translateX !== 0) {
+      setIsTransitioning(true);
+      setTranslateX(0);
+    }
+  }, [translateX]);
 
   return (
-    <div className="relative overflow-hidden">
-      {/* Action buttons (mobile swipe) - más visibles */}
-      {isMobile && (
-        <>
-          <div
-            className={`absolute left-0 top-0 bottom-0 w-24 flex items-center justify-center transition-transform duration-300 z-10 ${
-              showActions === "edit" ? "translate-x-0" : "-translate-x-full"
-            }`}
-          >
-            <button
-              onClick={() => handleActionClick("edit")}
-              className="w-full h-full bg-blue-600 flex items-center justify-center shadow-lg"
-            >
-              <div className="flex flex-col items-center gap-1">
-                <Edit2 className="w-7 h-7 text-white" />
-                <span className="text-xs text-white font-medium">Editar</span>
-              </div>
-            </button>
-          </div>
-          <div
-            className={`absolute right-0 top-0 bottom-0 w-24 flex items-center justify-center transition-transform duration-300 z-10 ${
-              showActions === "delete" ? "translate-x-0" : "translate-x-full"
-            }`}
-          >
-            <button
-              onClick={() => handleActionClick("delete")}
-              className="w-full h-full bg-red-600 flex items-center justify-center shadow-lg"
-            >
-              <div className="flex flex-col items-center gap-1">
-                <Trash2 className="w-7 h-7 text-white" />
-                <span className="text-xs text-white font-medium">Eliminar</span>
-              </div>
-            </button>
-          </div>
-        </>
-      )}
+    <div 
+      className="relative overflow-hidden rounded-lg sm:rounded-xl"
+      style={{ touchAction: 'pan-y pinch-zoom' }}
+    >
+      {/* Delete action button (behind card) */}
+      <div 
+        className="absolute right-0 top-0 bottom-0 flex items-center justify-center bg-red-600"
+        style={{ width: ACTION_WIDTH }}
+      >
+        <button
+          onClick={handleDelete}
+          className="flex flex-col items-center justify-center w-full h-full"
+        >
+          <Trash2 className="w-6 h-6 text-white" />
+          <span className="text-xs text-white font-medium mt-1">Eliminar</span>
+        </button>
+      </div>
 
-      {/* Main card - más visual y cómoda */}
+      {/* Main card - slides over action */}
       <div
-        {...handlers}
-        onClick={handleCardClick}
-        className={`relative rounded-lg sm:rounded-xl p-2.5 sm:p-3
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onClick={closeSwipe}
+        className={`relative p-2.5 sm:p-3
           ${darkMode 
-            ? "bg-gray-800/40 border border-gray-700/50 hover:bg-gray-800/60" 
-            : "bg-white border border-purple-100/80 hover:bg-purple-50/50 shadow-sm"
+            ? "bg-gray-800 border border-gray-700/50" 
+            : "bg-white border border-purple-100/80 shadow-sm"
           }
-          transition-all duration-300
-          hover:-translate-y-0.5
-          hover:shadow-md
-          active:scale-[0.98]
           ${expense.recurring || expense.isRecurring ? "border-l-4 border-l-purple-500" : ""}
-          ${showActions !== "none" ? "bg-purple-500/10 border-purple-500/30 shadow-lg" : ""}
-          ${isMobile ? "cursor-grab active:cursor-grabbing" : ""}
         `}
         style={{
-          transform: isMobile && swipeOffset !== 0 ? `translateX(${swipeOffset}px)` : undefined,
+          transform: `translateX(${translateX}px)`,
+          transition: isTransitioning ? 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none',
+          WebkitTapHighlightColor: 'transparent',
         }}
       >
         <div className="flex justify-between items-center gap-2">
           <div className="flex-1 min-w-0">
-            {/* Nombre del gasto y subcategoría separados */}
+            {/* Nombre del gasto y subcategoría */}
             <div className="flex items-center gap-1 sm:gap-1.5">
               <CategoryIcon className={`w-3.5 h-3.5 sm:w-5 sm:h-5 flex-shrink-0 ${
                 darkMode ? "text-purple-400" : "text-purple-600"
@@ -233,7 +257,7 @@ const ExpenseCard = memo(({ expense, onEdit, onDelete, darkMode, isMobile = fals
               )}
             </div>
 
-            {/* Date and payment method - más compacto */}
+            {/* Date and payment method */}
             <div className="flex items-center gap-1.5 flex-wrap text-[11px] sm:text-xs text-gray-400 mt-0.5">
               <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
               <span className="whitespace-nowrap">
@@ -258,7 +282,7 @@ const ExpenseCard = memo(({ expense, onEdit, onDelete, darkMode, isMobile = fals
             </div>
           </div>
 
-          {/* Amount - más pequeño en móvil */}
+          {/* Amount and actions */}
           <div className="flex flex-col items-end flex-shrink-0">
             <p className={`text-sm sm:text-base font-bold whitespace-nowrap ${
               darkMode ? "text-white" : "text-gray-900"
@@ -266,13 +290,13 @@ const ExpenseCard = memo(({ expense, onEdit, onDelete, darkMode, isMobile = fals
               {formatCurrency(expense.amount)}
             </p>
             
-            {/* Botones solo en desktop, en móvil se usa swipe */}
+            {/* Desktop buttons */}
             {!isMobile && (
               <div className="flex gap-1 mt-1">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onEdit && onEdit(expense);
+                    handleEdit();
                   }}
                   className="p-1.5 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 active:bg-blue-500/40 transition-colors"
                   title="Editar"
@@ -282,7 +306,7 @@ const ExpenseCard = memo(({ expense, onEdit, onDelete, darkMode, isMobile = fals
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onDelete && onDelete(expense);
+                    handleDelete();
                   }}
                   className="p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 active:bg-red-500/40 transition-colors"
                   title="Eliminar"
@@ -301,4 +325,3 @@ const ExpenseCard = memo(({ expense, onEdit, onDelete, darkMode, isMobile = fals
 ExpenseCard.displayName = "ExpenseCard";
 
 export default ExpenseCard;
-

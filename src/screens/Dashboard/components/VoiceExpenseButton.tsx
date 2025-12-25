@@ -851,8 +851,8 @@ const VoiceExpenseButton = ({
           <>
             <div
               className="fixed inset-0 pointer-events-none"
-              style={{ zIndex: 9999999 }}
               style={{
+                zIndex: 9999999,
                 border: "4px solid transparent",
                 borderImage: "linear-gradient(135deg, #667eea, #764ba2, #f093fb, #667eea) 1",
                 animation: "siri-pulse 2s ease-in-out infinite",

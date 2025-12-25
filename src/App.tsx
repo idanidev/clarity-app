@@ -16,7 +16,7 @@ import NetworkStatus from "./components/NetworkStatus";
 // OPTIMIZACIÓN: Code splitting de rutas principales
 const Auth = lazy(() => import("./screens/Auth/Auth"));
 const Dashboard = lazy(() => import("./screens/Dashboard/Dashboard"));
-const AdminMigration = lazy(() => import("./screens/Admin/AdminMigration"));
+
 
 // Prefetch helpers para mejorar la navegación
 const preloadAuth = () => import("./screens/Auth/Auth");
@@ -43,14 +43,7 @@ const App = () => {
   const timeoutIdRef = useRef<NodeJS.Timeout | null>(null);
   const unsubscribeRef = useRef<(() => void) | null>(null);
 
-  // Custom hash routing for admin panel
-  const [currentHash, setCurrentHash] = useState(window.location.hash);
 
-  useEffect(() => {
-    const handleHashChange = () => setCurrentHash(window.location.hash);
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
 
   // Configurar Capacitor (SplashScreen)
   useEffect(() => {
@@ -236,11 +229,7 @@ const App = () => {
               className="flex flex-col h-full overflow-hidden relative"
             >
               <NetworkStatus />
-              {currentHash === '#/admin/migration' ? (
-                <AdminMigration />
-              ) : (
-                <Dashboard user={user} />
-              )}
+              <Dashboard user={user} />
             </motion.div>
           )}
         </AnimatePresence>
