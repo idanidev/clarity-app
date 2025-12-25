@@ -78,7 +78,7 @@ const CategoriesModal = ({
           </button>
         </div>
 
-        <div className="px-6 py-6 pb-32 space-y-6">
+        <div className="px-6 py-8 pb-32 space-y-8">
           <form onSubmit={onAddCategory} className="space-y-3">
             <label className={`block text-sm font-medium ${textClass}`}>
               Nueva Categoría
@@ -160,7 +160,8 @@ const CategoriesModal = ({
           </form>
 
           <div className="space-y-3">
-            <h4 className={`font-semibold ${textClass}`}>Categorías Existentes</h4>
+            <h4 className={`font-semibold ${textClass} mb-3`}>Categorías Existentes</h4>
+            <div className="max-h-[50vh] overflow-y-auto space-y-3 pr-1">
             {Object.entries(categories).map(([categoryName, categoryData]) => {
               const subcategories = getCategorySubcategories(categoryData);
               const color = getCategoryColor(categoryData);
@@ -366,6 +367,7 @@ const CategoriesModal = ({
                 </div>
               );
             })}
+            </div>
           </div>
         </div>
       </div>

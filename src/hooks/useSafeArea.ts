@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { StatusBar, Style } from '@capacitor/status-bar';
 
-export interface SafeAreaInsets {
+interface SafeAreaInsets {
   top: number;
   bottom: number;
   left: number;
@@ -10,10 +9,11 @@ export interface SafeAreaInsets {
 }
 
 /**
- * Hook para obtener los insets de safe area (notch, home indicator, etc.)
- * En web, retorna valores por defecto basados en CSS env()
+ * Hook para obtener los safe area insets
+ * Especialmente útil para iOS con notch/Dynamic Island
+ * También funciona en Android con cutouts
  */
-export const useSafeArea = (): SafeAreaInsets => {
+export const useSafeAreaInsets = (): SafeAreaInsets => {
   const [insets, setInsets] = useState<SafeAreaInsets>({
     top: 0,
     bottom: 0,
@@ -22,64 +22,81 @@ export const useSafeArea = (): SafeAreaInsets => {
   });
 
   useEffect(() => {
-    if (!Capacitor.isNativePlatform()) {
-      // En web, usar CSS env() variables si están disponibles
-      // Por defecto, usar valores comunes de iPhone
-      const top = typeof window !== 'undefined' 
-        ? parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sat') || '0', 10) || 44
-        : 44;
-      const bottom = typeof window !== 'undefined'
-        ? parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sab') || '0', 10) || 34
-        : 34;
+    const updateInsets = () => {
+      const style = getComputedStyle(document.documentElement);
 
-      setInsets({
-        top,
-        bottom,
-        left: 0,
-        right: 0,
-      });
-      return;
-    }
+      // Obtener valores de env() CSS
+      const top = parseInt(style.getPropertyValue('--sat') || '0', 10) ||
+        parseInt(style.getPropertyValue('env(safe-area-inset-top)') || '0', 10);
+      const bottom = parseInt(style.getPropertyValue('--sab') || '0', 10) ||
+        parseInt(style.getPropertyValue('env(safe-area-inset-bottom)') || '0', 10);
+      const left = parseInt(style.getPropertyValue('--sal') || '0', 10) ||
+        parseInt(style.getPropertyValue('env(safe-area-inset-left)') || '0', 10);
+      const right = parseInt(style.getPropertyValue('--sar') || '0', 10) ||
+        parseInt(style.getPropertyValue('env(safe-area-inset-right)') || '0', 10);
 
-    // En iOS nativo, los insets se manejan automáticamente con contentInset: 'automatic'
-    // Pero podemos obtener valores aproximados
-    if (Capacitor.getPlatform() === 'ios') {
-      // Valores típicos de iPhone con notch
-      setInsets({
-        top: 44, // Status bar + notch
-        bottom: 34, // Home indicator
-        left: 0,
-        right: 0,
-      });
-    }
+      // Valores por defecto para iOS si no se detectan
+      if (Capacitor.getPlatform() === 'ios') {
+        setInsets({
+          top: top || 47, // iPhone notch default
+          bottom: bottom || 34, // Home indicator default
+          left: left || 0,
+          right: right || 0,
+        });
+      } else {
+        setInsets({ top, bottom, left, right });
+      }
+    };
+
+    // Actualizar inmediatamente
+    updateInsets();
+
+    // Actualizar en resize (rotación de dispositivo)
+    window.addEventListener('resize', updateInsets);
+    window.addEventListener('orientationchange', updateInsets);
+
+    return () => {
+      window.removeEventListener('resize', updateInsets);
+      window.removeEventListener('orientationchange', updateInsets);
+    };
   }, []);
 
   return insets;
 };
 
 /**
- * Configura el StatusBar según el modo oscuro/claro
+ * Hook para aplicar CSS custom properties de safe area
+ * Útil para componentes que necesitan padding dinámico
  */
-export const useStatusBar = (darkMode: boolean) => {
+export const useApplySafeAreaCSS = () => {
   useEffect(() => {
-    if (!Capacitor.isNativePlatform()) {
-      return;
-    }
-
-    const configureStatusBar = async () => {
-      try {
-        await StatusBar.setStyle({
-          style: darkMode ? Style.Dark : Style.Light,
-        });
-        await StatusBar.setBackgroundColor({
-          color: darkMode ? '#1F2937' : '#FFFFFF',
-        });
-      } catch (error) {
-        console.error('Error configuring status bar:', error);
+    // Aplicar variables CSS para safe areas
+    const style = document.createElement('style');
+    style.innerHTML = `
+      :root {
+        --sat: env(safe-area-inset-top);
+        --sab: env(safe-area-inset-bottom);
+        --sal: env(safe-area-inset-left);
+        --sar: env(safe-area-inset-right);
       }
-    };
+    `;
+    document.head.appendChild(style);
 
-    configureStatusBar();
-  }, [darkMode]);
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
 };
 
+/**
+ * Estilos inline helper para safe areas
+ */
+export const safeAreaStyles = {
+  paddingTop: 'env(safe-area-inset-top)',
+  paddingBottom: 'env(safe-area-inset-bottom)',
+  paddingLeft: 'env(safe-area-inset-left)',
+  paddingRight: 'env(safe-area-inset-right)',
+};
+
+// Re-export useStatusBar from useNativeOptimizations for backwards compatibility
+export { useStatusBar } from './useNativeOptimizations';

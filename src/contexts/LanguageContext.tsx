@@ -70,7 +70,7 @@ export const useTranslation = () => {
 
 export const LanguageProvider = ({ children, user, onLanguageChange }: LanguageProviderProps) => {
   const [language, setLanguage] = useState<LanguageCode>(defaultLanguage);
-  
+
   // ✅ Estabilizar la referencia de onLanguageChange para evitar loops
   const onLanguageChangeRef = useRef(onLanguageChange);
   onLanguageChangeRef.current = onLanguageChange;

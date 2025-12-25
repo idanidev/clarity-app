@@ -158,8 +158,7 @@ const Dashboard = ({ user }: DashboardProps) => {
 
         console.log(`User: ${user.email}, Is Admin Claim: ${hasAdminClaim}, Is Email Admin: ${isEmailAdmin}`);
 
-        setIsAdmin(hasAdminClaim || isEmailAdmin || true); // TEMPORARY: forcing true for user to see it immediately and verify UI.
-        // TODO: Remove "|| true" after verification
+        setIsAdmin(hasAdminClaim || isEmailAdmin);
       } catch (e) {
         console.error('Error checking admin claim', e);
       }
@@ -218,7 +217,7 @@ const Dashboard = ({ user }: DashboardProps) => {
   const [selectedYear, setSelectedYear] = useState(
     new Date().getFullYear().toString()
   );
-  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
   // Handlers para filtros
   const handleFilterPeriodTypeChange = useCallback(
@@ -240,7 +239,17 @@ const Dashboard = ({ user }: DashboardProps) => {
   }, []);
 
   const handleCategoryChange = useCallback((value: string) => {
-    setSelectedCategory(value);
+    setSelectedCategories(prev => {
+      // If "all" is selected or value is "all", clear selection
+      if (value === "all") {
+        return [];
+      }
+      // Toggle the category
+      if (prev.includes(value)) {
+        return prev.filter(c => c !== value);
+      }
+      return [...prev, value];
+    });
     trackFilter("category", value);
   }, []);
 
@@ -1166,9 +1175,9 @@ const Dashboard = ({ user }: DashboardProps) => {
 
   const filteredExpenses = useMemo(() => {
     return expenses.filter((expense) => {
-      // Filtro de categoría
+      // Filtro de categoría (ahora soporta múltiples)
       const matchesCategory =
-        selectedCategory === "all" || expense.category === selectedCategory;
+        selectedCategories.length === 0 || selectedCategories.includes(expense.category);
 
       if (!matchesCategory) return false;
 
@@ -1191,7 +1200,7 @@ const Dashboard = ({ user }: DashboardProps) => {
     filterPeriodType,
     selectedMonth,
     selectedYear,
-    selectedCategory,
+    selectedCategories,
   ]);
 
   const totalExpenses = useMemo(() => {
@@ -2080,7 +2089,7 @@ const Dashboard = ({ user }: DashboardProps) => {
     setFilterPeriodType("month");
     setSelectedMonth(new Date().toISOString().slice(0, 7));
     setSelectedYear(new Date().getFullYear().toString());
-    setSelectedCategory("all");
+    setSelectedCategories([]);
   }, []);
 
   const handleViewChange = useCallback((view: ActiveView) => {
@@ -2130,7 +2139,7 @@ const Dashboard = ({ user }: DashboardProps) => {
     } else if (context.type === "categoryGoal") {
       const updatedGoals = { ...goals };
       if (updatedGoals.categoryGoals) {
-        delete updatedGoals.categoryGoals[context.category];
+      delete updatedGoals.categoryGoals[context.category];
       }
       handleSaveGoals(updatedGoals);
     } else if (context.type === "longTermGoal") {
@@ -2252,7 +2261,7 @@ const Dashboard = ({ user }: DashboardProps) => {
         onMonthChange={handleMonthChange}
         selectedYear={selectedYear}
         onYearChange={handleYearChange}
-        selectedCategory={selectedCategory}
+        selectedCategories={selectedCategories}
         onCategoryChange={handleCategoryChange}
         onClearFilters={handleClearFilters}
         categories={categories}

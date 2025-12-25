@@ -87,7 +87,7 @@ interface MainContentProps {
   onMonthChange: (value: string) => void;
   selectedYear: string;
   onYearChange: (value: string) => void;
-  selectedCategory: string;
+  selectedCategories: string[];
   onCategoryChange: (value: string) => void;
   onClearFilters: () => void;
   categories: Categories;
@@ -194,7 +194,7 @@ const MainContent = memo<MainContentProps>(
     onMonthChange,
     selectedYear,
     onYearChange,
-    selectedCategory,
+    selectedCategories,
     onCategoryChange,
     onClearFilters,
     categories,
@@ -493,35 +493,35 @@ const MainContent = memo<MainContentProps>(
             name: 'Límites',
             icon: '📊',
           };
-        }
+      }
       }
 
       // Objetivo de ahorro mensual
       if (selectedGoalInfo.type === 'monthly' && income && income > 0 && goals?.totalSavingsGoal) {
-        const today = new Date();
-        const currentYear = today.getFullYear();
-        const currentMonth = today.getMonth() + 1;
-        const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
-        const daysPassed = today.getDate();
-        const currentMonthExpenses = categoryTotalsForBudgets.reduce(
-          (sum, item) => sum + item.total,
-          0
-        );
-        const monthlySavings = income - currentMonthExpenses;
-        const expectedSavingsByNow =
-          (goals.totalSavingsGoal * daysPassed) / daysInMonth;
-        const progress =
-          expectedSavingsByNow > 0
-            ? Math.min((monthlySavings / expectedSavingsByNow) * 100, 200)
-            : 0;
-        return {
-          savings: monthlySavings,
-          goal: goals.totalSavingsGoal,
-          progress,
-          isAhead: monthlySavings >= expectedSavingsByNow,
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth() + 1;
+      const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+      const daysPassed = today.getDate();
+      const currentMonthExpenses = categoryTotalsForBudgets.reduce(
+        (sum, item) => sum + item.total,
+        0
+      );
+      const monthlySavings = income - currentMonthExpenses;
+      const expectedSavingsByNow =
+        (goals.totalSavingsGoal * daysPassed) / daysInMonth;
+      const progress =
+        expectedSavingsByNow > 0
+          ? Math.min((monthlySavings / expectedSavingsByNow) * 100, 200)
+          : 0;
+      return {
+        savings: monthlySavings,
+        goal: goals.totalSavingsGoal,
+        progress,
+        isAhead: monthlySavings >= expectedSavingsByNow,
           name: 'Ahorro',
           icon: '💰',
-        };
+      };
       }
 
       return null;
@@ -661,108 +661,108 @@ const MainContent = memo<MainContentProps>(
 
                 {/* Tarjeta de Objetivos con selector */}
                 <div className="relative" ref={goalSelectorRef}>
-                  {goalsSummary ? (
-                    <div
+                {goalsSummary ? (
+                  <div
                       onClick={() => {
                         setShowGoalSelector(!showGoalSelector);
                         lightImpact();
                       }}
                       className={`rounded-lg md:rounded-2xl p-1.5 md:p-5 border backdrop-blur-xl transition-all md:hover:scale-[1.02] cursor-pointer ${darkMode
-                        ? "bg-gray-800/50 border-gray-700/40"
-                        : "bg-white/60 border-white/40"
-                        }`}
-                      style={{
-                        boxShadow: darkMode
-                          ? "0 4px 20px 0 rgba(0, 0, 0, 0.25), 0 0 0 0.5px rgba(255, 255, 255, 0.05) inset"
-                          : "0 4px 20px 0 rgba(31, 38, 135, 0.1), 0 0 0 0.5px rgba(255, 255, 255, 0.6) inset",
-                        backdropFilter: "blur(16px) saturate(180%)",
-                        WebkitBackdropFilter: "blur(16px) saturate(180%)",
-                      }}
-                    >
-                      <div className="flex flex-col items-center text-center">
-                        <div
-                          className={`p-1 md:p-2.5 rounded md:rounded-xl mb-1 md:mb-3 ${darkMode ? "bg-green-600/20" : "bg-green-100/50"
-                            }`}
-                        >
+                      ? "bg-gray-800/50 border-gray-700/40"
+                      : "bg-white/60 border-white/40"
+                      }`}
+                    style={{
+                      boxShadow: darkMode
+                        ? "0 4px 20px 0 rgba(0, 0, 0, 0.25), 0 0 0 0.5px rgba(255, 255, 255, 0.05) inset"
+                        : "0 4px 20px 0 rgba(31, 38, 135, 0.1), 0 0 0 0.5px rgba(255, 255, 255, 0.6) inset",
+                      backdropFilter: "blur(16px) saturate(180%)",
+                      WebkitBackdropFilter: "blur(16px) saturate(180%)",
+                    }}
+                  >
+                    <div className="flex flex-col items-center text-center">
+                      <div
+                        className={`p-1 md:p-2.5 rounded md:rounded-xl mb-1 md:mb-3 ${darkMode ? "bg-green-600/20" : "bg-green-100/50"
+                          }`}
+                      >
                           {goalsSummary.icon ? (
                             <span className="text-xs md:text-base">{goalsSummary.icon}</span>
                           ) : (
-                            <Sparkles
-                              className={`w-3 h-3 md:w-5 md:h-5 ${goalsSummary.isAhead
-                                ? darkMode
-                                  ? "text-green-400"
-                                  : "text-green-500"
-                                : darkMode
-                                  ? "text-gray-400"
-                                  : "text-gray-500"
-                                }`}
-                            />
-                          )}
-                        </div>
-                        <span
-                          className={`text-[9px] md:text-xs font-semibold mb-0.5 md:mb-1.5 uppercase tracking-wide ${textSecondaryClass} flex items-center gap-0.5`}
-                        >
-                          {goalsSummary.name || 'Meta'}
-                          <ChevronDown className={`w-2 h-2 md:w-3 md:h-3 transition-transform ${showGoalSelector ? 'rotate-180' : ''}`} />
-                        </span>
-                        <p
-                          className={`text-xs md:text-2xl lg:text-3xl font-bold ${goalsSummary.isAhead
+                        <Sparkles
+                          className={`w-3 h-3 md:w-5 md:h-5 ${goalsSummary.isAhead
                             ? darkMode
                               ? "text-green-400"
                               : "text-green-500"
-                            : goalsSummary.progress >= 80
-                              ? darkMode
-                                ? "text-yellow-400"
-                                : "text-yellow-500"
-                              : darkMode
-                                ? "text-purple-400"
-                                : "text-purple-600"
-                            } leading-tight`}
-                        >
-                          {formatCurrency(goalsSummary.savings)}
-                        </p>
-                        <p
-                          className={`text-[8px] md:text-xs ${textSecondaryClass} mt-0.5`}
-                        >
-                          {goalsSummary.progress.toFixed(0)}%
-                        </p>
+                            : darkMode
+                              ? "text-gray-400"
+                              : "text-gray-500"
+                            }`}
+                        />
+                          )}
                       </div>
+                      <span
+                          className={`text-[9px] md:text-xs font-semibold mb-0.5 md:mb-1.5 uppercase tracking-wide ${textSecondaryClass} flex items-center gap-0.5`}
+                      >
+                          {goalsSummary.name || 'Meta'}
+                          <ChevronDown className={`w-2 h-2 md:w-3 md:h-3 transition-transform ${showGoalSelector ? 'rotate-180' : ''}`} />
+                      </span>
+                      <p
+                        className={`text-xs md:text-2xl lg:text-3xl font-bold ${goalsSummary.isAhead
+                          ? darkMode
+                            ? "text-green-400"
+                            : "text-green-500"
+                          : goalsSummary.progress >= 80
+                            ? darkMode
+                              ? "text-yellow-400"
+                              : "text-yellow-500"
+                            : darkMode
+                              ? "text-purple-400"
+                              : "text-purple-600"
+                          } leading-tight`}
+                      >
+                        {formatCurrency(goalsSummary.savings)}
+                      </p>
+                      <p
+                        className={`text-[8px] md:text-xs ${textSecondaryClass} mt-0.5`}
+                      >
+                        {goalsSummary.progress.toFixed(0)}%
+                      </p>
                     </div>
-                  ) : (
-                    <div
+                  </div>
+                ) : (
+                  <div
                       onClick={() => {
                         setShowGoalSelector(!showGoalSelector);
                         lightImpact();
                       }}
                       className={`rounded-lg md:rounded-2xl p-1.5 md:p-5 border backdrop-blur-xl cursor-pointer ${darkMode
-                        ? "bg-gray-800/30 border-gray-700/20"
-                        : "bg-white/30 border-white/20"
-                        }`}
-                    >
-                      <div className="flex flex-col items-center text-center">
-                        <div
-                          className={`p-1 md:p-2.5 rounded md:rounded-xl mb-1 md:mb-3 ${darkMode ? "bg-gray-700/20" : "bg-gray-100/50"
-                            }`}
-                        >
-                          <Target
-                            className={`w-3 h-3 md:w-5 md:h-5 ${textSecondaryClass}`}
-                          />
-                        </div>
-                        <span
+                      ? "bg-gray-800/30 border-gray-700/20"
+                      : "bg-white/30 border-white/20"
+                      }`}
+                  >
+                    <div className="flex flex-col items-center text-center">
+                      <div
+                        className={`p-1 md:p-2.5 rounded md:rounded-xl mb-1 md:mb-3 ${darkMode ? "bg-gray-700/20" : "bg-gray-100/50"
+                          }`}
+                      >
+                        <Target
+                          className={`w-3 h-3 md:w-5 md:h-5 ${textSecondaryClass}`}
+                        />
+                      </div>
+                      <span
                           className={`text-[9px] md:text-xs font-semibold mb-0.5 md:mb-1.5 uppercase tracking-wide ${textSecondaryClass} flex items-center gap-0.5`}
-                        >
+                      >
                           Meta
                           <ChevronDown className={`w-2 h-2 md:w-3 md:h-3 transition-transform ${showGoalSelector ? 'rotate-180' : ''}`} />
-                        </span>
-                        <p
-                          className={`text-xs md:text-2xl lg:text-3xl font-bold ${textSecondaryClass} leading-tight`}
-                        >
-                          --
-                        </p>
-                      </div>
+                      </span>
+                      <p
+                        className={`text-xs md:text-2xl lg:text-3xl font-bold ${textSecondaryClass} leading-tight`}
+                      >
+                        --
+                      </p>
                     </div>
-                  )}
-                  
+                  </div>
+                )}
+
                   {/* Selector de metas dropdown */}
                   {showGoalSelector && (
                     <div
@@ -813,8 +813,8 @@ const MainContent = memo<MainContentProps>(
                           <Plus className="w-3 h-3" />
                           <span>Gestionar metas</span>
                         </button>
-                      </div>
-                    </div>
+                </div>
+              </div>
                   )}
                 </div>
 
@@ -904,7 +904,7 @@ const MainContent = memo<MainContentProps>(
                       <h3 className={`text-sm font-semibold ${textClass}`}>
                         ⚡ Accesos Rápidos
                       </h3>
-                      {(filterPeriodType !== "all" || selectedCategory !== "all") && onClearFilters && (
+                      {(filterPeriodType !== "all" || selectedCategories.length > 0) && onClearFilters && (
                         <button
                           onClick={() => {
                             onClearFilters();
@@ -1007,24 +1007,39 @@ const MainContent = memo<MainContentProps>(
                     <h3 className={`text-sm font-semibold mb-3 ${textClass}`}>
                       🏷️ Por Categoría
                     </h3>
-                    <select
-                      value={selectedCategory}
-                      onClick={(e) => e.stopPropagation()}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onTouchStart={(e) => e.stopPropagation()}
-                      onChange={(e) => onCategoryChange(e.target.value)}
-                      className={`w-full px-4 py-3 rounded-xl border text-base transition-all ${darkMode
-                        ? "bg-gray-800 border-gray-700 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/40"
-                        : "bg-white border-purple-200 text-purple-900 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/40"
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => onCategoryChange("all")}
+                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                          selectedCategories.length === 0
+                            ? darkMode
+                              ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+                              : "bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+                            : darkMode
+                              ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                         }`}
-                    >
-                      <option value="all">{t("filters.all")}</option>
+                      >
+                        {t("filters.all")}
+                      </button>
                       {Object.keys(categories).map((cat) => (
-                        <option key={cat} value={cat}>
+                        <button
+                          key={cat}
+                          onClick={() => onCategoryChange(cat)}
+                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                            selectedCategories.includes(cat)
+                              ? darkMode
+                                ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+                                : "bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+                              : darkMode
+                                ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                          }`}
+                        >
                           {cat}
-                        </option>
+                        </button>
                       ))}
-                    </select>
+                    </div>
                   </div>
 
                   {/* Sección 3: Filtro Personalizado (si filterPeriodType === "month") */}
@@ -1157,24 +1172,44 @@ const MainContent = memo<MainContentProps>(
                       />
                     )}
 
-                    <select
-                      value={selectedCategory}
-                      onClick={(e) => e.stopPropagation()}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onTouchStart={(e) => e.stopPropagation()}
-                      onChange={(e) => onCategoryChange(e.target.value)}
-                      className={`min-w-[140px] px-3 py-2 rounded-xl border text-sm transition-all ${darkMode
-                        ? "bg-gray-700/50 border-gray-600/40 text-gray-100 focus:bg-gray-700 focus:border-purple-500/50"
-                        : "bg-white/70 border-white/60 text-purple-900 focus:bg-white focus:border-purple-400"
-                        } focus:ring-2 focus:ring-purple-500/20 focus:outline-none`}
-                    >
-                      <option value="all">{t("filters.all")}</option>
-                      {Object.keys(categories).map((cat) => (
-                        <option key={cat} value={cat}>
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <button
+                        onClick={() => onCategoryChange("all")}
+                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                          selectedCategories.length === 0
+                            ? darkMode
+                              ? "bg-purple-600 text-white"
+                              : "bg-purple-600 text-white"
+                            : darkMode
+                              ? "bg-gray-700/50 text-gray-300 hover:bg-gray-600/50"
+                              : "bg-white/70 text-gray-700 hover:bg-white"
+                        }`}
+                      >
+                        {t("filters.all")}
+                      </button>
+                      {Object.keys(categories).slice(0, 4).map((cat) => (
+                        <button
+                          key={cat}
+                          onClick={() => onCategoryChange(cat)}
+                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                            selectedCategories.includes(cat)
+                              ? darkMode
+                                ? "bg-purple-600 text-white"
+                                : "bg-purple-600 text-white"
+                              : darkMode
+                                ? "bg-gray-700/50 text-gray-300 hover:bg-gray-600/50"
+                                : "bg-white/70 text-gray-700 hover:bg-white"
+                          }`}
+                        >
                           {cat}
-                        </option>
+                        </button>
                       ))}
-                    </select>
+                      {Object.keys(categories).length > 4 && (
+                        <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          +{Object.keys(categories).length - 4} más
+                        </span>
+                      )}
+                    </div>
 
                     {onClearFilters && (
                       <button
@@ -1329,7 +1364,7 @@ const MainContent = memo<MainContentProps>(
                         >
                           <Filter className="w-4 h-4 sm:w-5 sm:h-5" />
                           {/* Badge si hay filtros activos */}
-                          {(filterPeriodType !== "all" || selectedCategory !== "all") && (
+                          {(filterPeriodType !== "all" || selectedCategories.length > 0) && (
                             <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
                           )}
                         </button>

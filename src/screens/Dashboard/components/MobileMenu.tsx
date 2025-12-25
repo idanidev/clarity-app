@@ -85,7 +85,7 @@ const MobileMenu = memo(
           <div className="space-y-3">
             <button
               onClick={() => handleAction(onShowCategories)}
-              className={`w-full flex items-center gap-3 p-4 rounded-xl ${buttonBase} transition-all`}
+              className={`w-full flex items-center justify-center gap-3 p-4 rounded-xl ${buttonBase} transition-all`}
             >
               <Filter
                 className={`w-5 h-5 ${
@@ -99,7 +99,7 @@ const MobileMenu = memo(
 
             <button
               onClick={() => handleAction(onShowRecurring)}
-              className={`w-full flex items-center gap-3 p-4 rounded-xl ${buttonBase} transition-all`}
+              className={`w-full flex items-center justify-center gap-3 p-4 rounded-xl ${buttonBase} transition-all`}
             >
               <Clock
                 className={`w-5 h-5 ${
@@ -119,7 +119,7 @@ const MobileMenu = memo(
 
             <button
               onClick={() => handleAction(onShowTips)}
-              className={`w-full flex items-center gap-3 p-4 rounded-xl ${buttonBase} transition-all`}
+              className={`w-full flex items-center justify-center gap-3 p-4 rounded-xl ${buttonBase} transition-all`}
             >
               <Lightbulb
                 className={`w-5 h-5 ${
@@ -133,7 +133,7 @@ const MobileMenu = memo(
 
             <button
               onClick={() => handleAction(onExportCSV)}
-              className={`w-full flex items-center gap-3 p-4 rounded-xl ${buttonBase} transition-all`}
+              className={`w-full flex items-center justify-center gap-3 p-4 rounded-xl ${buttonBase} transition-all`}
             >
               <Download
                 className={`w-5 h-5 ${
@@ -147,7 +147,7 @@ const MobileMenu = memo(
 
             <button
               onClick={() => handleAction(onShowSettings)}
-              className={`w-full flex items-center gap-3 p-4 rounded-xl ${buttonBase} transition-all`}
+              className={`w-full flex items-center justify-center gap-3 p-4 rounded-xl ${buttonBase} transition-all`}
             >
               <SettingsIcon
                 className={`w-5 h-5 ${

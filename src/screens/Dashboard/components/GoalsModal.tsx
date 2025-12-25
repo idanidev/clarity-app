@@ -48,6 +48,7 @@ const GoalsModal = ({
   const [monthlySavingsGoal, setMonthlySavingsGoal] = useState(goals?.monthlySavingsGoal || goals?.totalSavingsGoal || 0);
   const [categoryGoals, setCategoryGoals] = useState(goals?.categoryGoals || {});
   const [newGoalCategory, setNewGoalCategory] = useState("");
+  const [newGoalSubcategory, setNewGoalSubcategory] = useState("");
   const [newGoalAmount, setNewGoalAmount] = useState("");
   
   // Objetivos a largo plazo
@@ -92,11 +93,17 @@ const GoalsModal = ({
     e.preventDefault();
     if (!newGoalCategory || !newGoalAmount) return;
 
+    // Si hay subcategoría, usar formato "Categoría > Subcategoría"
+    const goalKey = newGoalSubcategory 
+      ? `${newGoalCategory} > ${newGoalSubcategory}` 
+      : newGoalCategory;
+
     setCategoryGoals({
       ...categoryGoals,
-      [newGoalCategory]: parseFloat(newGoalAmount) || 0,
+      [goalKey]: parseFloat(newGoalAmount) || 0,
     });
     setNewGoalCategory("");
+    setNewGoalSubcategory("");
     setNewGoalAmount("");
   };
 
@@ -206,7 +213,7 @@ const GoalsModal = ({
           </button>
         </div>
 
-        <div className="px-6 py-6 pb-32">
+        <div className="px-6 py-8 pb-32">
           {/* SECCIÓN DE INGRESOS - AÑADIDA */}
           {onSaveIncome && (
             <div className={`p-5 rounded-xl border-2 mb-6 ${
@@ -418,24 +425,48 @@ const GoalsModal = ({
             </div>
 
             <form onSubmit={handleAddCategoryGoal} className="space-y-3 mb-4">
-              <div className="grid grid-cols-2 gap-3">
-                <select
-                  value={newGoalCategory}
-                  onClick={(e) => e.stopPropagation()}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onTouchStart={(e) => e.stopPropagation()}
-                  onChange={(e) => setNewGoalCategory(e.target.value)}
-                  className={`px-4 py-2 rounded-lg border ${inputClass} focus:ring-2 focus:border-transparent`}
-                >
-                  <option value="">{t("goals.selectCategory")}</option>
-                  {Object.keys(categories)
-                    .filter((cat) => !categoryGoals[cat])
-                    .map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                </select>
+              <div className="grid grid-cols-1 gap-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <select
+                    value={newGoalCategory}
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    onChange={(e) => {
+                      setNewGoalCategory(e.target.value);
+                      setNewGoalSubcategory(""); // Reset subcategory when category changes
+                    }}
+                    className={`px-4 py-2 rounded-lg border ${inputClass} focus:ring-2 focus:border-transparent`}
+                  >
+                    <option value="">{t("goals.selectCategory")}</option>
+                    {Object.keys(categories)
+                      .filter((cat) => !categoryGoals[cat])
+                      .map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                  </select>
+                  {newGoalCategory && categories[newGoalCategory]?.subcategories && categories[newGoalCategory].subcategories.length > 0 && (
+                    <select
+                      value={newGoalSubcategory}
+                      onClick={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onTouchStart={(e) => e.stopPropagation()}
+                      onChange={(e) => setNewGoalSubcategory(e.target.value)}
+                      className={`px-4 py-2 rounded-lg border ${inputClass} focus:ring-2 focus:border-transparent`}
+                    >
+                      <option value="">Toda la categoría</option>
+                      {categories[newGoalCategory].subcategories
+                        .filter((sub: string) => !categoryGoals[`${newGoalCategory} > ${sub}`])
+                        .map((sub: string) => (
+                          <option key={sub} value={sub}>
+                            {sub}
+                          </option>
+                        ))}
+                    </select>
+                  )}
+                </div>
                 <input
                   type="number"
                   step="0.01"
