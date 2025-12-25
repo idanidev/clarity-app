@@ -4,23 +4,17 @@ import {
   BarChart3,
   Bot,
   Calendar,
-  // Car,
-
-  // Dumbbell,
+  ChevronDown,
   Filter,
-  // Gamepad2,
-  // Heart,
-  // Home,
   LucideIcon,
   Plus,
   RefreshCw,
-  // Repeat,
   Search,
-  // ShoppingBag,
   Sparkles,
   Table as TableIcon,
   Target,
-  // UtensilsCrossed,
+  TrendingDown,
+  TrendingUp,
   X,
 } from "@/components/icons";
 import BottomSheet from "../../../components/BottomSheet";
@@ -38,16 +32,13 @@ import {
 import { getTransition } from "../../../config/framerMotion";
 import { useTranslation } from "../../../contexts/LanguageContext";
 import { formatCurrency } from "../../../utils/currency";
-// @ts-ignore - No hay tipos para estos módulos JS
 import { getCategoryColor } from "../../../services/firestoreService";
-// @ts-ignore - No hay tipos para estos módulos JS
 import { getLongTermGoalProgress } from "../../../services/goalsService";
 const AIAssistant = lazy(() => import("./AIAssistant"));
 const ExpensesChart = lazy(() => import("./ExpensesChart"));
-// @ts-ignore - No hay tipos para estos módulos JS
 
 import VoiceExpenseButton from "./VoiceExpenseButton.tsx";
-import FinancialSummaryWidget from "../../../components/FinancialSummaryWidget";
+// FinancialSummaryWidget eliminado - ahora está integrado en la tarjeta de "Disponible"
 import TransactionList from "./TransactionList";
 import { useHaptics } from "../../../hooks/useHaptics";
 import { useHapticFeedback } from "../../../hooks/useHapticFeedback";
@@ -55,59 +46,18 @@ import { useHapticFeedback } from "../../../hooks/useHapticFeedback";
 // ============================================
 // TYPES & INTERFACES
 // ============================================
-import { Expense } from "../../../types";
-
-interface Category {
-  subcategories?: string[];
-  color?: string;
-  [key: string]: any;
-}
-
-interface Categories {
-  [key: string]: Category;
-}
-
-interface CategoryTotal {
-  category: string;
-  total: number;
-}
-
-interface Budgets {
-  [category: string]: number;
-}
-
-interface Goals {
-  totalSavingsGoal?: number;
-  monthlySavingsGoal?: number;
-  categoryGoals?: { [category: string]: number };
-  longTermGoals?: LongTermGoal[];
-  monthlyHistory?: { [key: string]: any };
-  achievements?: any;
-}
-
-interface LongTermGoal {
-  id: string;
-  name: string;
-  targetAmount: number;
-  currentAmount: number;
-  deadline?: string;
-  monthlyContribution?: number;
-  icon?: string;
-  status?: "active" | "completed" | "paused";
-}
-
-interface RecurringExpense {
-  id: string;
-  name: string;
-  amount: number;
-  category: string;
-  subcategory: string;
-  dayOfMonth: number;
-  frequency: string;
-  paymentMethod: string;
-  active: boolean;
-  endDate?: string;
-}
+import type {
+  Expense,
+  Categories,
+  Budgets,
+  Goals,
+  RecurringExpense,
+  CategoryTotal,
+  ExpenseDataFromAI,
+  ActiveView,
+  FilterPeriodType,
+  NotificationType,
+} from "../../../types/dashboard";
 
 interface ExpensesByCategory {
   [category: string]: {
@@ -131,8 +81,8 @@ interface MainContentProps {
   filteredExpenses: Expense[];
   showFilters: boolean;
   onToggleFilters: () => void;
-  filterPeriodType: "month" | "year" | "all";
-  onFilterPeriodTypeChange: (value: "month" | "year" | "all") => void;
+  filterPeriodType: FilterPeriodType;
+  onFilterPeriodTypeChange: (value: FilterPeriodType) => void;
   selectedMonth: string;
   onMonthChange: (value: string) => void;
   selectedYear: string;
@@ -141,16 +91,14 @@ interface MainContentProps {
   onCategoryChange: (value: string) => void;
   onClearFilters: () => void;
   categories: Categories;
-  activeView: "table" | "chart" | "assistant" | "goals" | "budgets";
-  onChangeView: (
-    view: "table" | "chart" | "assistant" | "goals" | "budgets"
-  ) => void;
+  activeView: ActiveView;
+  onChangeView: (view: ActiveView) => void;
   expensesByCategory: ExpensesByCategory;
   expandedCategories: { [category: string]: boolean };
   onToggleCategory: (category: string) => void;
   onAddExpenseClick: () => void;
   onEditExpense: (expense: Expense) => void;
-  onRequestDelete: (payload: any) => void;
+  onRequestDelete: (payload: { type: 'expense'; id: string }) => void;
   categoryTotals: CategoryTotal[];
   categoryTotalsForBudgets: CategoryTotal[];
   budgets: Budgets;
@@ -159,9 +107,9 @@ interface MainContentProps {
   goals: Goals | null;
   income: number;
   onOpenGoals: () => void;
-  onAddExpenseFromAI: (expense: any) => Promise<void>;
+  onAddExpenseFromAI: (expense: ExpenseDataFromAI) => Promise<void>;
   allExpenses: Expense[];
-  showNotification: (message: string, type?: string) => void;
+  showNotification: (message: string, type?: NotificationType) => void;
   voiceSettings: import("./VoiceExpenseButton").VoiceSettings;
   isLoading?: boolean;
   onRefresh?: () => Promise<void>;
@@ -284,6 +232,25 @@ const MainContent = memo<MainContentProps>(
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     const [searchQuery, setSearchQuery] = useState("");
+    
+    // Estado para selector de metas en la tarjeta de Objetivos
+    const [showGoalSelector, setShowGoalSelector] = useState(false);
+    const [selectedGoalType, setSelectedGoalType] = useState<string>('auto'); // 'auto' | 'monthly' | 'category' | 'longterm-{id}'
+    const goalSelectorRef = useRef<HTMLDivElement>(null);
+    
+    // Cerrar selector de metas cuando se hace click fuera
+    useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (goalSelectorRef.current && !goalSelectorRef.current.contains(event.target as Node)) {
+          setShowGoalSelector(false);
+        }
+      };
+      
+      if (showGoalSelector) {
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+      }
+    }, [showGoalSelector]);
     const [isPending, startTransition] = useTransition();
     // Subcategorías expandibles por categoría+subcategoría
     const [expandedSubcategories, setExpandedSubcategories] = useState<
@@ -441,33 +408,124 @@ const MainContent = memo<MainContentProps>(
     //   );
     // }, [recurringExpenses]);
 
-    const goalsSummary = useMemo<GoalsSummary | null>(() => {
-      if (!goals?.totalSavingsGoal || !income || income === 0) {
-        return null;
+    // Lista de metas disponibles para el selector
+    const availableGoals = useMemo(() => {
+      const goalsList: { id: string; name: string; icon: string; type: string }[] = [];
+      
+      // Objetivo de ahorro mensual
+      if (goals?.totalSavingsGoal && goals.totalSavingsGoal > 0) {
+        goalsList.push({ id: 'monthly', name: 'Ahorro mensual', icon: '💰', type: 'monthly' });
       }
-      const today = new Date();
-      const currentYear = today.getFullYear();
-      const currentMonth = today.getMonth() + 1;
-      const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
-      const daysPassed = today.getDate();
-      const currentMonthExpenses = categoryTotalsForBudgets.reduce(
-        (sum, item) => sum + item.total,
-        0
-      );
-      const monthlySavings = income - currentMonthExpenses;
-      const expectedSavingsByNow =
-        (goals.totalSavingsGoal * daysPassed) / daysInMonth;
-      const progress =
-        expectedSavingsByNow > 0
-          ? Math.min((monthlySavings / expectedSavingsByNow) * 100, 200)
-          : 0;
-      return {
-        savings: monthlySavings,
-        goal: goals.totalSavingsGoal,
-        progress,
-        isAhead: monthlySavings >= expectedSavingsByNow,
-      };
-    }, [goals, income, categoryTotalsForBudgets]);
+      
+      // Objetivos de categorías
+      if (goals?.categoryGoals && Object.keys(goals.categoryGoals).length > 0) {
+        goalsList.push({ id: 'category', name: 'Límites categorías', icon: '📊', type: 'category' });
+      }
+      
+      // Metas a largo plazo
+      goals?.longTermGoals?.forEach(goal => {
+        if (goal && goal.status === 'active') {
+          goalsList.push({ 
+            id: `longterm-${goal.id}`, 
+            name: goal.name, 
+            icon: goal.icon || '🎯',
+            type: 'longterm'
+          });
+        }
+      });
+      
+      return goalsList;
+    }, [goals]);
+
+    const goalsSummary = useMemo<(GoalsSummary & { name?: string; icon?: string }) | null>(() => {
+      if (availableGoals.length === 0) return null;
+      
+      // Determinar qué meta mostrar
+      let goalType = selectedGoalType;
+      if (goalType === 'auto' && availableGoals.length > 0) {
+        goalType = availableGoals[0].id;
+      }
+      
+      const selectedGoalInfo = availableGoals.find(g => g.id === goalType) || availableGoals[0];
+      if (!selectedGoalInfo) return null;
+
+      // Meta a largo plazo específica
+      if (selectedGoalInfo.type === 'longterm') {
+        const goalId = selectedGoalInfo.id.replace('longterm-', '');
+        const longTermGoal = goals?.longTermGoals?.find(g => g?.id === goalId);
+        if (longTermGoal) {
+          const progress = longTermGoal.targetAmount > 0
+            ? Math.round((longTermGoal.currentAmount / longTermGoal.targetAmount) * 100)
+            : 0;
+          return {
+            savings: longTermGoal.currentAmount,
+            goal: longTermGoal.targetAmount,
+            progress,
+            isAhead: progress >= 100,
+            name: longTermGoal.name,
+            icon: longTermGoal.icon || '🎯',
+          };
+        }
+      }
+
+      // Objetivos de categorías
+      if (selectedGoalInfo.type === 'category') {
+        const categoryGoals = goals?.categoryGoals || {};
+        let totalBudget = 0;
+        let totalSpent = 0;
+
+        Object.entries(categoryGoals).forEach(([category, budgetLimit]) => {
+          if (budgetLimit && budgetLimit > 0) {
+            totalBudget += budgetLimit;
+            const spent = categoryTotalsForBudgets.find(ct => ct.category === category)?.total || 0;
+            totalSpent += spent;
+          }
+        });
+
+        if (totalBudget > 0) {
+          const remaining = totalBudget - totalSpent;
+          const progress = Math.round((remaining / totalBudget) * 100 + 100);
+          return {
+            savings: remaining,
+            goal: totalBudget,
+            progress: Math.min(progress, 200),
+            isAhead: totalSpent <= totalBudget,
+            name: 'Límites',
+            icon: '📊',
+          };
+        }
+      }
+
+      // Objetivo de ahorro mensual
+      if (selectedGoalInfo.type === 'monthly' && income && income > 0 && goals?.totalSavingsGoal) {
+        const today = new Date();
+        const currentYear = today.getFullYear();
+        const currentMonth = today.getMonth() + 1;
+        const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+        const daysPassed = today.getDate();
+        const currentMonthExpenses = categoryTotalsForBudgets.reduce(
+          (sum, item) => sum + item.total,
+          0
+        );
+        const monthlySavings = income - currentMonthExpenses;
+        const expectedSavingsByNow =
+          (goals.totalSavingsGoal * daysPassed) / daysInMonth;
+        const progress =
+          expectedSavingsByNow > 0
+            ? Math.min((monthlySavings / expectedSavingsByNow) * 100, 200)
+            : 0;
+        return {
+          savings: monthlySavings,
+          goal: goals.totalSavingsGoal,
+          progress,
+          isAhead: monthlySavings >= expectedSavingsByNow,
+          name: 'Ahorro',
+          icon: '💰',
+        };
+      }
+
+      return null;
+    }, [goals, income, categoryTotalsForBudgets, selectedGoalType, availableGoals]);
 
     // Memoizar colores de categorías
     const categoryColors = useMemo(() => {
@@ -601,103 +659,216 @@ const MainContent = memo<MainContentProps>(
                   color="blue"
                 />
 
-                {goalsSummary ? (
-                  <div
-                    className={`rounded-lg md:rounded-2xl p-1.5 md:p-5 border backdrop-blur-xl transition-all md:hover:scale-[1.02] ${darkMode
-                      ? "bg-gray-800/50 border-gray-700/40"
-                      : "bg-white/60 border-white/40"
-                      }`}
-                    style={{
-                      boxShadow: darkMode
-                        ? "0 4px 20px 0 rgba(0, 0, 0, 0.25), 0 0 0 0.5px rgba(255, 255, 255, 0.05) inset"
-                        : "0 4px 20px 0 rgba(31, 38, 135, 0.1), 0 0 0 0.5px rgba(255, 255, 255, 0.6) inset",
-                      backdropFilter: "blur(16px) saturate(180%)",
-                      WebkitBackdropFilter: "blur(16px) saturate(180%)",
-                    }}
-                  >
-                    <div className="flex flex-col items-center text-center">
-                      <div
-                        className={`p-1 md:p-2.5 rounded md:rounded-xl mb-1 md:mb-3 ${darkMode ? "bg-green-600/20" : "bg-green-100/50"
-                          }`}
-                      >
-                        <Sparkles
-                          className={`w-3 h-3 md:w-5 md:h-5 ${goalsSummary.isAhead
+                {/* Tarjeta de Objetivos con selector */}
+                <div className="relative" ref={goalSelectorRef}>
+                  {goalsSummary ? (
+                    <div
+                      onClick={() => {
+                        setShowGoalSelector(!showGoalSelector);
+                        lightImpact();
+                      }}
+                      className={`rounded-lg md:rounded-2xl p-1.5 md:p-5 border backdrop-blur-xl transition-all md:hover:scale-[1.02] cursor-pointer ${darkMode
+                        ? "bg-gray-800/50 border-gray-700/40"
+                        : "bg-white/60 border-white/40"
+                        }`}
+                      style={{
+                        boxShadow: darkMode
+                          ? "0 4px 20px 0 rgba(0, 0, 0, 0.25), 0 0 0 0.5px rgba(255, 255, 255, 0.05) inset"
+                          : "0 4px 20px 0 rgba(31, 38, 135, 0.1), 0 0 0 0.5px rgba(255, 255, 255, 0.6) inset",
+                        backdropFilter: "blur(16px) saturate(180%)",
+                        WebkitBackdropFilter: "blur(16px) saturate(180%)",
+                      }}
+                    >
+                      <div className="flex flex-col items-center text-center">
+                        <div
+                          className={`p-1 md:p-2.5 rounded md:rounded-xl mb-1 md:mb-3 ${darkMode ? "bg-green-600/20" : "bg-green-100/50"
+                            }`}
+                        >
+                          {goalsSummary.icon ? (
+                            <span className="text-xs md:text-base">{goalsSummary.icon}</span>
+                          ) : (
+                            <Sparkles
+                              className={`w-3 h-3 md:w-5 md:h-5 ${goalsSummary.isAhead
+                                ? darkMode
+                                  ? "text-green-400"
+                                  : "text-green-500"
+                                : darkMode
+                                  ? "text-gray-400"
+                                  : "text-gray-500"
+                                }`}
+                            />
+                          )}
+                        </div>
+                        <span
+                          className={`text-[9px] md:text-xs font-semibold mb-0.5 md:mb-1.5 uppercase tracking-wide ${textSecondaryClass} flex items-center gap-0.5`}
+                        >
+                          {goalsSummary.name || 'Meta'}
+                          <ChevronDown className={`w-2 h-2 md:w-3 md:h-3 transition-transform ${showGoalSelector ? 'rotate-180' : ''}`} />
+                        </span>
+                        <p
+                          className={`text-xs md:text-2xl lg:text-3xl font-bold ${goalsSummary.isAhead
                             ? darkMode
                               ? "text-green-400"
                               : "text-green-500"
-                            : darkMode
-                              ? "text-gray-400"
-                              : "text-gray-500"
+                            : goalsSummary.progress >= 80
+                              ? darkMode
+                                ? "text-yellow-400"
+                                : "text-yellow-500"
+                              : darkMode
+                                ? "text-purple-400"
+                                : "text-purple-600"
+                            } leading-tight`}
+                        >
+                          {formatCurrency(goalsSummary.savings)}
+                        </p>
+                        <p
+                          className={`text-[8px] md:text-xs ${textSecondaryClass} mt-0.5`}
+                        >
+                          {goalsSummary.progress.toFixed(0)}%
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => {
+                        setShowGoalSelector(!showGoalSelector);
+                        lightImpact();
+                      }}
+                      className={`rounded-lg md:rounded-2xl p-1.5 md:p-5 border backdrop-blur-xl cursor-pointer ${darkMode
+                        ? "bg-gray-800/30 border-gray-700/20"
+                        : "bg-white/30 border-white/20"
+                        }`}
+                    >
+                      <div className="flex flex-col items-center text-center">
+                        <div
+                          className={`p-1 md:p-2.5 rounded md:rounded-xl mb-1 md:mb-3 ${darkMode ? "bg-gray-700/20" : "bg-gray-100/50"
                             }`}
-                        />
+                        >
+                          <Target
+                            className={`w-3 h-3 md:w-5 md:h-5 ${textSecondaryClass}`}
+                          />
+                        </div>
+                        <span
+                          className={`text-[9px] md:text-xs font-semibold mb-0.5 md:mb-1.5 uppercase tracking-wide ${textSecondaryClass} flex items-center gap-0.5`}
+                        >
+                          Meta
+                          <ChevronDown className={`w-2 h-2 md:w-3 md:h-3 transition-transform ${showGoalSelector ? 'rotate-180' : ''}`} />
+                        </span>
+                        <p
+                          className={`text-xs md:text-2xl lg:text-3xl font-bold ${textSecondaryClass} leading-tight`}
+                        >
+                          --
+                        </p>
                       </div>
-                      <span
-                        className={`text-[9px] md:text-xs font-semibold mb-0.5 md:mb-1.5 uppercase tracking-wide ${textSecondaryClass}`}
-                      >
-                        Objetivos
-                      </span>
-                      <p
-                        className={`text-xs md:text-2xl lg:text-3xl font-bold ${goalsSummary.isAhead
-                          ? darkMode
-                            ? "text-green-400"
-                            : "text-green-500"
-                          : goalsSummary.progress >= 80
-                            ? darkMode
-                              ? "text-yellow-400"
-                              : "text-yellow-500"
-                            : darkMode
-                              ? "text-purple-400"
-                              : "text-purple-600"
-                          } leading-tight`}
-                      >
-                        {formatCurrency(goalsSummary.savings)}
-                      </p>
-                      <p
-                        className={`text-[8px] md:text-xs ${textSecondaryClass} mt-0.5`}
-                      >
-                        {goalsSummary.progress.toFixed(0)}%
-                      </p>
                     </div>
-                  </div>
-                ) : (
-                  <div
-                    className={`rounded-lg md:rounded-2xl p-1.5 md:p-5 border backdrop-blur-xl opacity-50 ${darkMode
-                      ? "bg-gray-800/30 border-gray-700/20"
-                      : "bg-white/30 border-white/20"
+                  )}
+                  
+                  {/* Selector de metas dropdown */}
+                  {showGoalSelector && (
+                    <div
+                      className={`absolute top-full left-0 right-0 mt-1 z-50 rounded-lg border shadow-lg overflow-hidden ${
+                        darkMode
+                          ? "bg-gray-800 border-gray-700"
+                          : "bg-white border-gray-200"
                       }`}
-                  >
-                    <div className="flex flex-col items-center text-center">
-                      <div
-                        className={`p-1 md:p-2.5 rounded md:rounded-xl mb-1 md:mb-3 ${darkMode ? "bg-gray-700/20" : "bg-gray-100/50"
+                    >
+                      {availableGoals.map((goal) => (
+                        <button
+                          key={goal.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedGoalType(goal.id);
+                            setShowGoalSelector(false);
+                            lightImpact();
+                          }}
+                          className={`w-full px-3 py-2 text-left text-xs flex items-center gap-2 transition-colors ${
+                            selectedGoalType === goal.id || (selectedGoalType === 'auto' && goal.id === availableGoals[0]?.id)
+                              ? darkMode
+                                ? "bg-purple-600/30 text-purple-300"
+                                : "bg-purple-100 text-purple-700"
+                              : darkMode
+                                ? "hover:bg-gray-700 text-gray-300"
+                                : "hover:bg-gray-100 text-gray-700"
                           }`}
-                      >
-                        <Target
-                          className={`w-3 h-3 md:w-5 md:h-5 ${textSecondaryClass}`}
-                        />
+                        >
+                          <span>{goal.icon}</span>
+                          <span className="truncate">{goal.name}</span>
+                        </button>
+                      ))}
+                      {/* Separador y opción de gestionar */}
+                      <div className={`border-t ${darkMode ? "border-gray-700" : "border-gray-200"}`}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowGoalSelector(false);
+                            onOpenGoals();
+                            lightImpact();
+                          }}
+                          className={`w-full px-3 py-2 text-left text-xs flex items-center gap-2 transition-colors ${
+                            darkMode
+                              ? "hover:bg-gray-700 text-purple-400"
+                              : "hover:bg-gray-100 text-purple-600"
+                          }`}
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Gestionar metas</span>
+                        </button>
                       </div>
-                      <span
-                        className={`text-[9px] md:text-xs font-semibold mb-0.5 md:mb-1.5 uppercase tracking-wide ${textSecondaryClass}`}
-                      >
-                        Objetivos
-                      </span>
-                      <p
-                        className={`text-xs md:text-2xl lg:text-3xl font-bold ${textSecondaryClass} leading-tight`}
-                      >
-                        --
-                      </p>
                     </div>
-                  </div>
-                )}
-
-                {/* Resumen mensual - 4ª tarjeta clickable */}
-                <div className="flex items-center justify-center">
-                  <FinancialSummaryWidget
-                    income={income}
-                    totalExpenses={totalExpenses}
-                    darkMode={darkMode}
-                    onEditIncome={onOpenGoals}
-                  />
+                  )}
                 </div>
+
+                {/* Resumen mensual - 4ª tarjeta con mismo estilo */}
+                {(() => {
+                  const available = (income || 0) - totalExpenses;
+                  const isPositive = available >= 0;
+                  return (
+                    <div
+                      onClick={onOpenGoals}
+                      className={`rounded-lg md:rounded-2xl p-1.5 md:p-5 border backdrop-blur-xl transition-all md:hover:scale-[1.02] cursor-pointer ${darkMode
+                        ? "bg-gray-800/50 border-gray-700/40"
+                        : "bg-white/60 border-white/40"
+                        }`}
+                      style={{
+                        boxShadow: darkMode
+                          ? "0 4px 20px 0 rgba(0, 0, 0, 0.25), 0 0 0 0.5px rgba(255, 255, 255, 0.05) inset"
+                          : "0 4px 20px 0 rgba(31, 38, 135, 0.1), 0 0 0 0.5px rgba(255, 255, 255, 0.6) inset",
+                        backdropFilter: "blur(16px) saturate(180%)",
+                        WebkitBackdropFilter: "blur(16px) saturate(180%)",
+                      }}
+                    >
+                      <div className="flex flex-col items-center text-center">
+                        <div
+                          className={`p-1 md:p-2.5 rounded md:rounded-xl mb-1 md:mb-3 ${
+                            isPositive
+                              ? darkMode ? "bg-green-600/20" : "bg-green-100/50"
+                              : darkMode ? "bg-red-600/20" : "bg-red-100/50"
+                          }`}
+                        >
+                          {isPositive ? (
+                            <TrendingUp className={`w-3 h-3 md:w-5 md:h-5 ${darkMode ? "text-green-400" : "text-green-500"}`} />
+                          ) : (
+                            <TrendingDown className={`w-3 h-3 md:w-5 md:h-5 ${darkMode ? "text-red-400" : "text-red-500"}`} />
+                          )}
+                        </div>
+                        <span
+                          className={`text-[9px] md:text-xs font-semibold mb-0.5 md:mb-1.5 uppercase tracking-wide ${textSecondaryClass}`}
+                        >
+                          Disponible
+                        </span>
+                        <p
+                          className={`text-xs md:text-2xl lg:text-3xl font-bold leading-tight ${
+                            isPositive
+                              ? darkMode ? "text-green-400" : "text-green-500"
+                              : darkMode ? "text-red-400" : "text-red-500"
+                          }`}
+                        >
+                          {formatCurrency(available)}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}

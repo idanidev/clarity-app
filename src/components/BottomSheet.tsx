@@ -177,7 +177,8 @@ const BottomSheet = memo(
 
     return (
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end justify-center z-50"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end justify-center"
+        style={{ zIndex: 9999999 }}
         onClick={onClose}
       >
         <div

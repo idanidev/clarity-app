@@ -1,24 +1,23 @@
 import { X, Plus } from "@/components/icons";
-// @ts-ignore - No hay tipos para este módulo JS
 import { getCategorySubcategories } from "../../../services/firestoreService";
-import { useState, useEffect, useCallback, useMemo, memo, FormEvent } from "react";
+import { useState, useEffect, useCallback, useMemo, memo, FormEvent, Dispatch, SetStateAction } from "react";
 import { useDisableBodyScroll } from "../../../hooks/useDisableBodyScroll";
 import { Input, Button } from "../../../components/ui";
 import { isValidAmount, isNotEmpty, isValidDate } from "../../../utils/validation";
 import { parseCurrency } from "../../../utils/currency";
-import type { ExpenseInput, Categories } from "../../../types";
+import type { Categories, ExpenseFormInput } from "../../../types/dashboard";
 import BottomSheet from "../../../components/BottomSheet";
 
-interface AddExpenseModalProps {
+export interface AddExpenseModalProps {
   visible: boolean;
   darkMode: boolean;
   cardClass: string;
   textClass: string;
   inputClass: string;
   categories: Categories;
-  newExpense: Partial<ExpenseInput>;
-  onChange: (expense: Partial<ExpenseInput>) => void;
-  onSubmit: (e: FormEvent) => Promise<void>;
+  newExpense: ExpenseFormInput;
+  onChange: Dispatch<SetStateAction<ExpenseFormInput>>;
+  onSubmit: (e: FormEvent<HTMLFormElement>) => Promise<void>;
   onClose: () => void;
   onAddCategory?: (categoryName: string) => Promise<void>;
   onAddSubcategory?: (subcategoryName: string) => Promise<void>;
@@ -69,7 +68,7 @@ const AddExpenseModal = memo(({
     [darkMode]
   );
 
-  const handleChange = useCallback((field: string, value: any) => {
+  const handleChange = useCallback((field: string, value: unknown) => {
     // Limpiar error del campo cuando el usuario empieza a escribir
     setErrors(prev => {
       if (prev[field]) {
@@ -80,11 +79,11 @@ const AddExpenseModal = memo(({
       return prev;
     });
 
-    onChange({
-      ...newExpense,
+    onChange(prev => ({
+      ...prev,
       [field]: value,
-    });
-  }, [newExpense, onChange]);
+    }));
+  }, [onChange]);
 
   // Validar formulario
   const validateForm = useCallback(() => {
@@ -280,7 +279,7 @@ const AddExpenseModal = memo(({
       darkMode={darkMode}
       maxHeight="90vh"
     >
-      <form onSubmit={handleSubmit} className="px-6 pt-6 pb-safe space-y-4">
+      <form onSubmit={handleSubmit} className="px-6 pt-6 pb-32 space-y-4">
         {/* Error general */}
         {errors.submit && (
           <div className={`p-4 rounded-xl ${darkMode

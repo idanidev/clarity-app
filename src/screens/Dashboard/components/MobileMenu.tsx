@@ -9,6 +9,20 @@ import {
 } from "lucide-react";
 import { memo } from "react";
 import { useTranslation } from "../../../contexts/LanguageContext";
+import { useDisableBodyScroll } from "../../../hooks/useDisableBodyScroll";
+
+interface MobileMenuProps {
+  visible: boolean;
+  darkMode: boolean;
+  textClass: string;
+  onClose: () => void;
+  onShowCategories: () => void;
+  onShowRecurring: () => void;
+  onShowSettings: () => void;
+  onShowTips: () => void;
+  onExportCSV: () => void;
+  onLogout: () => Promise<void> | void;
+}
 
 const MobileMenu = memo(
   ({
@@ -22,8 +36,11 @@ const MobileMenu = memo(
     onShowTips,
     onExportCSV,
     onLogout,
-  }) => {
+  }: MobileMenuProps) => {
     const { t } = useTranslation();
+    
+    // Deshabilitar scroll del body cuando el menú está abierto
+    useDisableBodyScroll(visible);
 
     if (!visible) {
       return null;
@@ -34,13 +51,13 @@ const MobileMenu = memo(
       ? "bg-gray-700 hover:bg-gray-600"
       : "bg-purple-50 hover:bg-purple-100";
 
-    const handleAction = (action) => {
+    const handleAction = (action: () => void | Promise<void>) => {
       action();
       onClose();
     };
 
     return (
-      <div className="fixed inset-0 z-50">
+      <div className="fixed inset-0" style={{ zIndex: 9999999 }}>
         <div
           className="absolute inset-0 bg-black/50 backdrop-blur-sm"
           onClick={onClose}

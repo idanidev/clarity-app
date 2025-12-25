@@ -2,10 +2,12 @@ import { memo } from "react";
 import {
   BellRing,
   ChevronDown,
+  DollarSign,
   Download,
   Lightbulb,
   LogOut,
   Menu as MenuIcon,
+  Repeat,
   Settings as SettingsIcon,
   Target,
   WifiOff,
@@ -13,7 +15,6 @@ import {
 } from "@/components/icons";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation } from "../../../contexts/LanguageContext";
-import FinancialSummaryWidget from "../../../components/FinancialSummaryWidget";
 
 interface HeaderProps {
   darkMode: boolean;
@@ -26,8 +27,6 @@ interface HeaderProps {
   showManagement: boolean;
   overBudgetCount: number;
   isOnline: boolean;
-  income: number | null;
-  totalExpenses: number;
   onToggleManagement: () => void;
   onSelectCategories: () => void;
   onSelectGoals: () => void;
@@ -50,8 +49,6 @@ const Header = memo<HeaderProps>(({
   showManagement,
   overBudgetCount,
   isOnline,
-  income,
-  totalExpenses,
   onToggleManagement,
   onSelectCategories,
   onSelectGoals,
@@ -76,7 +73,6 @@ const Header = memo<HeaderProps>(({
         paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)',
         marginTop: 0,
         top: 0,
-        // ✅ Asegurar fondo oscuro en el header para iOS
         backgroundColor: darkMode ? 'rgba(15, 23, 42, 0.95)' : undefined,
       }}
     >
@@ -97,7 +93,8 @@ const Header = memo<HeaderProps>(({
             </div>
           </div>
 
-          <div className="hidden md:flex items-center gap-6">
+          {/* Desktop */}
+          <div className="hidden md:flex items-center gap-4">
             {/* Alertas de presupuesto */}
             {overBudgetCount > 0 && (
               <motion.div
@@ -106,6 +103,7 @@ const Header = memo<HeaderProps>(({
                 className="relative"
               >
                 <button
+                  onClick={onSelectGoals}
                   className={`p-2 rounded-xl transition-colors ${
                     darkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'
                   }`}
@@ -219,71 +217,43 @@ const Header = memo<HeaderProps>(({
             </button>
 
             <button
-              onClick={onOpenTips}
-              className={`px-4 py-2 rounded-xl font-medium transition-all flex items-center gap-2 ${desktopButtonBase}`}
-            >
-              <Lightbulb className="w-4 h-4" />
-              {t("dashboard.tips")}
-            </button>
-
-            <button
-              onClick={onExportCSV}
-              className={`px-4 py-2 rounded-xl font-medium transition-all flex items-center gap-2 ${desktopButtonBase}`}
-              title={t("export.success")}
-            >
-              <Download className="w-4 h-4" />
-              <span className="hidden lg:inline">{t("dashboard.export")}</span>
-            </button>
-
-            <button
               onClick={onOpenSettings}
-              className={`px-4 py-2 rounded-xl font-medium transition-all flex items-center gap-2 ${
+              className={`p-2.5 rounded-xl font-medium transition-all ${
                 showSettings ? "bg-purple-600 text-white" : desktopButtonBase
               }`}
+              title={t("dashboard.settings")}
             >
-              <SettingsIcon className="w-4 h-4" />
-              {t("dashboard.settings")}
+              <SettingsIcon className="w-5 h-5" />
             </button>
 
             <button
               onClick={onLogout}
-              className={`px-4 py-2 rounded-xl font-medium transition-all flex items-center gap-2 ${
+              className={`p-2.5 rounded-xl font-medium transition-all ${
                 darkMode
                   ? "text-red-400 hover:bg-gray-700"
                   : "text-red-600 hover:bg-red-50"
               }`}
+              title={t("auth.logout")}
             >
-              <LogOut className="w-4 h-4" />
-              {t("auth.logout")}
+              <LogOut className="w-5 h-5" />
             </button>
           </div>
 
-          <div className="md:hidden flex items-center gap-3">
-            <button
-              onClick={onSelectGoals}
-              className={`p-2 rounded-xl ${
-                darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-white/60 hover:bg-white/80"
-              } border ${darkMode ? "border-gray-600" : "border-white/60"} transition-all`}
-              title={t("views.goals")}
-            >
-              <Target
-                className={`w-6 h-6 ${
-                  darkMode ? "text-purple-400" : "text-purple-600"
-                }`}
-              />
-            </button>
+          {/* Mobile */}
+          <div className="md:hidden flex items-center gap-2">
             {overBudgetCount > 0 && (
               <button
                 onClick={onSelectGoals}
                 className="relative p-2 rounded-xl bg-red-100 hover:bg-red-200 border border-red-200 transition-all"
                 title={t("budgets.overBudget")}
               >
-                <BellRing className="w-6 h-6 text-red-600" />
-                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
+                <BellRing className="w-5 h-5 text-red-600" />
+                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
                   {overBudgetCount}
                 </span>
               </button>
             )}
+
             <button
               onClick={onOpenMenu}
               className={`p-2 rounded-xl ${
@@ -291,7 +261,7 @@ const Header = memo<HeaderProps>(({
               } border ${darkMode ? "border-gray-600" : "border-white/60"} transition-all`}
             >
               <MenuIcon
-                className={`w-6 h-6 ${
+                className={`w-5 h-5 ${
                   darkMode ? "text-purple-400" : "text-purple-600"
                 }`}
               />

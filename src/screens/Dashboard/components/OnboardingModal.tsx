@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { X, Plus, Target, BarChart3, Calendar, Bell, Sparkles, ArrowRight, ArrowLeft } from "lucide-react";
+import { useDisableBodyScroll } from "../../../hooks/useDisableBodyScroll";
 
 const OnboardingModal = ({ visible, darkMode, onClose, onComplete }) => {
   const [currentStep, setCurrentStep] = useState(0);
+  
+  // Deshabilitar scroll del body cuando el modal está abierto
+  useDisableBodyScroll(visible);
 
   if (!visible) {
     return null;

@@ -52,7 +52,8 @@ const CategoriesModal = ({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+      style={{ zIndex: 9999999 }}
       onMouseDown={onClose}
     >
       <div
@@ -77,7 +78,7 @@ const CategoriesModal = ({
           </button>
         </div>
 
-        <div className="px-6 py-6 space-y-6">
+        <div className="px-6 py-6 pb-32 space-y-6">
           <form onSubmit={onAddCategory} className="space-y-3">
             <label className={`block text-sm font-medium ${textClass}`}>
               Nueva Categoría

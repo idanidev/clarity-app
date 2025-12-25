@@ -2,8 +2,14 @@ import { memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, Check, X } from "lucide-react";
 import { getTransition } from "../../../config/framerMotion";
+import type { Notification as NotificationType } from "../../../types/dashboard";
 
-const Notification = memo(({ notification, onClose }) => {
+interface NotificationProps {
+  notification: NotificationType | null;
+  onClose: () => void;
+}
+
+const Notification = memo(({ notification, onClose }: NotificationProps) => {
   const intentClasses =
     notification?.type === "success"
       ? "bg-green-500/95 border-green-400"

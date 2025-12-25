@@ -257,7 +257,7 @@ const Dashboard = ({ user }: DashboardProps) => {
   });
 
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-  const [isSavingExpense, setIsSavingExpense] = useState(false);
+  const [_isSavingExpense, _setIsSavingExpense] = useState(false);
   const [isUpdatingExpense, setIsUpdatingExpense] = useState(false);
 
   const [newCategory, setNewCategory] = useState("");
@@ -443,7 +443,7 @@ const Dashboard = ({ user }: DashboardProps) => {
         );
 
         // Inicializar idioma
-        if (userLanguage) {
+        if (userLanguage && (userLanguage === 'es' || userLanguage === 'en')) {
           initializeLanguage(userLanguage);
         }
 
@@ -690,7 +690,7 @@ const Dashboard = ({ user }: DashboardProps) => {
         hapticError();
         showNotification("Error al añadir el gasto", "error");
       } finally {
-        setIsSavingExpense(false);
+        _setIsSavingExpense(false);
       }
     },
     [user, newExpense, showNotification]
@@ -1116,7 +1116,7 @@ const Dashboard = ({ user }: DashboardProps) => {
     }
   };
 
-  const handleAddBudget = async (e: FormEvent<HTMLFormElement>) => {
+  const _handleAddBudget = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user || !budgetCategory || !budgetAmount) return;
 
@@ -1262,8 +1262,8 @@ const Dashboard = ({ user }: DashboardProps) => {
   }, [expenses]);
 
   // Ref para prevenir loops infinitos en la restauración automática
-  const isRestoringRef = useRef(false);
-  const lastRestoreHashRef = useRef("");
+  const _isRestoringRef = useRef(false);
+  const _lastRestoreHashRef = useRef("");
 
   // Ref para prevenir alertas duplicadas
   const budgetAlertsShownRef = useRef<Set<string> & { lastCheckDate?: string }>(
@@ -1679,7 +1679,7 @@ const Dashboard = ({ user }: DashboardProps) => {
     const monthlyGoal = goals.monthlySavingsGoal || goals.totalSavingsGoal || 0;
 
     // Objetivo esperado según el día del mes (proporcional)
-    const expectedSavingsByNow =
+    const _expectedSavingsByNow =
       monthlyGoal > 0 ? (monthlyGoal * currentDay) / daysInMonth : 0;
 
     // Considerar objetivo completado solo si estamos al final de mes
@@ -1935,11 +1935,11 @@ const Dashboard = ({ user }: DashboardProps) => {
   );
 
   const handleSaveNotificationSettings = useCallback(
-    async (settings: NotificationSettings) => {
+    async (settings: Partial<NotificationSettings>) => {
       if (!user) return;
       try {
         await saveNotificationSettings(user.uid, settings);
-        setNotificationSettings(settings);
+        setNotificationSettings(settings as NotificationSettings);
         showNotification(
           "Configuración de notificaciones actualizada",
           "success"
@@ -2142,7 +2142,7 @@ const Dashboard = ({ user }: DashboardProps) => {
     }
   };
 
-  const handleUpdateLongTermGoalAmount = useCallback(
+  const _handleUpdateLongTermGoalAmount = useCallback(
     async (goalId: string, newAmount: number) => {
       if (!user) return;
       try {
@@ -2213,8 +2213,6 @@ const Dashboard = ({ user }: DashboardProps) => {
         showManagement={showManagement}
         overBudgetCount={overBudgetCategories.length}
         isOnline={isOnline}
-        income={income}
-        totalExpenses={totalExpenses}
         onToggleManagement={() => setShowManagement((prev) => !prev)}
         onSelectCategories={handleOpenCategories}
         onSelectGoals={handleOpenGoals}

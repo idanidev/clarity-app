@@ -1,9 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-
-interface Notification {
-  message: string;
-  type?: 'success' | 'error' | 'info' | 'warning';
-}
+import type { Notification, NotificationType } from '../types/dashboard';
 
 /**
  * Hook personalizado para manejar notificaciones
@@ -15,7 +11,7 @@ export const useNotifications = () => {
   const [notification, setNotification] = useState<Notification | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const showNotification = useCallback((message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+  const showNotification = useCallback((message: string, type: NotificationType = 'success') => {
     // Limpiar timeout anterior si existe
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);

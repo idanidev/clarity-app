@@ -29,7 +29,8 @@ const BudgetsModal = ({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+      style={{ zIndex: 9999999 }}
       onMouseDown={onClose}
     >
       <div
@@ -56,7 +57,7 @@ const BudgetsModal = ({
           </button>
         </div>
 
-        <div className="px-6 py-6">
+        <div className="px-6 py-6 pb-32">
           <form onSubmit={onAddBudget} className="space-y-4 mb-6">
           <div>
             <label className={`block text-sm font-medium ${textClass} mb-2`}>

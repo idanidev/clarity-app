@@ -191,7 +191,7 @@ export type DeleteContext =
 export interface CategoryTotal {
   category: string;
   total: number;
-  count: number;
+  count?: number;
 }
 
 // ==================== EXPENSES BY CATEGORY ====================
@@ -235,9 +235,9 @@ export interface ExpenseDataFromAI {
 
 // ==================== NOTIFICATION DISPLAY ====================
 export interface Notification {
-  id: string;
+  id?: string;
   message: string;
-  type: 'success' | 'error' | 'info' | 'warning';
+  type?: NotificationType;
   duration?: number;
 }
 

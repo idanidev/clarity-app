@@ -13,7 +13,7 @@ import { createPortal } from "react-dom";
 import { getCategorySubcategories } from "../../../services/firestoreService";
 import { useTranslation } from "../../../contexts/LanguageContext";
 import { useDisableBodyScroll } from "../../../hooks/useDisableBodyScroll";
-import type { Categories, RecurringExpense } from "../../../types/dashboard";
+import type { Categories, RecurringExpense, RecurringExpenseFormInput } from "../../../types/dashboard";
 
 interface EditRecurringDialogProps {
   open: boolean;
@@ -412,8 +412,8 @@ interface RecurringExpensesModalProps {
   inputClass: string;
   categories: Categories;
   recurringExpenses: RecurringExpense[];
-  newRecurring: RecurringExpense;
-  onNewRecurringChange: (value: RecurringExpense) => void;
+  newRecurring: RecurringExpenseFormInput;
+  onNewRecurringChange: (value: RecurringExpenseFormInput) => void;
   onAddRecurring: (e: React.FormEvent<HTMLFormElement>) => void;
   onUpdateRecurring: (id: string, updates: Partial<RecurringExpense>) => void;
   onRequestDelete: (payload: { type: "recurring"; id: string }) => void;
@@ -518,7 +518,8 @@ const RecurringExpensesModal = ({
     <>
       {/* MODAL PRINCIPAL */}
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-hidden"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-hidden"
+        style={{ zIndex: 9999999 }}
         onMouseDown={onClose}
         style={{
           overscrollBehavior: "none",
@@ -599,7 +600,7 @@ const RecurringExpensesModal = ({
               </div>
             </div>
 
-            <div className="space-y-6 px-6 pb-6">
+            <div className="space-y-6 px-6 pb-32">
               {/* Añadir nuevo */}
               <div
                 className={`p-4 rounded-xl ${

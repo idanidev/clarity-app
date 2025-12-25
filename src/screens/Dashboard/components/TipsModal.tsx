@@ -49,7 +49,8 @@ const TipsModal = ({ visible, darkMode, cardClass, textClass, textSecondaryClass
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+      style={{ zIndex: 9999999 }}
       onMouseDown={onClose}
     >
       <div
@@ -82,7 +83,7 @@ const TipsModal = ({ visible, darkMode, cardClass, textClass, textSecondaryClass
           </button>
         </div>
 
-        <div className="px-6 py-6">
+        <div className="px-6 py-6 pb-32">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {tips.map((tip, index) => {
             const Icon = tip.icon;

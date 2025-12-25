@@ -95,22 +95,11 @@ if ("serviceWorker" in navigator && typeof window !== "undefined") {
         // @ts-ignore - propiedad interna no tipada
         registration.__clarityUpdateInterval = updateInterval;
 
-        // Escuchar actualizaciones del Service Worker
+        // ✅ NO recargar automáticamente cuando el Service Worker se actualiza
+        // Esto causaba un bucle de recargas con skipWaiting()
+        // Los usuarios verán los cambios en la próxima recarga natural
         registration.addEventListener("updatefound", () => {
-          const newWorker = registration.installing;
-          if (newWorker) {
-            newWorker.addEventListener("statechange", () => {
-              if (newWorker.state === "activated") {
-                // Solo recargar si la app está visible (evitar pantalla en blanco)
-                if (document.visibilityState === "visible") {
-                  // Pequeño delay antes de recargar para evitar pantalla en blanco
-                  setTimeout(() => {
-                    window.location.reload();
-                  }, 500);
-                }
-              }
-            });
-          }
+          console.log("[SW] Nueva versión detectada, se aplicará en la próxima recarga");
         });
       })
       .catch(() => {
@@ -129,10 +118,12 @@ if ("serviceWorker" in navigator && typeof window !== "undefined") {
 import ErrorBoundary from "./components/ErrorBoundary";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
+  // ✅ TEMPORALMENTE sin StrictMode para diagnosticar problema de spinners
+  // React.StrictMode causa dobles renders en desarrollo que pueden parecer "bucles"
+  // <React.StrictMode>
     <ErrorBoundary level="global">
       <App />
     </ErrorBoundary>
-  </React.StrictMode>
+  // </React.StrictMode>
 );
 

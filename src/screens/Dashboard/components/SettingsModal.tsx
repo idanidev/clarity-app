@@ -1,47 +1,14 @@
 import { useState, useEffect } from "react";
 import { Bell, DollarSign, Globe, Moon, Sun, X, Calendar, RotateCcw, Mic, Shield, CheckCircle2, AlertCircle, ChevronRight } from "@/components/icons";
 import { useLanguage, useTranslation } from "../../../contexts/LanguageContext";
-// @ts-ignore - No hay tipos para este módulo JS
 import { restoreCategoriesFromExpenses } from "../../../services/firestoreService";
-// @ts-ignore - No hay tipos para este módulo JS
 import { useDisableBodyScroll } from "../../../hooks/useDisableBodyScroll";
 import VoiceSettingsPanel from "./VoiceSettingsPanel";
 import { VoiceSettings, DEFAULT_VOICE_SETTINGS } from "./VoiceExpenseButton";
 import { requestNotificationPermissions, scheduleExpenseReminder, cancelAllNotifications, areNotificationsEnabled } from "../../../services/notifications";
 import { isNative } from "../../../utils/platform";
 import { usePermissions } from "../../../hooks/usePermissions";
-
-interface NotificationSettings {
-  budgetAlerts?: {
-    enabled: boolean;
-    at80?: boolean;
-    at90?: boolean;
-    at100?: boolean;
-  };
-  recurringReminders?: {
-    enabled: boolean;
-  };
-  customReminders?: {
-    enabled: boolean;
-    message?: string;
-    hour?: number;
-    minute?: number;
-  };
-  weeklyReminder?: {
-    enabled: boolean;
-    dayOfWeek?: number;
-    hour?: number;
-    minute?: number;
-    message?: string;
-  };
-  monthlyIncomeReminder?: {
-    enabled: boolean;
-    dayOfMonth?: number;
-  };
-  pushNotifications?: {
-    enabled: boolean;
-  };
-}
+import type { NotificationSettings } from "../../../types/dashboard";
 
 interface SettingsModalProps {
   visible: boolean;
@@ -53,10 +20,10 @@ interface SettingsModalProps {
   onClose: () => void;
   income: number | null;
   onSaveIncome: (income: number | null) => void;
-  notificationSettings?: NotificationSettings;
-  onSaveNotificationSettings: (settings: NotificationSettings) => void;
+  notificationSettings?: Partial<NotificationSettings>;
+  onSaveNotificationSettings: (settings: Partial<NotificationSettings>) => Promise<void> | void;
   onRequestPushPermission?: () => void;
-  showNotification: (message: string, type?: "success" | "error" | "info") => void;
+  showNotification: (message: string, type?: "success" | "error" | "info" | "warning") => void;
   userId?: string;
   voiceSettings?: VoiceSettings;
   onSaveVoiceSettings?: (settings: VoiceSettings) => void;
@@ -268,7 +235,8 @@ const SettingsModal = ({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+      style={{ zIndex: 9999999 }}
       onMouseDown={onClose}
     >
       <div
@@ -371,7 +339,7 @@ const SettingsModal = ({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-6 pb-24 space-y-6">
+        <div className="flex-1 overflow-y-auto px-6 py-6 pb-32 space-y-6">
           {activeTab === "general" && (
             <>
               {/* Ingresos */}

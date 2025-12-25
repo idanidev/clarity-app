@@ -387,7 +387,8 @@ const ChangelogModal = ({ visible, darkMode, cardClass, textClass, textSecondary
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+      style={{ zIndex: 9999999 }}
       onMouseDown={onClose}
     >
       <div
@@ -425,7 +426,7 @@ const ChangelogModal = ({ visible, darkMode, cardClass, textClass, textSecondary
           </button>
         </div>
 
-        <div className="px-6 py-6">
+        <div className="px-6 py-6 pb-32">
           {sortedVersions.length === 0 ? (
             <div className="text-center py-8">
               <p className={`text-lg font-semibold ${textClass} mb-2`}>

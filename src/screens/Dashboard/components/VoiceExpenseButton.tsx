@@ -850,7 +850,8 @@ const VoiceExpenseButton = ({
         {isListening && (
           <>
             <div
-              className="fixed inset-0 pointer-events-none z-50"
+              className="fixed inset-0 pointer-events-none"
+              style={{ zIndex: 9999999 }}
               style={{
                 border: "4px solid transparent",
                 borderImage: "linear-gradient(135deg, #667eea, #764ba2, #f093fb, #667eea) 1",
@@ -873,6 +874,7 @@ const VoiceExpenseButton = ({
         )}
 
         <button
+          type="button"
           onClick={(e) => toggleListening(e)}
           disabled={isProcessing}
           className={`navbar-button flex items-center justify-center p-3 rounded-xl transition-all ${isListening
@@ -907,6 +909,7 @@ const VoiceExpenseButton = ({
     <>
       {/* Botón flotante - Premium iOS Style */}
       <button
+        type="button"
         onClick={(e) => toggleListening(e)}
         disabled={isProcessing}
         className={`group fixed right-4 z-40 p-5 rounded-full
@@ -964,7 +967,8 @@ const VoiceExpenseButton = ({
       {/* Modal de transcripción - iOS Glassmorphism */}
       {(isListening || isProcessing) && (
         <div
-          className="fixed inset-0 flex items-center justify-center p-4 z-50"
+          className="fixed inset-0 flex items-center justify-center p-4"
+          style={{ zIndex: 9999999 }}
         >
           {/* Backdrop con blur */}
           <div
@@ -1126,6 +1130,7 @@ const VoiceExpenseButton = ({
               {/* Botón de detener - Grande y visible */}
               {!isProcessing && (
                 <button
+                  type="button"
                   onClick={stopRecording}
                   className={`w-full py-4 rounded-2xl font-semibold
                     transition-all duration-300
@@ -1436,6 +1441,7 @@ const VoiceExpenseButton = ({
                 <div className="flex gap-3">
                   {/* Cancel - Glass button */}
                   <button
+                    type="button"
                     onClick={cancelExpense}
                     className={`flex-1 py-4 rounded-2xl font-semibold
                     transition-all duration-300
@@ -1452,6 +1458,7 @@ const VoiceExpenseButton = ({
 
                   {/* Confirm - Gradient button */}
                   <button
+                    type="button"
                     onClick={confirmExpense}
                     disabled={isProcessing}
                     className={`flex-1 py-4 rounded-2xl font-semibold relative overflow-hidden

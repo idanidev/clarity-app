@@ -1,8 +1,26 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import { Target, Trash2, X, Calendar, Plus, DollarSign } from "lucide-react";
 import { useTranslation } from "../../../contexts/LanguageContext";
 import { getLongTermGoalProgress } from "../../../services/goalsService";
 import { useDisableBodyScroll } from "../../../hooks/useDisableBodyScroll";
+import type { Categories, Goals, CategoryTotal, DeleteContext } from "../../../types/dashboard";
+
+interface GoalsModalProps {
+  visible: boolean;
+  darkMode: boolean;
+  cardClass: string;
+  textClass: string;
+  textSecondaryClass: string;
+  inputClass: string;
+  categories: Categories;
+  goals: Goals | null;
+  income: number | null;
+  categoryTotals: CategoryTotal[];
+  onSaveGoals: (goals: Goals) => void;
+  onSaveIncome: (income: number | null) => void;
+  onRequestDelete: (context: DeleteContext) => void;
+  onClose: () => void;
+}
 
 const GoalsModal = ({
   visible,
@@ -19,7 +37,7 @@ const GoalsModal = ({
   onSaveIncome,
   onRequestDelete,
   onClose,
-}) => {
+}: GoalsModalProps) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState("monthly"); // "monthly" | "longTerm"
   
@@ -70,7 +88,7 @@ const GoalsModal = ({
     });
   };
 
-  const handleAddCategoryGoal = (e) => {
+  const handleAddCategoryGoal = (e: FormEvent) => {
     e.preventDefault();
     if (!newGoalCategory || !newGoalAmount) return;
 
@@ -82,11 +100,11 @@ const GoalsModal = ({
     setNewGoalAmount("");
   };
 
-  const handleDeleteCategoryGoal = (category) => {
+  const handleDeleteCategoryGoal = (category: string) => {
     onRequestDelete({ type: "categoryGoal", category });
   };
 
-  const handleAddLongTermGoal = (e) => {
+  const handleAddLongTermGoal = (e: FormEvent) => {
     e.preventDefault();
     
     // Validaciones
@@ -157,7 +175,8 @@ const GoalsModal = ({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+      style={{ zIndex: 9999999 }}
       onMouseDown={onClose}
     >
       <div
@@ -187,7 +206,7 @@ const GoalsModal = ({
           </button>
         </div>
 
-        <div className="px-6 py-6">
+        <div className="px-6 py-6 pb-32">
           {/* SECCIÓN DE INGRESOS - AÑADIDA */}
           {onSaveIncome && (
             <div className={`p-5 rounded-xl border-2 mb-6 ${

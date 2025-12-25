@@ -24,7 +24,6 @@ const preloadDashboard = () => import("./screens/Dashboard/Dashboard");
 
 const LoadingScreen = () => {
   const { t } = useTranslation();
-  console.log("🔄 [SPINNER 1] LoadingScreen - initializing=true");
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-900">
       <div className="text-center">
