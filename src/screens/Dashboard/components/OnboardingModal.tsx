@@ -159,11 +159,13 @@ const OnboardingModal = ({ visible, darkMode, onClose, onComplete }) => {
   return (
     <div
       className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-start sm:items-center justify-center z-[100] px-3 py-4 sm:p-4 overflow-y-auto"
-      onMouseDown={onClose}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div
         className={`${cardClass} rounded-2xl p-0 max-w-2xl w-full border shadow-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto`}
-        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div

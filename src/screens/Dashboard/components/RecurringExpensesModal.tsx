@@ -94,7 +94,9 @@ function EditRecurringDialog({
       role="dialog"
       aria-modal="true"
       aria-labelledby="edit-recurring-title"
-      onMouseDown={onCancelEdit} // clic fuera cierra
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onCancelEdit();
+      }}
       style={{
         overscrollBehavior: "none",
         touchAction: "none",
@@ -102,7 +104,7 @@ function EditRecurringDialog({
     >
       <div
         ref={dialogRef}
-        onMouseDown={(e) => e.stopPropagation()} // evita cierre si clic dentro
+        onClick={(e) => e.stopPropagation()}
         className={`${cardClass} w-full max-w-xl rounded-2xl border shadow-2xl max-h-[90vh] flex flex-col overflow-hidden ${
           darkMode ? "bg-gray-800" : "bg-white"
         }`}

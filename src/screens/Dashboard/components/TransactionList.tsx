@@ -169,14 +169,20 @@ const TransactionList = memo(({
                                             {isSubExpanded && (
                                                 <div className="space-y-1 sm:space-y-1.5">
                                                     {exps.map((expense) => (
-                                                        <ExpenseCard
+                                                        <div
                                                             key={expense.id}
-                                                            expense={{ ...expense, category: category }}
-                                                            onEdit={onEditExpense}
-                                                            onDelete={onDeleteExpense}
-                                                            darkMode={darkMode}
-                                                            isMobile={isMobile}
-                                                        />
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            onTouchStart={(e) => e.stopPropagation()}
+                                                            onTouchEnd={(e) => e.stopPropagation()}
+                                                        >
+                                                            <ExpenseCard
+                                                                expense={{ ...expense, category: category }}
+                                                                onEdit={onEditExpense}
+                                                                onDelete={onDeleteExpense}
+                                                                darkMode={darkMode}
+                                                                isMobile={isMobile}
+                                                            />
+                                                        </div>
                                                     ))}
                                                 </div>
                                             )}

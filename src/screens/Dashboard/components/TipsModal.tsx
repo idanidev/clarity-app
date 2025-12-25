@@ -51,11 +51,13 @@ const TipsModal = ({ visible, darkMode, cardClass, textClass, textSecondaryClass
     <div
       className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
       style={{ zIndex: 9999999 }}
-      onMouseDown={onClose}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div
         className={`${cardClass} rounded-2xl p-0 max-w-3xl w-full border shadow-2xl max-h-[90vh] overflow-y-auto`}
-        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       >
         <div
           className={`sticky top-0 z-10 px-6 py-4 flex justify-between items-center ${

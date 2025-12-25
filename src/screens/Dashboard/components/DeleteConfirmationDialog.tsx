@@ -20,11 +20,13 @@ const DeleteConfirmationDialog = ({
   return (
     <div
       className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
-      onMouseDown={onCancel}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onCancel();
+      }}
     >
       <div
         className={`${cardClass} rounded-2xl p-0 max-w-sm w-full border shadow-2xl`}
-        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       >
         <div
           className={`sticky top-0 z-10 px-6 py-4 flex justify-between items-center ${
