@@ -2293,6 +2293,7 @@ const MainContent = memo<MainContentProps>(
         </div>
 
         {/* NAVBAR MÓVIL - FIJA AL FONDO */}
+        {/* ✅ CAMBIADO: usar opacity + pointer-events en lugar de transform para evitar offset táctil en iOS */}
         <div
           className="md:hidden"
           style={{
@@ -2305,8 +2306,9 @@ const MainContent = memo<MainContentProps>(
             backgroundColor: darkMode ? '#0f172a' : '#ffffff',
             paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))',
             margin: 0,
-            transform: isNavBarVisible ? 'translateY(0)' : 'translateY(100%)',
-            transition: 'transform 0.3s ease-in-out',
+            opacity: isNavBarVisible ? 1 : 0,
+            pointerEvents: isNavBarVisible ? 'auto' : 'none',
+            transition: 'opacity 0.3s ease-in-out',
           }}
         >
           <div

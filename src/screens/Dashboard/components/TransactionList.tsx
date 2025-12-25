@@ -168,21 +168,15 @@ const TransactionList = memo(({
                                             {/* Expense List */}
                                             {isSubExpanded && (
                                                 <div className="space-y-1 sm:space-y-1.5">
-                                                    {exps.map((expense) => (
-                                                        <div
+                                                {exps.map((expense) => (
+                                                        <ExpenseCard
                                                             key={expense.id}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                            onTouchStart={(e) => e.stopPropagation()}
-                                                            onTouchEnd={(e) => e.stopPropagation()}
-                                                        >
-                                                            <ExpenseCard
-                                                                expense={{ ...expense, category: category }}
-                                                                onEdit={onEditExpense}
-                                                                onDelete={onDeleteExpense}
-                                                                darkMode={darkMode}
-                                                                isMobile={isMobile}
-                                                            />
-                                                        </div>
+                                                            expense={{ ...expense, category: category }}
+                                                            onEdit={onEditExpense}
+                                                            onDelete={onDeleteExpense}
+                                                            darkMode={darkMode}
+                                                            isMobile={isMobile}
+                                                        />
                                                     ))}
                                                 </div>
                                             )}

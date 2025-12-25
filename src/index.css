@@ -37,15 +37,9 @@
   transition-duration: 150ms;
 }
 
-/* Aplicar transform SOLO a elementos que lo necesiten, NO a todo */
-button:not(.navbar-button),
-a:not(.navbar-button),
-[role="button"]:not(.navbar-button) {
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-}
+/* ❌ REMOVIDO: transform: translateZ(0) causa offset táctil en iOS WebView
+   Los elementos se mueven visualmente pero el área de toque queda en el lugar original */
+/* button, a, [role="button"] ya no tienen transform forzado */
 
 input,
 textarea,
@@ -74,11 +68,11 @@ select {
   -webkit-user-select: none;
 }
 
-/* Optimize blurry backgrounds */
-.backdrop-blur-xl, .backdrop-blur-2xl {
-  /* Force hardware acceleration for composite layer */
-  transform: translateZ(0); 
-  -webkit-transform: translateZ(0);
+/* Optimize blurry backgrounds - NO usar transform, causa offset táctil en iOS */
+.backdrop-blur-xl,
+.backdrop-blur-2xl {
+  /* Usar will-change en lugar de transform para GPU acceleration */
+  will-change: backdrop-filter;
 }
 
 .fullscreen,
@@ -120,15 +114,15 @@ body {
   margin: 0;
   padding: 0;
   width: 100%;
-  height: 100%; /* Force height */
+  height: 100%;
   min-height: 100vh;
-  min-height: -webkit-fill-available; /* iOS fix */
-  position: fixed; /* CRITICAL: This kills the bounce */
+  min-height: 100dvh; /* iOS dynamic viewport fix */
+  /* ✅ CAMBIADO: position:fixed causa offset táctil, usar flex container */
+  display: flex;
+  flex-direction: column;
   overflow: hidden; /* Lock internal scroll */
   background-color: #0f172a !important;
   color: #f3f4f6;
-  /* ✅ Extend background to safe areas - NO black gaps */
-  padding-top: 0; /* Remove padding, let children handle it */
   overscroll-behavior: none;
 }
 
@@ -335,11 +329,12 @@ select {
 
 /* Pulse lento para efectos sutiles */
 @keyframes pulse-slow {
-  0%, 100% { 
-    opacity: 1; 
+  0%,
+  100% {
+    opacity: 1;
   }
-  50% { 
-    opacity: 0.7; 
+  50% {
+    opacity: 0.7;
   }
 }
 
@@ -349,11 +344,11 @@ select {
 
 /* Shimmer effect para glassmorphism */
 @keyframes shimmer {
-  0% { 
-    background-position: -1000px 0; 
+  0% {
+    background-position: -1000px 0;
   }
-  100% { 
-    background-position: 1000px 0; 
+  100% {
+    background-position: 1000px 0;
   }
 }
 

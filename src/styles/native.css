@@ -7,27 +7,27 @@
    GPU ACCELERATION & PERFORMANCE
    ============================================ */
 
-/* Forzar GPU acceleration en elementos interactivos */
+/* ❌ REMOVIDO: transform: translateZ(0) causa offset táctil en iOS WebView.
+   Los elementos se mueven visualmente pero las áreas de toque quedan en la posición original.
+   Usar will-change para hints de GPU en su lugar. */
 button,
 a,
 [role="button"],
 input,
 select,
 textarea {
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
+  /* GPU acceleration sin transform */
+  will-change: opacity;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  will-change: transform, opacity;
 }
 
-/* Optimizar contenedores con scroll */
+/* Optimizar contenedores con scroll - SIN transform */
 .scroll-container,
 .overflow-y-auto,
 .overflow-x-auto,
 [class*="overflow"] {
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
+  /* ❌ REMOVIDO: transform: translateZ(0) causa offset táctil */
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   overscroll-behavior-y: contain;
@@ -61,19 +61,19 @@ button,
 a[role="button"],
 [role="button"] {
   transition: transform var(--duration-fast) var(--ease-ios),
-              opacity var(--duration-fast) var(--ease-ios),
-              background-color var(--duration-fast) var(--ease-ios);
+    opacity var(--duration-fast) var(--ease-ios),
+    background-color var(--duration-fast) var(--ease-ios);
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
 }
 
-/* Feedback táctil nativo (scale down) */
+/* Feedback táctil nativo (scale down) - SIN translateZ para evitar offset */
 button:active,
 a:active,
 [role="button"]:active {
-  transform: scale(0.96) translateZ(0);
+  transform: scale(0.96);
   opacity: 0.8;
   transition-duration: 50ms;
 }
@@ -192,15 +192,14 @@ a:active,
    EFECTOS TÁCTILES MEJORADOS
    ============================================ */
 
-/* Ripple effect mejorado (Material Design) */
+/* Ripple effect mejorado (Material Design) - SIN translateZ */
 .ripple-native {
   position: relative;
   overflow: hidden;
-  transform: translateZ(0);
 }
 
 .ripple-native::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 50%;
   left: 50%;
@@ -209,10 +208,8 @@ a:active,
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.3);
   transform: translate(-50%, -50%) scale(0);
-  transition: width 0.4s var(--ease-ios), 
-              height 0.4s var(--ease-ios),
-              transform 0.4s var(--ease-ios),
-              opacity 0.4s var(--ease-ios);
+  transition: width 0.4s var(--ease-ios), height 0.4s var(--ease-ios),
+    transform 0.4s var(--ease-ios), opacity 0.4s var(--ease-ios);
   pointer-events: none;
   opacity: 0;
 }
@@ -228,12 +225,11 @@ a:active,
 /* Touch feedback mejorado */
 .touch-feedback {
   position: relative;
-  transition: transform 50ms var(--ease-ios),
-              opacity 50ms var(--ease-ios);
+  transition: transform 50ms var(--ease-ios), opacity 50ms var(--ease-ios);
 }
 
 .touch-feedback:active {
-  transform: scale(0.95) translateZ(0);
+  transform: scale(0.95);
   opacity: 0.7;
 }
 
@@ -265,20 +261,18 @@ img {
 input,
 textarea,
 select {
-  /* Mejorar rendimiento */
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
+  /* ❌ REMOVIDO: transform: translateZ(0) causa offset táctil */
   /* Transiciones suaves */
   transition: border-color var(--duration-fast) var(--ease-ios),
-              background-color var(--duration-fast) var(--ease-ios),
-              box-shadow var(--duration-fast) var(--ease-ios);
+    background-color var(--duration-fast) var(--ease-ios),
+    box-shadow var(--duration-fast) var(--ease-ios);
 }
 
 input:focus,
 textarea:focus,
 select:focus {
-  /* Feedback visual mejorado */
-  transform: translateZ(0) scale(1.01);
+  /* Feedback visual mejorado - SIN translateZ */
+  transform: scale(1.01);
   transition-duration: var(--duration-fast);
 }
 
@@ -293,10 +287,8 @@ select:focus {
   background: rgba(0, 0, 0, 0.3);
 }
 
-/* Modal sheet (estilo iOS) */
+/* Modal sheet (estilo iOS) - SIN transform forzado */
 .modal-sheet {
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
   will-change: transform;
   animation: slideUpNative var(--duration-slow) var(--ease-spring) forwards;
 }
@@ -305,27 +297,25 @@ select:focus {
    LISTAS Y CARDS NATIVAS
    ============================================ */
 
-/* List items con feedback táctil */
+/* List items con feedback táctil - SIN translateZ base */
 .list-item-native {
   transition: background-color var(--duration-fast) var(--ease-ios),
-              transform var(--duration-fast) var(--ease-ios);
-  transform: translateZ(0);
+    transform var(--duration-fast) var(--ease-ios);
 }
 
 .list-item-native:active {
   background-color: rgba(139, 92, 246, 0.1);
-  transform: scale(0.98) translateZ(0);
+  transform: scale(0.98);
 }
 
-/* Cards con elevación nativa */
+/* Cards con elevación nativa - SIN translateZ base */
 .card-native {
   transition: transform var(--duration-fast) var(--ease-ios),
-              box-shadow var(--duration-fast) var(--ease-ios);
-  transform: translateZ(0);
+    box-shadow var(--duration-fast) var(--ease-ios);
 }
 
 .card-native:active {
-  transform: scale(0.98) translateZ(0);
+  transform: scale(0.98);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
@@ -384,13 +374,13 @@ select:focus {
   * {
     -webkit-touch-callout: none;
   }
-  
+
   /* Mejorar scroll en iOS */
   .scroll-ios {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: none;
   }
-  
+
   /* Prevenir selección accidental */
   button,
   a,
@@ -457,4 +447,3 @@ select:focus {
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
-
