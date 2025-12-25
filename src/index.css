@@ -449,8 +449,8 @@ html {
   button:active,
   a:active,
   [role="button"]:active {
-    transform: scale(0.96);
-    opacity: 0.8;
+    /* ❌ REMOVIDO: transform: scale() causa offset táctil */
+    opacity: 0.85;
   }
 
   .animate-in {

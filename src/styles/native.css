@@ -69,12 +69,12 @@ a[role="button"],
   -webkit-user-select: none;
 }
 
-/* Feedback táctil nativo (scale down) - SIN translateZ para evitar offset */
+/* Feedback táctil nativo - Solo opacidad, SIN scale para evitar offset táctil */
 button:active,
 a:active,
 [role="button"]:active {
-  transform: scale(0.96);
-  opacity: 0.8;
+  /* ❌ REMOVIDO: transform: scale() causa que el tap parezca ir al elemento de abajo */
+  opacity: 0.85;
   transition-duration: 50ms;
 }
 
@@ -222,15 +222,15 @@ a:active,
   transition-duration: 0.2s;
 }
 
-/* Touch feedback mejorado */
+/* Touch feedback mejorado - Solo opacidad para evitar offset */
 .touch-feedback {
   position: relative;
-  transition: transform 50ms var(--ease-ios), opacity 50ms var(--ease-ios);
+  transition: opacity 50ms var(--ease-ios);
 }
 
 .touch-feedback:active {
-  transform: scale(0.95);
-  opacity: 0.7;
+  /* ❌ REMOVIDO: transform: scale() causa offset táctil */
+  opacity: 0.75;
 }
 
 /* ============================================
@@ -297,25 +297,25 @@ select:focus {
    LISTAS Y CARDS NATIVAS
    ============================================ */
 
-/* List items con feedback táctil - SIN translateZ base */
+/* List items con feedback táctil - Solo opacidad y background */
 .list-item-native {
   transition: background-color var(--duration-fast) var(--ease-ios),
-    transform var(--duration-fast) var(--ease-ios);
+    opacity var(--duration-fast) var(--ease-ios);
 }
 
 .list-item-native:active {
   background-color: rgba(139, 92, 246, 0.1);
-  transform: scale(0.98);
+  opacity: 0.85;
 }
 
-/* Cards con elevación nativa - SIN translateZ base */
+/* Cards con elevación nativa - Solo sombra y opacidad */
 .card-native {
-  transition: transform var(--duration-fast) var(--ease-ios),
+  transition: opacity var(--duration-fast) var(--ease-ios),
     box-shadow var(--duration-fast) var(--ease-ios);
 }
 
 .card-native:active {
-  transform: scale(0.98);
+  opacity: 0.9;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
