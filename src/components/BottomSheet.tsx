@@ -13,11 +13,11 @@ interface BottomSheetProps {
 }
 
 /**
- * BottomSheet optimizado con swipe gesture fluido
+ * BottomSheet optimizado para iOS Capacitor
+ * - Fija el problema del espacio blanco/negro en safe-area
  * - Hardware accelerated animations con requestAnimationFrame
  * - Memoized para evitar re-renders
  * - Touch handlers optimizados para 60fps
- * - Detección de velocidad para mejor UX
  */
 const BottomSheet = memo(
   ({
@@ -29,6 +29,7 @@ const BottomSheet = memo(
     children,
   }: BottomSheetProps) => {
     const sheetRef = useRef<HTMLDivElement>(null);
+    const handleRef = useRef<HTMLDivElement>(null);
     const startY = useRef(0);
     const currentY = useRef(0);
     const isDragging = useRef(false);
@@ -40,22 +41,23 @@ const BottomSheet = memo(
     // Deshabilitar scroll del body cuando el bottom sheet está visible
     useDisableBodyScroll(visible);
 
+    // Color de fondo según tema
+    const sheetBgColor = darkMode ? '#1f2937' : '#ffffff';
+
     // ✅ Función para actualizar transform usando RAF
     const updateTransform = useCallback(() => {
       if (!sheetRef.current || !isDragging.current) return;
 
       const diff = currentY.current - startY.current;
 
-      // Solo permitir arrastrar hacia abajo
       if (diff > 0) {
-        // ✅ GPU-accelerated transform con translate3d para mejor rendimiento
         sheetRef.current.style.transform = `translate3d(0, ${diff}px, 0)`;
       }
 
       rafId.current = null;
     }, []);
 
-    // ✅ Handlers memoizados con requestAnimationFrame
+    // ✅ Handlers para el handle de arrastre (no el contenido completo)
     const handleTouchStart = useCallback((e: TouchEvent) => {
       const touch = e.touches[0];
       startY.current = touch.clientY;
@@ -65,7 +67,6 @@ const BottomSheet = memo(
       velocity.current = 0;
       lastTime.current = Date.now();
 
-      // Remover transición durante el drag para fluidez
       if (sheetRef.current) {
         sheetRef.current.style.transition = "none";
       }
@@ -78,7 +79,6 @@ const BottomSheet = memo(
       const now = Date.now();
       const timeDelta = now - lastTime.current;
 
-      // Calcular velocidad para mejor UX
       if (timeDelta > 0) {
         const yDelta = touch.clientY - lastY.current;
         velocity.current = yDelta / timeDelta;
@@ -88,12 +88,10 @@ const BottomSheet = memo(
       lastY.current = touch.clientY;
       lastTime.current = now;
 
-      // Usar requestAnimationFrame para fluidez (60fps)
       if (!rafId.current) {
         rafId.current = requestAnimationFrame(updateTransform);
       }
 
-      // Solo prevenir default si estamos arrastrando hacia abajo
       const diff = currentY.current - startY.current;
       if (diff > 0) {
         e.preventDefault();
@@ -103,19 +101,16 @@ const BottomSheet = memo(
     const handleTouchEnd = useCallback(() => {
       if (!isDragging.current || !sheetRef.current) return;
 
-      // Cancelar cualquier RAF pendiente
       if (rafId.current) {
         cancelAnimationFrame(rafId.current);
         rafId.current = null;
       }
 
       const diff = currentY.current - startY.current;
-      const threshold = 150; // Aumentado para mejor UX
-      const velocityThreshold = 0.5; // Velocidad mínima para cerrar
+      const threshold = 150;
+      const velocityThreshold = 0.5;
 
-      // Cerrar si se arrastró suficiente O si la velocidad es alta
       if (diff > threshold || (diff > 50 && velocity.current > velocityThreshold)) {
-        // Animación de cierre suave
         sheetRef.current.style.transition = "transform 0.3s cubic-bezier(0.36, 0, 0.1, 1)";
         sheetRef.current.style.transform = `translate3d(0, 100%, 0)`;
 
@@ -123,7 +118,6 @@ const BottomSheet = memo(
           onClose();
         }, 300);
       } else {
-        // Volver a posición original con animación suave
         sheetRef.current.style.transition = "transform 0.3s cubic-bezier(0.36, 0, 0.1, 1)";
         sheetRef.current.style.transform = "translate3d(0, 0, 0)";
 
@@ -141,28 +135,27 @@ const BottomSheet = memo(
       velocity.current = 0;
     }, [onClose]);
 
-    // ✅ Event listeners con cleanup
+    // ✅ Event listeners solo en el handle, no en todo el sheet
     useEffect(() => {
-      const sheet = sheetRef.current;
-      if (!sheet || !visible) return;
+      const handle = handleRef.current;
+      if (!handle || !visible) return;
 
       const options = { passive: false };
-      sheet.addEventListener("touchstart", handleTouchStart, options);
-      sheet.addEventListener("touchmove", handleTouchMove, options);
-      sheet.addEventListener("touchend", handleTouchEnd);
-      sheet.addEventListener("touchcancel", handleTouchEnd);
+      handle.addEventListener("touchstart", handleTouchStart, options);
+      handle.addEventListener("touchmove", handleTouchMove, options);
+      handle.addEventListener("touchend", handleTouchEnd);
+      handle.addEventListener("touchcancel", handleTouchEnd);
 
       return () => {
-        // Limpiar RAF pendiente
         if (rafId.current) {
           cancelAnimationFrame(rafId.current);
           rafId.current = null;
         }
 
-        sheet.removeEventListener("touchstart", handleTouchStart);
-        sheet.removeEventListener("touchmove", handleTouchMove);
-        sheet.removeEventListener("touchend", handleTouchEnd);
-        sheet.removeEventListener("touchcancel", handleTouchEnd);
+        handle.removeEventListener("touchstart", handleTouchStart);
+        handle.removeEventListener("touchmove", handleTouchMove);
+        handle.removeEventListener("touchend", handleTouchEnd);
+        handle.removeEventListener("touchcancel", handleTouchEnd);
       };
     }, [visible, handleTouchStart, handleTouchMove, handleTouchEnd]);
 
@@ -179,97 +172,165 @@ const BottomSheet = memo(
 
     return createPortal(
       <>
-        {/* Full viewport backdrop */}
+        {/* 
+          CLAVE: Un div que cubre TODA la pantalla incluyendo safe-areas
+          con el color de fondo correcto según el tema.
+          Esto evita el espacio blanco/negro.
+        */}
         <div
-          className="fixed inset-0"
-          style={{ 
+          style={{
+            position: 'fixed',
+            zIndex: 9999998,
+            // Extender mucho más allá de los límites de la pantalla
+            top: '-500px',
+            left: '-500px',
+            right: '-500px',
+            bottom: '-500px',
+            // Color de fondo que coincide con el sheet
+            backgroundColor: sheetBgColor,
+            pointerEvents: 'none',
+          }}
+          aria-hidden="true"
+        />
+
+        {/* Backdrop semitransparente */}
+        <div
+          style={{
+            position: 'fixed',
             zIndex: 9999999,
-            top: -100, // Extend well beyond top
-            left: 0,
-            right: 0,
-            bottom: -100, // Extend well beyond bottom to cover safe area
+            top: '-100px',
+            left: '-100px',
+            right: '-100px',
+            bottom: '-100px',
             backgroundColor: 'rgba(0, 0, 0, 0.5)',
             backdropFilter: 'blur(4px)',
             WebkitBackdropFilter: 'blur(4px)',
-            // Ensure no interactions pass through
-            touchAction: 'none'
           }}
           onClick={onClose}
         />
 
-        {/* Modal Container */}
+        {/* Container del sheet */}
         <div
-          className="fixed inset-0 flex items-end justify-center pointer-events-none"
-          style={{ 
-            zIndex: 10000000, // Above backdrop
-            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          style={{
+            position: 'fixed',
+            zIndex: 10000000,
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'flex-end',
+            pointerEvents: 'none',
           }}
         >
+          {/* Sheet principal */}
           <div
             ref={sheetRef}
-            className={`w-full rounded-t-3xl shadow-xl pointer-events-auto ${darkMode ? "bg-gray-800" : "bg-white"}`}
             style={{
+              position: 'relative',
               maxHeight,
-              transform: "translate3d(0, 0, 0)",
-              willChange: "transform",
-              backfaceVisibility: "hidden",
-              WebkitBackfaceVisibility: "hidden",
-              WebkitTransform: "translate3d(0, 0, 0)",
-              animation: visible ? "slideUpNative 0.3s cubic-bezier(0.36, 0, 0.1, 1)" : "none",
-              // Ensure bottom makes contact with screen edge
-              marginBottom: -1 // Fix any subpixel gap
+              backgroundColor: sheetBgColor,
+              borderTopLeftRadius: '24px',
+              borderTopRightRadius: '24px',
+              boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.3)',
+              transform: 'translate3d(0, 0, 0)',
+              willChange: 'transform',
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
+              pointerEvents: 'auto',
+              animation: 'slideUpNative 0.3s cubic-bezier(0.36, 0, 0.1, 1)',
+              display: 'flex',
+              flexDirection: 'column',
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Handle visual para swipe */}
-            <div className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-manipulation">
+            {/* Handle visual para swipe - área de arrastre */}
+            <div
+              ref={handleRef}
+              className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-manipulation"
+              style={{
+                backgroundColor: sheetBgColor,
+                borderTopLeftRadius: '24px',
+                borderTopRightRadius: '24px',
+              }}
+            >
               <div
-                className={`w-12 h-1.5 rounded-full transition-all ${darkMode ? "bg-gray-600" : "bg-gray-300"
-                  }`}
+                className={`w-12 h-1.5 rounded-full transition-all ${
+                  darkMode ? "bg-gray-600" : "bg-gray-300"
+                }`}
               />
             </div>
 
             {/* Header fijo */}
             <div
-              className={`px-6 py-4 flex justify-between items-center border-b ${darkMode ? "border-gray-700" : "border-gray-200"
-                }`}
+              className={`px-6 py-4 flex justify-between items-center border-b flex-shrink-0 ${
+                darkMode ? "border-gray-700" : "border-gray-200"
+              }`}
+              style={{ backgroundColor: sheetBgColor }}
             >
               <h3
-                className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-900"
-                  }`}
+                className={`text-2xl font-bold ${
+                  darkMode ? "text-white" : "text-gray-900"
+                }`}
               >
                 {title}
               </h3>
               <button
                 onClick={onClose}
                 type="button"
-                className={`p-2 rounded-lg transition-colors touch-manipulation ${darkMode
-                  ? "hover:bg-gray-700 text-gray-400 hover:text-white"
-                  : "hover:bg-gray-100 text-gray-600 hover:text-gray-900"
-                  }`}
+                className={`p-2 rounded-lg transition-colors touch-manipulation flex items-center justify-center ${
+                  darkMode
+                    ? "hover:bg-gray-700 active:bg-gray-600 text-gray-400"
+                    : "hover:bg-gray-100 active:bg-gray-200 text-gray-600"
+                }`}
+                style={{ minWidth: '44px', minHeight: '44px' }}
               >
                 <X className="w-6 h-6" />
               </button>
             </div>
 
-            {/* Contenido scrollable optimizado */}
+            {/* Contenido scrollable */}
             <div
-              className="overflow-y-auto overscroll-contain scroll-native"
+              className="overflow-y-auto overscroll-contain flex-1"
+              data-scrollable="true"
               style={{
-                maxHeight: "calc(90vh - 100px)",
-                WebkitOverflowScrolling: "touch",
-                overscrollBehavior: "contain",
-                transform: "translateZ(0)",
-                WebkitTransform: "translateZ(0)",
-                paddingBottom: "calc(2rem + env(safe-area-inset-bottom, 0px))",
+                maxHeight: `calc(${maxHeight} - 140px)`,
+                WebkitOverflowScrolling: 'touch',
+                overscrollBehavior: 'contain',
+                backgroundColor: sheetBgColor,
               }}
             >
               {children}
             </div>
-            
-            {/* Filler for safe area bottom inside the sheet */}
-            <div style={{ height: 'calc(env(safe-area-inset-bottom, 0px) + 1px)', width: '100%', backgroundColor: 'inherit' }} />
+
+            {/* Padding inferior para safe-area */}
+            <div
+              style={{
+                height: 'env(safe-area-inset-bottom, 0px)',
+                minHeight: '20px',
+                backgroundColor: sheetBgColor,
+                flexShrink: 0,
+              }}
+            />
           </div>
+
+          {/* 
+            Extensión inferior: cubre el espacio debajo del sheet
+            incluyendo cualquier gap del safe-area
+          */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '-200px',
+              left: 0,
+              right: 0,
+              height: '250px',
+              backgroundColor: sheetBgColor,
+              pointerEvents: 'none',
+            }}
+            aria-hidden="true"
+          />
         </div>
       </>,
       document.body

@@ -641,3 +641,26 @@ html {
   width: 100% !important;
   z-index: 999999 !important;
 }
+
+/* ===========================================
+   FIX: iOS BottomSheet safe-area gap
+   =========================================== */
+
+/* Prevenir cualquier gap en iOS con modal abierto */
+html.modal-open,
+html.modal-open body {
+  overflow: hidden !important;
+  position: fixed !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Animación del BottomSheet */
+@keyframes slideUpNative {
+  from {
+    transform: translate3d(0, 100%, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
