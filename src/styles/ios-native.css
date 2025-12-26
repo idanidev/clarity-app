@@ -59,8 +59,8 @@ body {
 }
 
 .pressable:active {
-  transform: scale(0.97);
-  opacity: 0.9;
+  /* ❌ REMOVIDO: transform: scale() causa offset táctil */
+  opacity: 0.85;
 }
 
 /* Animación de skeleton loading */

@@ -567,17 +567,14 @@ html {
   left: 0 !important;
   right: 0 !important;
   width: 100% !important;
-  z-index: 9999 !important;
-  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px)) !important;
+  z-index: 40 !important;
+  /* Reducido: solo safe-area, sin padding extra */
+  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
   margin: 0 !important;
   box-sizing: border-box !important;
-  transform: translateZ(0) !important;
-  -webkit-transform: translateZ(0) !important;
+  /* ❌ REMOVIDO: transform: translateZ(0) causa offset táctil en iOS */
   backface-visibility: hidden !important;
   -webkit-backface-visibility: hidden !important;
-  will-change: transform !important;
-  -webkit-backface-visibility: hidden !important;
-  -webkit-perspective: 1000 !important;
 }
 
 @media (max-width: 768px) {
@@ -597,11 +594,11 @@ html {
   background-color: #ffffff !important;
 }
 
-/* Padding para el contenedor interno */
+/* Padding para el contenedor interno - más compacto */
 .navbar-bottom > div:first-child {
-  padding-top: 0.5rem !important;
-  padding-left: 0.5rem !important;
-  padding-right: 0.5rem !important;
+  padding-top: 0.25rem !important;
+  padding-left: 0.25rem !important;
+  padding-right: 0.25rem !important;
   padding-bottom: 0 !important;
 }
 

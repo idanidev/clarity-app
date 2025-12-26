@@ -1,5 +1,6 @@
 import { X } from "@/components/icons";
 import { memo, ReactNode, useCallback, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useDisableBodyScroll } from "../hooks/useDisableBodyScroll";
 
 interface BottomSheetProps {
@@ -174,76 +175,104 @@ const BottomSheet = memo(
     }, [visible]);
 
     if (!visible) return null;
+    if (typeof document === 'undefined') return null;
 
-    return (
-      <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end justify-center"
-        style={{ zIndex: 9999999 }}
-        onClick={onClose}
-      >
+    return createPortal(
+      <>
+        {/* Full viewport backdrop */}
         <div
-          ref={sheetRef}
-          className={`w-full rounded-t-3xl shadow-2xl ${darkMode ? "bg-gray-800" : "bg-white"
-            }`}
-          style={{
-            maxHeight,
-            transform: "translate3d(0, 0, 0)", // ✅ Hardware acceleration con translate3d
-            willChange: "transform", // ✅ Optimización GPU
-            backfaceVisibility: "hidden",
-            WebkitBackfaceVisibility: "hidden",
-            WebkitTransform: "translate3d(0, 0, 0)",
-            // Animación inicial suave
-            animation: visible ? "slideUpNative 0.3s cubic-bezier(0.36, 0, 0.1, 1)" : "none",
+          className="fixed inset-0"
+          style={{ 
+            zIndex: 9999999,
+            top: -100, // Extend well beyond top
+            left: 0,
+            right: 0,
+            bottom: -100, // Extend well beyond bottom to cover safe area
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backdropFilter: 'blur(4px)',
+            WebkitBackdropFilter: 'blur(4px)',
+            // Ensure no interactions pass through
+            touchAction: 'none'
           }}
-          onClick={(e) => e.stopPropagation()}
+          onClick={onClose}
+        />
+
+        {/* Modal Container */}
+        <div
+          className="fixed inset-0 flex items-end justify-center pointer-events-none"
+          style={{ 
+            zIndex: 10000000, // Above backdrop
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          }}
         >
-          {/* Handle visual para swipe */}
-          <div className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-manipulation">
-            <div
-              className={`w-12 h-1.5 rounded-full transition-all ${darkMode ? "bg-gray-600" : "bg-gray-300"
-                }`}
-            />
-          </div>
-
-          {/* Header fijo */}
           <div
-            className={`px-6 py-4 flex justify-between items-center border-b ${darkMode ? "border-gray-700" : "border-gray-200"
-              }`}
-          >
-            <h3
-              className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-900"
-                }`}
-            >
-              {title}
-            </h3>
-            <button
-              onClick={onClose}
-              type="button"
-              className={`p-2 rounded-lg transition-colors touch-manipulation ${darkMode
-                ? "hover:bg-gray-700 text-gray-400 hover:text-white"
-                : "hover:bg-gray-100 text-gray-600 hover:text-gray-900"
-                }`}
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-
-          {/* Contenido scrollable optimizado */}
-          <div
-            className="overflow-y-auto overscroll-contain scroll-native"
+            ref={sheetRef}
+            className={`w-full rounded-t-3xl shadow-xl pointer-events-auto ${darkMode ? "bg-gray-800" : "bg-white"}`}
             style={{
-              maxHeight: "calc(90vh - 100px)",
-              WebkitOverflowScrolling: "touch",
-              overscrollBehavior: "contain",
-              transform: "translateZ(0)",
-              WebkitTransform: "translateZ(0)",
-              paddingBottom: "calc(2rem + env(safe-area-inset-bottom, 0px))",
+              maxHeight,
+              transform: "translate3d(0, 0, 0)",
+              willChange: "transform",
+              backfaceVisibility: "hidden",
+              WebkitBackfaceVisibility: "hidden",
+              WebkitTransform: "translate3d(0, 0, 0)",
+              animation: visible ? "slideUpNative 0.3s cubic-bezier(0.36, 0, 0.1, 1)" : "none",
+              // Ensure bottom makes contact with screen edge
+              marginBottom: -1 // Fix any subpixel gap
             }}
+            onClick={(e) => e.stopPropagation()}
           >
-            {children}
+            {/* Handle visual para swipe */}
+            <div className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-manipulation">
+              <div
+                className={`w-12 h-1.5 rounded-full transition-all ${darkMode ? "bg-gray-600" : "bg-gray-300"
+                  }`}
+              />
+            </div>
+
+            {/* Header fijo */}
+            <div
+              className={`px-6 py-4 flex justify-between items-center border-b ${darkMode ? "border-gray-700" : "border-gray-200"
+                }`}
+            >
+              <h3
+                className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-900"
+                  }`}
+              >
+                {title}
+              </h3>
+              <button
+                onClick={onClose}
+                type="button"
+                className={`p-2 rounded-lg transition-colors touch-manipulation ${darkMode
+                  ? "hover:bg-gray-700 text-gray-400 hover:text-white"
+                  : "hover:bg-gray-100 text-gray-600 hover:text-gray-900"
+                  }`}
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Contenido scrollable optimizado */}
+            <div
+              className="overflow-y-auto overscroll-contain scroll-native"
+              style={{
+                maxHeight: "calc(90vh - 100px)",
+                WebkitOverflowScrolling: "touch",
+                overscrollBehavior: "contain",
+                transform: "translateZ(0)",
+                WebkitTransform: "translateZ(0)",
+                paddingBottom: "calc(2rem + env(safe-area-inset-bottom, 0px))",
+              }}
+            >
+              {children}
+            </div>
+            
+            {/* Filler for safe area bottom inside the sheet */}
+            <div style={{ height: 'calc(env(safe-area-inset-bottom, 0px) + 1px)', width: '100%', backgroundColor: 'inherit' }} />
           </div>
         </div>
-      </div>
+      </>,
+      document.body
     );
   }
 );

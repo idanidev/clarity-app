@@ -70,13 +70,15 @@ const Header = memo<HeaderProps>(({
     <div
       className={`${headerClasses} backdrop-blur-md border-b ${borderClasses} sticky top-0 z-40`}
       style={{
-        paddingTop: 'env(safe-area-inset-top, 0px)',
+        // Eliminado safe-area - el header queda justo debajo de la barra de estado
+        paddingTop: 0,
         marginTop: 0,
         top: 0,
         backgroundColor: darkMode ? 'rgba(15, 23, 42, 0.95)' : undefined,
       }}
     >
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 py-3 sm:py-4">
+      {/* Padding mínimo */}
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 py-1 sm:py-4">
         <div className="flex justify-between items-center gap-2">
           <div className="min-w-0 flex-1">
             <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent truncate">
@@ -240,7 +242,7 @@ const Header = memo<HeaderProps>(({
           </div>
 
           {/* Mobile */}
-          <div className="md:hidden flex items-center gap-2">
+          <div className="md:hidden flex items-center justify-center gap-2">
             {overBudgetCount > 0 && (
               <button
                 onClick={onSelectGoals}
@@ -256,7 +258,7 @@ const Header = memo<HeaderProps>(({
 
             <button
               onClick={onOpenMenu}
-              className={`p-2 rounded-xl ${
+              className={`p-2 rounded-xl flex items-center justify-center ${
                 darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-white/60 hover:bg-white/80"
               } border ${darkMode ? "border-gray-600" : "border-white/60"} transition-all`}
             >

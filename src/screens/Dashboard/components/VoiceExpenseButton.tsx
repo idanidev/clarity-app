@@ -1,6 +1,7 @@
 import { Capacitor } from "@capacitor/core";
 import { SpeechRecognition } from "@capgo/capacitor-speech-recognition";
 import { Loader2, Mic, MicOff, Plus } from "@/components/icons";
+import { Filter } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import AudioWaveVisualizer from "../../../components/AudioWaveVisualizer";
 import { usePermissions } from "../../../hooks/usePermissions";
@@ -72,6 +73,7 @@ interface VoiceExpenseButtonProps {
   voiceSettings?: VoiceSettings;
   isNavbarButton?: boolean;
   hasFilterButton?: boolean;
+  onToggleFilters?: () => void;
 }
 
 const VoiceExpenseButton = ({
@@ -82,7 +84,8 @@ const VoiceExpenseButton = ({
   categoriesWithSubcategories = {},
   voiceSettings = DEFAULT_VOICE_SETTINGS,
   isNavbarButton = false,
-  hasFilterButton: _hasFilterButton = false,
+  hasFilterButton = false,
+  onToggleFilters,
 }: VoiceExpenseButtonProps) => {
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -908,6 +911,26 @@ const VoiceExpenseButton = ({
   return (
     <>
       {/* Botón flotante - Premium iOS Style */}
+      {/* Botón de Filtro (encima del micrófono) */}
+      {hasFilterButton && onToggleFilters && !isProcessing && !isListening && (
+        <button
+          onClick={onToggleFilters}
+          className={`fixed right-5 z-30 p-3 rounded-2xl flex items-center justify-center
+            transform transition-all duration-300
+            hover:scale-110 active:scale-95
+            ${darkMode
+              ? "bg-gray-800 text-purple-400 border-gray-700 shadow-lg shadow-purple-900/20"
+              : "bg-white text-purple-600 border-purple-100 shadow-lg shadow-purple-500/20"
+            }
+            border backdrop-blur-xl`}
+          style={{
+            bottom: "calc(5.5rem + env(safe-area-inset-bottom) + 80px)",
+          }}
+        >
+          <Filter className="w-5 h-5" />
+        </button>
+      )}
+
       <button
         type="button"
         onClick={(e) => toggleListening(e)}

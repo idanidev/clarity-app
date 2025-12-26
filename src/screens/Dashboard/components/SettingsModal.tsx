@@ -5,7 +5,16 @@ import { restoreCategoriesFromExpenses } from "../../../services/firestoreServic
 import { useDisableBodyScroll } from "../../../hooks/useDisableBodyScroll";
 import VoiceSettingsPanel from "./VoiceSettingsPanel";
 import { VoiceSettings, DEFAULT_VOICE_SETTINGS } from "./VoiceExpenseButton";
-import { requestNotificationPermissions, scheduleExpenseReminder, cancelAllNotifications, areNotificationsEnabled } from "../../../services/notifications";
+import { 
+  requestNotificationPermissions, 
+  scheduleDailyReminder, 
+  scheduleWeeklyReminder,
+  cancelDailyReminder,
+  cancelWeeklyReminder,
+  cancelAllNotifications, 
+  areNotificationsEnabled,
+  getPendingNotifications 
+} from "../../../services/notifications";
 import { isNative } from "../../../utils/platform";
 import { usePermissions } from "../../../hooks/usePermissions";
 import type { NotificationSettings } from "../../../types/dashboard";
@@ -214,9 +223,26 @@ const SettingsModal = ({
       if (!nativeNotificationsEnabled) {
         const granted = await requestNotificationPermissions();
         if (granted) {
-          await scheduleExpenseReminder(20); // 20:00
+          // Programar recordatorio diario con la configuración del usuario
+          const dailyHour = localNotificationSettings.customReminders?.hour ?? 20;
+          const dailyMinute = localNotificationSettings.customReminders?.minute ?? 0;
+          const dailyMessage = localNotificationSettings.customReminders?.message ?? '¿Has gastado algo hoy? Registra tus gastos para mantener tu presupuesto al día';
+          await scheduleDailyReminder(dailyHour, dailyMinute, dailyMessage);
+          
+          // Programar recordatorio semanal si está habilitado
+          if (localNotificationSettings.weeklyReminder?.enabled) {
+            const weeklyDay = localNotificationSettings.weeklyReminder?.dayOfWeek ?? 0;
+            const weeklyHour = localNotificationSettings.weeklyReminder?.hour ?? 21;
+            const weeklyMinute = localNotificationSettings.weeklyReminder?.minute ?? 0;
+            const weeklyMessage = localNotificationSettings.weeklyReminder?.message ?? '¡No olvides registrar tus gastos de esta semana en Clarity!';
+            await scheduleWeeklyReminder(weeklyDay, weeklyHour, weeklyMinute, weeklyMessage);
+          }
+          
           setNativeNotificationsEnabled(true);
           showNotification("✅ Notificaciones nativas activadas", "success");
+          
+          // Debug: mostrar notificaciones pendientes
+          await getPendingNotifications();
         } else {
           showNotification("❌ Permisos de notificaciones denegados", "error");
         }
@@ -473,39 +499,6 @@ const SettingsModal = ({
                     </button>
                   ))}
                 </div>
-              </div>
-
-              {/* Restaurar Categorías */}
-              <div
-                className={`p-3 sm:p-4 rounded-lg sm:rounded-xl ${darkMode ? "bg-gray-700" : "bg-purple-50"
-                  }`}
-              >
-                <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-                  <RotateCcw
-                    className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${darkMode ? "text-purple-400" : "text-purple-600"
-                      }`}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm sm:text-base font-medium ${textClass}`}>
-                      Restaurar categorías desde gastos
-                    </p>
-                    <p className={`text-xs sm:text-sm ${textSecondaryClass} mt-0.5 sm:mt-1`}>
-                      Recupera las categorías y subcategorías que usaste en tus gastos
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={handleRestoreCategories}
-                  disabled={isRestoring}
-                  className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-all ${isRestoring
-                    ? "bg-gray-400 text-gray-200 cursor-not-allowed"
-                    : darkMode
-                      ? "bg-purple-600 text-white hover:bg-purple-700"
-                      : "bg-purple-600 text-white hover:bg-purple-700"
-                    }`}
-                >
-                  {isRestoring ? "Restaurando..." : "Restaurar categorías"}
-                </button>
               </div>
 
               {/* Acerca de */}
@@ -971,6 +964,39 @@ const SettingsModal = ({
                     <span>Migración de Usuarios</span>
                     <ChevronRight className="w-5 h-5 opacity-70" />
                   </button>
+
+                  {/* Restaurar Categorías - Mantenimiento */}
+                  <div className={`p-4 rounded-xl border ${darkMode ? 'border-gray-600 bg-gray-750' : 'border-purple-100 bg-purple-50/50'}`}>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-white'}`}>
+                        <RotateCcw className={`w-5 h-5 ${darkMode ? "text-purple-400" : "text-purple-600"}`} />
+                      </div>
+                      <div className="flex-1">
+                        <p className={`text-sm font-medium ${textClass}`}>Restaurar categorías</p>
+                        <p className={`text-xs ${textSecondaryClass}`}>Recuperar desde historial de gastos</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleRestoreCategories}
+                      disabled={isRestoring}
+                      className={`w-full px-4 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                        isRestoring
+                          ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+                          : darkMode
+                            ? "bg-purple-600 text-white hover:bg-purple-700"
+                            : "bg-purple-600 text-white hover:bg-purple-700"
+                      }`}
+                    >
+                      {isRestoring ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          <span>Restaurando...</span>
+                        </>
+                      ) : (
+                        "Ejecutar restauración"
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

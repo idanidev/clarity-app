@@ -163,7 +163,7 @@ const CategoriesModal = ({
 
           <div className="space-y-3">
             <h4 className={`font-semibold ${textClass} mb-3`}>Categorías Existentes</h4>
-            <div className="max-h-[50vh] overflow-y-auto space-y-3 pr-1">
+            <div className="space-y-3 pr-1">
             {Object.entries(categories).map(([categoryName, categoryData]) => {
               const subcategories = getCategorySubcategories(categoryData);
               const color = getCategoryColor(categoryData);

@@ -639,7 +639,7 @@ const MainContent = memo<MainContentProps>(
           {/* Estadísticas con estilo Liquid Glass - Solo en vista principal */}
           {activeView === "table" && (
             <div className="relative mb-3 md:mb-6">
-              <div className="grid grid-cols-4 gap-1.5 md:gap-4">
+              <div className="grid grid-cols-4 gap-1.5 md:gap-4 max-w-lg mx-auto">
                 <StatCard
                   icon={Target}
                   label={t("common.total")}
@@ -763,13 +763,13 @@ const MainContent = memo<MainContentProps>(
                   </div>
                 )}
 
-                  {/* Selector de metas dropdown */}
+                  {/* Selector de metas dropdown - Mejorado */}
                   {showGoalSelector && (
                     <div
-                      className={`absolute top-full left-0 right-0 mt-1 z-50 rounded-lg border shadow-lg overflow-hidden ${
+                      className={`absolute top-full left-0 right-0 mt-2 z-50 rounded-xl border-2 shadow-2xl overflow-hidden backdrop-blur-xl ${
                         darkMode
-                          ? "bg-gray-800 border-gray-700"
-                          : "bg-white border-gray-200"
+                          ? "bg-gray-800/95 border-purple-500/30"
+                          : "bg-white/95 border-purple-200"
                       }`}
                     >
                       {availableGoals.map((goal) => (
@@ -781,22 +781,22 @@ const MainContent = memo<MainContentProps>(
                             setShowGoalSelector(false);
                             lightImpact();
                           }}
-                          className={`w-full px-3 py-2 text-left text-xs flex items-center gap-2 transition-colors ${
+                          className={`w-full px-4 py-3.5 text-left flex items-center gap-3 transition-all ${
                             selectedGoalType === goal.id || (selectedGoalType === 'auto' && goal.id === availableGoals[0]?.id)
                               ? darkMode
-                                ? "bg-purple-600/30 text-purple-300"
-                                : "bg-purple-100 text-purple-700"
+                                ? "bg-gradient-to-r from-purple-600/40 to-blue-600/40 text-white border-l-4 border-purple-400"
+                                : "bg-gradient-to-r from-purple-100 to-blue-100 text-purple-900 border-l-4 border-purple-600"
                               : darkMode
-                                ? "hover:bg-gray-700 text-gray-300"
-                                : "hover:bg-gray-100 text-gray-700"
+                                ? "hover:bg-gray-700/50 text-gray-200"
+                                : "hover:bg-gray-50 text-gray-800"
                           }`}
                         >
-                          <span>{goal.icon}</span>
-                          <span className="truncate">{goal.name}</span>
+                          <span className="text-2xl">{goal.icon}</span>
+                          <span className="font-medium text-base truncate">{goal.name}</span>
                         </button>
                       ))}
                       {/* Separador y opción de gestionar */}
-                      <div className={`border-t ${darkMode ? "border-gray-700" : "border-gray-200"}`}>
+                      <div className={`border-t-2 ${darkMode ? "border-gray-700" : "border-gray-200"}`}>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -883,8 +883,9 @@ const MainContent = memo<MainContentProps>(
               categoriesWithSubcategories={categories}
               onAddExpense={onAddExpenseFromAI}
               showNotification={showNotification}
-              hasFilterButton={activeView === "table" || activeView === "chart"}
+              hasFilterButton={activeView === "chart"}
               voiceSettings={voiceSettings}
+              onToggleFilters={onToggleFilters}
             />
           )}
           {/* Panel de filtros avanzados para móvil - Bottom sheet style */}
@@ -2303,32 +2304,38 @@ const MainContent = memo<MainContentProps>(
             right: 0,
             width: '100%',
             zIndex: 999999,
-            backgroundColor: darkMode ? '#0f172a' : '#ffffff',
-            paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))',
             margin: 0,
             opacity: isNavBarVisible ? 1 : 0,
             pointerEvents: isNavBarVisible ? 'auto' : 'none',
             transition: 'opacity 0.3s ease-in-out',
           }}
         >
+          {/* Contenedor con fondo que se extiende hasta el safe-area */}
           <div
-            className={`max-w-md mx-auto rounded-t-2xl shadow-xl border-t border-l border-r backdrop-blur-xl ${darkMode
-              ? "bg-gray-900/95 border-gray-700/50"
-              : "bg-white/95 border-white/40"
-              }`}
+            className={`${darkMode ? "bg-gray-900" : "bg-white"}`}
             style={{
-              boxShadow: darkMode
-                ? "0 -4px 20px 0 rgba(0, 0, 0, 0.4), 0 0 0 0.5px rgba(255, 255, 255, 0.05) inset"
-                : "0 -4px 20px 0 rgba(31, 38, 135, 0.15), 0 0 0 0.5px rgba(255, 255, 255, 0.8) inset",
-              backdropFilter: "blur(20px) saturate(180%)",
-              WebkitBackdropFilter: "blur(20px) saturate(180%)",
+              paddingBottom: 'env(safe-area-inset-bottom, 0px)',
             }}
           >
-            <div className="grid grid-cols-5 gap-0.5 p-1.5">
+            <div
+              className={`max-w-md mx-auto rounded-t-2xl shadow-xl border-t border-l border-r backdrop-blur-xl ${darkMode
+                ? "bg-gray-900/95 border-gray-700/50"
+                : "bg-white/95 border-white/40"
+                }`}
+              style={{
+                boxShadow: darkMode
+                  ? "0 -4px 20px 0 rgba(0, 0, 0, 0.4), 0 0 0 0.5px rgba(255, 255, 255, 0.05) inset"
+                  : "0 -4px 20px 0 rgba(31, 38, 135, 0.15), 0 0 0 0.5px rgba(255, 255, 255, 0.8) inset",
+                backdropFilter: "blur(20px) saturate(180%)",
+                WebkitBackdropFilter: "blur(20px) saturate(180%)",
+              }}
+            >
+              {/* Reducido padding para navbar más compacta */}
+              <div className="grid grid-cols-5 gap-0.5 px-1 py-0.5">
               <button
                 onClick={() => handleViewChange("table")}
                 disabled={isPending}
-                className={`navbar-button flex flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 rounded-xl font-medium transition-all relative ${activeView === "table"
+                className={`navbar-button flex flex-col items-center justify-center gap-0 px-0.5 py-1 rounded-xl font-medium transition-all relative ${activeView === "table"
                   ? darkMode
                     ? "bg-purple-600/90 text-white"
                     : "bg-purple-600/90 text-white"
@@ -2349,7 +2356,7 @@ const MainContent = memo<MainContentProps>(
               <button
                 onClick={() => handleViewChange("chart")}
                 disabled={isPending}
-                className={`navbar-button flex flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 rounded-xl font-medium transition-all relative ${activeView === "chart"
+                className={`navbar-button flex flex-col items-center justify-center gap-0 px-0.5 py-1 rounded-xl font-medium transition-all relative ${activeView === "chart"
                   ? darkMode
                     ? "bg-purple-600/90 text-white"
                     : "bg-purple-600/90 text-white"
@@ -2383,7 +2390,7 @@ const MainContent = memo<MainContentProps>(
               <button
                 onClick={() => handleViewChange("assistant")}
                 disabled={isPending}
-                className={`navbar-button flex flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 rounded-xl font-medium transition-all relative ${activeView === "assistant"
+                className={`navbar-button flex flex-col items-center justify-center gap-0 px-0.5 py-1 rounded-xl font-medium transition-all relative ${activeView === "assistant"
                   ? darkMode
                     ? "bg-purple-600/90 text-white"
                     : "bg-purple-600/90 text-white"
@@ -2404,7 +2411,7 @@ const MainContent = memo<MainContentProps>(
               <button
                 onClick={() => handleViewChange("goals")}
                 disabled={isPending}
-                className={`navbar-button flex flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 rounded-xl font-medium transition-all relative ${activeView === "goals"
+                className={`navbar-button flex flex-col items-center justify-center gap-0 px-0.5 py-1 rounded-xl font-medium transition-all relative ${activeView === "goals"
                   ? darkMode
                     ? "bg-purple-600/90 text-white"
                     : "bg-purple-600/90 text-white"
@@ -2423,6 +2430,7 @@ const MainContent = memo<MainContentProps>(
               </button>
             </div>
           </div>
+        </div>
         </div>
       </>
     );
