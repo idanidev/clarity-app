@@ -1,7 +1,6 @@
-import { X, Plus } from "@/components/icons";
+import { Plus } from "@/components/icons";
 import { getCategorySubcategories } from "../../../services/firestoreService";
 import { useState, useEffect, useCallback, useMemo, memo, FormEvent, Dispatch, SetStateAction } from "react";
-import { useDisableBodyScroll } from "../../../hooks/useDisableBodyScroll";
 import { Input, Button } from "../../../components/ui";
 import { isValidAmount, isNotEmpty, isValidDate } from "../../../utils/validation";
 import { parseCurrency } from "../../../utils/currency";
@@ -48,8 +47,8 @@ const AddExpenseModal = memo(({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
 
-  // Deshabilitar scroll del body cuando el modal está abierto
-  useDisableBodyScroll(visible);
+  // ✅ REMOVIDO: useDisableBodyScroll ya se llama en BottomSheet
+  // No duplicar la llamada aquí
 
   // Limpiar estados cuando se cierra el modal
   useEffect(() => {

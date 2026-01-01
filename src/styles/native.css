@@ -128,11 +128,11 @@ a:active,
 /* Slide from bottom (estilo iOS modal) */
 @keyframes slideUpNative {
   from {
-    transform: translateY(100%) translateZ(0);
+    transform: translateY(100%);
     opacity: 0;
   }
   to {
-    transform: translateY(0) translateZ(0);
+    transform: translateY(0);
     opacity: 1;
   }
 }
@@ -140,11 +140,11 @@ a:active,
 /* Slide from top (estilo iOS sheet) */
 @keyframes slideDownNative {
   from {
-    transform: translateY(-100%) translateZ(0);
+    transform: translateY(-100%);
     opacity: 0;
   }
   to {
-    transform: translateY(0) translateZ(0);
+    transform: translateY(0);
     opacity: 1;
   }
 }
@@ -162,11 +162,11 @@ a:active,
 /* Scale in (para modales) */
 @keyframes scaleInNative {
   from {
-    transform: scale(0.95) translateZ(0);
+    transform: scale(0.95);
     opacity: 0;
   }
   to {
-    transform: scale(1) translateZ(0);
+    transform: scale(1);
     opacity: 1;
   }
 }
@@ -271,8 +271,8 @@ select {
 input:focus,
 textarea:focus,
 select:focus {
-  /* Feedback visual mejorado - SIN translateZ */
-  transform: scale(1.01);
+  /* Feedback visual mejorado - SIN transform */
+  outline: none;
   transition-duration: var(--duration-fast);
 }
 

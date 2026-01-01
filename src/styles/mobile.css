@@ -44,13 +44,13 @@ a,
   -webkit-touch-callout: none;
 }
 
-/* Mejorar feedback táctil */
+/* Mejorar feedback táctil - SOLO OPACITY, sin transform */
 button:active,
 a:active,
 [role="button"]:active {
   opacity: 0.7;
-  transform: scale(0.98);
-  transition: opacity 0.1s, transform 0.1s;
+  /* ❌ REMOVIDO: transform: scale(0.98) causa offset táctil en iOS */
+  transition: opacity 0.1s;
 }
 
 /* Safe area padding para contenido principal */
@@ -146,4 +146,3 @@ body {
     color: #ffffff;
   }
 }
-

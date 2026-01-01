@@ -536,11 +536,10 @@ html {
 @supports (-webkit-touch-callout: none) {
   [role="status"] {
     position: fixed !important;
-    -webkit-transform: translateZ(0) !important;
-    transform: translateZ(0) !important;
+    /* ❌ REMOVIDO: translateZ causa offset táctil */
     -webkit-backface-visibility: hidden !important;
     backface-visibility: hidden !important;
-    will-change: transform !important;
+    will-change: opacity !important;
   }
 }
 
@@ -603,16 +602,15 @@ html {
 }
 
 /* ============================================
-   BOTTOM SHEET
+   BOTTOM SHEET - SIN TRANSFORMS PROBLEMÁTICOS
    ============================================ */
 
 .bottom-sheet,
 [class*="bottom-sheet"] {
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
+  /* ❌ REMOVIDO: translateZ causa offset táctil */
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  will-change: transform;
+  will-change: opacity;
 }
 
 .bottom-sheet-content,
@@ -646,21 +644,29 @@ html {
    FIX: iOS BottomSheet safe-area gap
    =========================================== */
 
-/* Prevenir cualquier gap en iOS con modal abierto */
+/* Prevenir scroll en iOS con modal abierto - SIN position:fixed */
 html.modal-open,
 html.modal-open body {
   overflow: hidden !important;
-  position: fixed !important;
-  width: 100% !important;
-  height: 100% !important;
+  /* ❌ REMOVIDO position:fixed - causa barra negra persistente en iOS */
 }
 
 /* Animación del BottomSheet */
 @keyframes slideUpNative {
   from {
-    transform: translate3d(0, 100%, 0);
+    transform: translateY(100%);
   }
   to {
-    transform: translate3d(0, 0, 0);
+    transform: translateY(0);
   }
+}
+
+/* Asegurar que los botones NO usen transform para feedback */
+button:active,
+a:active,
+[role="button"]:active,
+.pressable:active,
+.touch-feedback:active {
+  transform: none !important;
+  opacity: 0.7;
 }
