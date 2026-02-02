@@ -11,6 +11,7 @@ import {
   query,
   setDoc,
   updateDoc,
+  where,
 } from "firebase/firestore";
 import { db } from "../firebase";
 
@@ -20,7 +21,9 @@ const normalizeSubcategories = (rawSubcategories) => {
   }
 
   if (Array.isArray(rawSubcategories)) {
-    return rawSubcategories.filter((sub) => typeof sub === "string" && sub.trim().length > 0);
+    return rawSubcategories.filter(
+      (sub) => typeof sub === "string" && sub.trim().length > 0,
+    );
   }
 
   if (typeof rawSubcategories === "string") {
@@ -28,8 +31,9 @@ const normalizeSubcategories = (rawSubcategories) => {
   }
 
   if (typeof rawSubcategories === "object") {
-    return Object.values(rawSubcategories)
-      .filter((sub) => typeof sub === "string" && sub.trim().length > 0);
+    return Object.values(rawSubcategories).filter(
+      (sub) => typeof sub === "string" && sub.trim().length > 0,
+    );
   }
 
   return [];
@@ -107,7 +111,7 @@ export const subscribeToExpenses = (userId, callback) => {
     },
     (error) => {
       console.error("Error in expenses subscription:", error);
-    }
+    },
   );
 };
 
@@ -131,7 +135,7 @@ export const addRecurringExpense = async (userId, recurringData) => {
 export const updateRecurringExpense = async (
   userId,
   recurringId,
-  recurringData
+  recurringData,
 ) => {
   try {
     const recurringRef = doc(
@@ -139,7 +143,7 @@ export const updateRecurringExpense = async (
       "users",
       userId,
       "recurringExpenses",
-      recurringId
+      recurringId,
     );
     await updateDoc(recurringRef, {
       ...recurringData,
@@ -159,7 +163,7 @@ export const deleteRecurringExpense = async (userId, recurringId) => {
       "users",
       userId,
       "recurringExpenses",
-      recurringId
+      recurringId,
     );
     await deleteDoc(recurringRef);
   } catch (error) {
@@ -199,8 +203,134 @@ export const subscribeToRecurringExpenses = (userId, callback) => {
     },
     (error) => {
       console.error("Error in recurring expenses subscription:", error);
-    }
+    },
   );
+};
+
+export const checkAndProcessRecurringExpenses = async (userId) => {
+  console.log("🔄 Checking recurring expenses for user:", userId);
+  try {
+    const today = new Date();
+    const currentDay = today.getDate();
+    const currentDate = today.toISOString().split("T")[0]; // YYYY-MM-DD
+    const currentMonth = currentDate.substring(0, 7); // YYYY-MM
+    const currentYear = today.getFullYear();
+
+    // Get all active recurring expenses
+    const recurringRef = collection(db, "users", userId, "recurringExpenses");
+    // We get ALL active to check missed ones too, not just today's
+    const q = query(recurringRef, orderBy("dayOfMonth"));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      return;
+    }
+
+    const activeRecurring = snapshot.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() }))
+      .filter((r) => r.active !== false); // Handle legacy or missing active field
+
+    for (const recurring of activeRecurring) {
+      // 1. Check if expired
+      if (recurring.endDate) {
+        const endDate = new Date(recurring.endDate);
+        if (today > endDate) {
+          await updateRecurringExpense(userId, recurring.id, { active: false });
+          continue;
+        }
+      }
+
+      // 2. Check if it should run this month/period based on frequency
+      const frequency = recurring.frequency || "monthly";
+      let isDuePeriod = false;
+      const currentMonthNum = today.getMonth() + 1; // 1-12
+
+      if (frequency === "monthly") {
+        isDuePeriod = true;
+      } else if (frequency === "quarterly") {
+        // Jan, Apr, Jul, Oct
+        if ([1, 4, 7, 10].includes(currentMonthNum)) isDuePeriod = true;
+      } else if (frequency === "semiannual") {
+        // Jan, Jul
+        if ([1, 7].includes(currentMonthNum)) isDuePeriod = true;
+      } else if (frequency === "annual") {
+        // Jan only
+        if (currentMonthNum === 1) isDuePeriod = true;
+      }
+
+      if (!isDuePeriod) {
+        continue;
+      }
+
+      // 3. Check if we passed the day of month (or it is today)
+      // If today is 15th, and recurring is 20th -> wait.
+      // If today is 15th, and recurring is 5th -> missed, create it!
+      // If today is 15th, and recurring is 15th -> due today, create it!
+      if (currentDay < recurring.dayOfMonth) {
+        continue;
+      }
+
+      // 4. Check if ALREADY created for this period
+      // We search for an expense with this recurringId in the current month range
+      // Optimization: Query ONLY expenses within the current month range to avoid reading full history
+      const startOfMonth = `${currentMonth}-01`;
+      const endOfMonth = `${currentMonth}-31`;
+
+      const expensesRef = collection(db, "users", userId, "expenses");
+
+      // Query expenses for this user that fall within this month
+      // This is efficient and safe.
+      const qCheck = query(
+        expensesRef,
+        where("date", ">=", startOfMonth),
+        where("date", "<=", endOfMonth),
+      );
+
+      const monthExpensesSnap = await getDocs(qCheck);
+
+      // Filter in memory for the specific recurringId
+      // This is safe: chances of having >100 expenses in a single month are low,
+      // so filtering in memory is cheaper than composite indexes.
+      const existingExpense = monthExpensesSnap.docs.find((doc) => {
+        const data = doc.data();
+        return data.recurringId === recurring.id;
+      });
+
+      if (existingExpense) {
+        // Already created for this month/period
+        continue;
+      }
+
+      // 5. Create the expense
+      const dayStr = recurring.dayOfMonth.toString().padStart(2, "0");
+      const targetDate = `${currentMonth}-${dayStr}`;
+
+      // Deterministic ID to prevent duplicates (race conditions)
+      // Format: rec_<recurringId>_<YYYY-MM>
+      // We use currentMonth (YYYY-MM) to ensure only ONE per month is created per recurring item
+      const docId = `rec_${recurring.id}_${currentMonth}`;
+      const expenseDocRef = doc(expensesRef, docId);
+
+      const newExpense = {
+        name: recurring.name,
+        amount: recurring.amount,
+        category: recurring.category,
+        subcategory: recurring.subcategory,
+        date: targetDate, // Force the correct day of month
+        paymentMethod: recurring.paymentMethod || "Card", // Fallback
+        isRecurring: true,
+        recurringId: recurring.id,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Use setDoc with the deterministic ID
+      // If it runs twice, it just writes the same data to the same ID.
+      await setDoc(expenseDocRef, newExpense);
+    }
+  } catch (error) {
+    console.error("❌ Error processing recurring expenses:", error);
+  }
 };
 
 // ==================== CATEGORIES ====================
@@ -258,12 +388,14 @@ export const migrateCategoriesToNewFormat = (categories) => {
       : normalizeSubcategories(categoryData?.subcategories);
 
     const color =
-      (categoryData && typeof categoryData === "object" && categoryData.color) ||
+      (categoryData &&
+        typeof categoryData === "object" &&
+        categoryData.color) ||
       defaultColors[colorIndex % defaultColors.length];
 
     migrated[categoryName] = {
       subcategories: Array.from(new Set(normalizedSubcategories)).sort((a, b) =>
-        a.localeCompare(b)
+        a.localeCompare(b),
       ),
       color,
     };
@@ -277,7 +409,7 @@ export const migrateCategoriesToNewFormat = (categories) => {
 /**
  * Guarda las categorías de forma segura, preservando todas las subcategorías existentes
  * y fusionando con las nuevas para evitar pérdida de datos
- * 
+ *
  * Estrategia de fusión:
  * 1. Para categorías que se están modificando explícitamente: usar los datos proporcionados
  * 2. Para categorías que NO se están modificando: preservar las existentes de Firestore
@@ -304,7 +436,10 @@ export const saveCategories = async (userId, categories, options = {}) => {
         }
       }
     } catch (readError) {
-      console.warn("Could not read existing categories, proceeding with new data:", readError);
+      console.warn(
+        "Could not read existing categories, proceeding with new data:",
+        readError,
+      );
     }
 
     // Migrar las nuevas categorías al formato correcto
@@ -315,7 +450,7 @@ export const saveCategories = async (userId, categories, options = {}) => {
     if (mergeMode === "replace") {
       // Modo reemplazo: usar solo las nuevas categorías (útil para restauración)
       finalCategories = { ...migratedNewCategories };
-      
+
       // Pero preservar categorías que no se están modificando
       Object.keys(existingCategories).forEach((categoryName) => {
         if (!finalCategories[categoryName]) {
@@ -326,33 +461,36 @@ export const saveCategories = async (userId, categories, options = {}) => {
       // Modo fusión: combinar todo (útil para restauración automática)
       finalCategories = { ...existingCategories };
 
-      Object.entries(migratedNewCategories).forEach(([categoryName, categoryData]) => {
-        if (!categoryName || !categoryData) {
-          return;
-        }
+      Object.entries(migratedNewCategories).forEach(
+        ([categoryName, categoryData]) => {
+          if (!categoryName || !categoryData) {
+            return;
+          }
 
-        const existingCategory = existingCategories[categoryName];
-        const existingSubcategories = existingCategory
-          ? getCategorySubcategories(existingCategory)
-          : [];
+          const existingCategory = existingCategories[categoryName];
+          const existingSubcategories = existingCategory
+            ? getCategorySubcategories(existingCategory)
+            : [];
 
-        const newSubcategories = getCategorySubcategories(categoryData);
-        
-        // Unión de subcategorías: combinar existentes + nuevas, sin duplicados
-        const allSubcategories = Array.from(
-          new Set([...existingSubcategories, ...newSubcategories])
-        ).sort((a, b) => a.localeCompare(b));
+          const newSubcategories = getCategorySubcategories(categoryData);
 
-        const color = categoryData.color || 
-                     (existingCategory ? getCategoryColor(existingCategory) : "#8B5CF6");
+          // Unión de subcategorías: combinar existentes + nuevas, sin duplicados
+          const allSubcategories = Array.from(
+            new Set([...existingSubcategories, ...newSubcategories]),
+          ).sort((a, b) => a.localeCompare(b));
 
-        finalCategories[categoryName] = {
-          subcategories: allSubcategories,
-          color: color,
-        };
-      });
+          const color =
+            categoryData.color ||
+            (existingCategory ? getCategoryColor(existingCategory) : "#8B5CF6");
+
+          finalCategories[categoryName] = {
+            subcategories: allSubcategories,
+            color: color,
+          };
+        },
+      );
     } else {
-      // Modo "smart" (por defecto): 
+      // Modo "smart" (por defecto):
       // IMPORTANTE: Se espera que `categories` contenga TODAS las categorías que debe tener el usuario
       // - Si una categoría está en `categories`, se actualiza/modifica
       // - Si una categoría NO está en `categories`, se elimina explícitamente
@@ -360,48 +498,65 @@ export const saveCategories = async (userId, categories, options = {}) => {
       finalCategories = {};
 
       // Procesar todas las categorías en migratedNewCategories
-      Object.entries(migratedNewCategories).forEach(([categoryName, categoryData]) => {
-        if (!categoryName || !categoryData) {
-          return;
-        }
+      Object.entries(migratedNewCategories).forEach(
+        ([categoryName, categoryData]) => {
+          if (!categoryName || !categoryData) {
+            return;
+          }
 
-        const existingCategory = existingCategories[categoryName];
-        const existingSubs = existingCategory ? getCategorySubcategories(existingCategory) : [];
-        const newSubs = getCategorySubcategories(categoryData);
-        
-        // Detectar si se está eliminando subcategorías (subconjunto estricto) o añadiendo
-        const isSubset = newSubs.every((sub) => existingSubs.includes(sub));
-        const isStrictSubset = isSubset && newSubs.length < existingSubs.length;
-        
-        if (isStrictSubset) {
-          // ELIMINACIÓN EXPLÍCITA DE SUBCATEGORÍAS: El usuario eliminó subcategorías
-          // Respetar la decisión del usuario y NO fusionar con Firestore
-          // (Ya se verificó que no hay gastos antes de permitir la eliminación)
-          finalCategories[categoryName] = {
-            subcategories: newSubs,
-            color: categoryData.color || (existingCategory ? getCategoryColor(existingCategory) : "#8B5CF6"),
-          };
-        } else if (newSubs.length > existingSubs.length || !isSubset) {
-          // AÑADIR/MODIFICAR: Se están añadiendo nuevas subcategorías
-          // Fusionar para preservar todas las subcategorías (existentes + nuevas)
-          // Esto es una protección adicional por si acaso
-          const allSubs = Array.from(new Set([...existingSubs, ...newSubs])).sort(
-            (a, b) => a.localeCompare(b)
-          );
-          finalCategories[categoryName] = {
-            subcategories: allSubs,
-            color: categoryData.color || (existingCategory ? getCategoryColor(existingCategory) : "#8B5CF6"),
-          };
-        } else {
-          // Mismo número, cambio de color, o nueva categoría
-          // Usar los datos proporcionados
-          finalCategories[categoryName] = {
-            subcategories: newSubs,
-            color: categoryData.color || (existingCategory ? getCategoryColor(existingCategory) : "#8B5CF6"),
-          };
-        }
-      });
-      
+          const existingCategory = existingCategories[categoryName];
+          const existingSubs = existingCategory
+            ? getCategorySubcategories(existingCategory)
+            : [];
+          const newSubs = getCategorySubcategories(categoryData);
+
+          // Detectar si se está eliminando subcategorías (subconjunto estricto) o añadiendo
+          const isSubset = newSubs.every((sub) => existingSubs.includes(sub));
+          const isStrictSubset =
+            isSubset && newSubs.length < existingSubs.length;
+
+          if (isStrictSubset) {
+            // ELIMINACIÓN EXPLÍCITA DE SUBCATEGORÍAS: El usuario eliminó subcategorías
+            // Respetar la decisión del usuario y NO fusionar con Firestore
+            // (Ya se verificó que no hay gastos antes de permitir la eliminación)
+            finalCategories[categoryName] = {
+              subcategories: newSubs,
+              color:
+                categoryData.color ||
+                (existingCategory
+                  ? getCategoryColor(existingCategory)
+                  : "#8B5CF6"),
+            };
+          } else if (newSubs.length > existingSubs.length || !isSubset) {
+            // AÑADIR/MODIFICAR: Se están añadiendo nuevas subcategorías
+            // Fusionar para preservar todas las subcategorías (existentes + nuevas)
+            // Esto es una protección adicional por si acaso
+            const allSubs = Array.from(
+              new Set([...existingSubs, ...newSubs]),
+            ).sort((a, b) => a.localeCompare(b));
+            finalCategories[categoryName] = {
+              subcategories: allSubs,
+              color:
+                categoryData.color ||
+                (existingCategory
+                  ? getCategoryColor(existingCategory)
+                  : "#8B5CF6"),
+            };
+          } else {
+            // Mismo número, cambio de color, o nueva categoría
+            // Usar los datos proporcionados
+            finalCategories[categoryName] = {
+              subcategories: newSubs,
+              color:
+                categoryData.color ||
+                (existingCategory
+                  ? getCategoryColor(existingCategory)
+                  : "#8B5CF6"),
+            };
+          }
+        },
+      );
+
       // En modo "smart", NO preservar categorías que no están en migratedNewCategories
       // Si una categoría no está en el objeto pasado, se está eliminando explícitamente
     }
@@ -413,7 +568,6 @@ export const saveCategories = async (userId, categories, options = {}) => {
       // En modo smart, solo preservar categorías que están explícitamente en los datos nuevos
       // Si una categoría no está en migratedNewCategories, se está eliminando explícitamente
       // y NO debe preservarse
-      
       // PROTECCIÓN ADICIONAL: Verificar que no se estén borrando categorías que existen en Firestore
       // pero no están en los datos nuevos. Si una categoría existe en Firestore pero no en los nuevos,
       // podría ser un error. En modo "smart", solo borramos si está explícitamente en el objeto pasado.
@@ -421,10 +575,15 @@ export const saveCategories = async (userId, categories, options = {}) => {
     } else {
       // En modo "replace" o "merge", preservar categorías existentes que no se están modificando
       Object.keys(existingCategories).forEach((categoryName) => {
-        if (!finalCategories[categoryName] && !migratedNewCategories[categoryName]) {
+        if (
+          !finalCategories[categoryName] &&
+          !migratedNewCategories[categoryName]
+        ) {
           // Categoría existente que no está en los datos nuevos ni en los finales
           // Solo preservarla en modos que no sean "smart"
-          console.log(`[saveCategories] Preserving existing category in ${mergeMode} mode: ${categoryName}`);
+          console.log(
+            `[saveCategories] Preserving existing category in ${mergeMode} mode: ${categoryName}`,
+          );
           finalCategories[categoryName] = existingCategories[categoryName];
         }
       });
@@ -436,7 +595,7 @@ export const saveCategories = async (userId, categories, options = {}) => {
       if (!finalCategories[categoryName]) {
         console.warn(
           `[saveCategories] ⚠️ Categoría "${categoryName}" será eliminada. ` +
-          `Modo: ${mergeMode}. Esto es normal si el usuario la eliminó explícitamente.`
+            `Modo: ${mergeMode}. Esto es normal si el usuario la eliminó explícitamente.`,
         );
       }
     });
@@ -646,7 +805,7 @@ export const initializeUser = async (userId, userData) => {
       // Usuario existente: NO tocar las categorías si ya tiene
       const currentData = userDoc.data();
       const existingCategories = currentData.categories;
-      const hasCategories = 
+      const hasCategories =
         existingCategories &&
         typeof existingCategories === "object" &&
         Object.keys(existingCategories).length > 0;
@@ -663,10 +822,14 @@ export const initializeUser = async (userId, userData) => {
 
       // SOLO establecer categorías predeterminadas si el usuario NO tiene ninguna
       if (!hasCategories) {
-        console.log(`[initializeUser] Usuario ${userId} no tiene categorías, estableciendo predeterminadas`);
+        console.log(
+          `[initializeUser] Usuario ${userId} no tiene categorías, estableciendo predeterminadas`,
+        );
         updateData.categories = defaultCategories;
       } else {
-        console.log(`[initializeUser] Usuario ${userId} ya tiene ${Object.keys(existingCategories).length} categorías, NO se tocan`);
+        console.log(
+          `[initializeUser] Usuario ${userId} ya tiene ${Object.keys(existingCategories).length} categorías, NO se tocan`,
+        );
         // EXPLÍCITAMENTE NO incluir categories en updateData
         // Esto garantiza que las categorías existentes nunca se sobrescriban
       }
@@ -680,7 +843,9 @@ export const initializeUser = async (userId, userData) => {
       }
 
       // Solo actualizar si hay algo que actualizar (evitar escrituras innecesarias)
-      const fieldsToUpdate = Object.keys(updateData).filter(key => key !== "updatedAt");
+      const fieldsToUpdate = Object.keys(updateData).filter(
+        (key) => key !== "updatedAt",
+      );
       if (fieldsToUpdate.length > 0) {
         await updateDoc(userDocRef, updateData);
       }
@@ -688,7 +853,9 @@ export const initializeUser = async (userId, userData) => {
     }
 
     // Usuario nuevo: establecer todas las categorías predeterminadas
-    console.log(`[initializeUser] Creando nuevo usuario ${userId} con categorías predeterminadas`);
+    console.log(
+      `[initializeUser] Creando nuevo usuario ${userId} con categorías predeterminadas`,
+    );
     await setDoc(userDocRef, {
       ...userData,
       categories: defaultCategories,

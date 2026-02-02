@@ -4,7 +4,10 @@ import Auth from "./components/Auth";
 import { auth } from "./firebase";
 import Dashboard from "./screens/Dashboard/Dashboard";
 import { LanguageProvider, useTranslation } from "./contexts/LanguageContext";
-import { saveUserLanguage } from "./services/firestoreService";
+import {
+  saveUserLanguage,
+  checkAndProcessRecurringExpenses,
+} from "./services/firestoreService";
 
 const LoadingScreen = () => {
   const { t } = useTranslation();
@@ -25,6 +28,11 @@ const App = () => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setInitializing(false);
+
+      if (currentUser) {
+        // Check for recurring expenses when user logs in
+        checkAndProcessRecurringExpenses(currentUser.uid);
+      }
     });
 
     return () => unsubscribe();
